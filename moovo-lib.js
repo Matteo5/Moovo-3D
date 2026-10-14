@@ -467,7 +467,128 @@
     el.addEventListener('pointerup', up, true); el.addEventListener('pointercancel', up, true);
   }
 
+  // ------------------------------------------------------------------
+  //  Interface mobile : une vue plein écran à la fois (plan, 3D, panneau),
+  //  barre de navigation en bas, feuilles qui montent du bas pour les menus et outils
+  // ------------------------------------------------------------------
+  const MOBILE_CSS = `
+  #mnav,#mzoom,#mchip,.mshonly,.menu>.mshonly{display:none}
+  body.mshell .menu>button.mshonly{display:flex}
+  body.mshell .menu>hr.mshonly{display:block}
+  body.mshell{display:flex!important;flex-direction:column;height:100vh;height:100dvh!important;overflow:hidden!important}
+  body.mshell>header{flex:none;flex-wrap:nowrap!important;gap:4px!important;padding:6px 8px!important;position:relative!important}
+  body.mshell .dsk,body.mshell #jumpPanel,body.mshell .toolbar,body.mshell .foot,body.mshell .splitter{display:none!important}
+  body.mshell .mshonly{display:inline-flex}
+  body.mshell .brand{min-height:40px;min-width:40px;justify-content:center}
+  body.mshell .brand .wm,body.mshell .brand small,body.mshell>header .spacer,body.mshell>header .sp{display:none}
+  body.mshell>header .menuwrap{order:20}
+  body.mshell>header>button,body.mshell>header .seg button,body.mshell>header .menuwrap>button{min-width:38px;padding:6px 8px}
+  body.mshell .projname{flex:1;min-width:0;width:auto!important;font-size:15px}
+  body.mshell>main{flex:1;min-height:0;display:block!important;position:relative}
+  body.mshell #planWrap{position:absolute;inset:0;display:flex!important;flex-direction:column}
+  body.mshell #planBox{flex:1!important;height:auto!important}
+  body.mshell aside{position:absolute;inset:0;display:flex!important;flex-direction:column;border:0}
+  body.mshell[data-mview="plan"] aside,body.mshell[data-mview="3d"] #planWrap,body.mshell[data-mview="panel"] #planWrap{display:none!important}
+  body.mshell[data-mview="3d"] .tabs,body.mshell[data-mview="3d"] #panel{display:none!important}
+  body.mshell[data-mview="3d"] #view3d{display:block!important;flex:1;height:auto!important;min-height:0}
+  body.mshell[data-mview="panel"] #view3d{display:none!important}
+  body.mshell[data-mview="panel"] .tabs{display:flex!important;flex:none;overflow-x:auto}
+  body.mshell[data-mview="panel"] #panel{display:block!important;flex:1;overflow:auto!important;padding-bottom:24px}
+  body.mshell .tabs button{white-space:nowrap;padding:12px 10px}
+  body.mshell #mnav{display:flex;flex:none;background:#fff;border-top:1px solid #e1e5eb;padding:4px 4px calc(4px + env(safe-area-inset-bottom));z-index:40}
+  #mnav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;border:0;background:transparent;font:500 11px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#5d6678;padding:5px 2px;border-radius:10px;position:relative;min-height:50px}
+  #mnav button .i{font-size:20px;line-height:1.1}
+  #mnav button.on{color:#2563eb;background:#eef3ff}
+  #mnav button.add .i{width:40px;height:40px;border-radius:14px;background:linear-gradient(135deg,#2563eb,#6d4fd8);color:#fff;display:flex;align-items:center;justify-content:center;font-size:24px;margin-top:-14px;box-shadow:0 6px 16px #2563eb55}
+  #mnav button .dot{position:absolute;top:5px;right:calc(50% - 16px);width:9px;height:9px;border-radius:50%;background:#f59e0b;border:2px solid #fff;display:none}
+  #mnav button.has .dot{display:block}
+  body.mshell #mzoom{display:flex;flex-direction:column;gap:6px;position:absolute;right:10px;bottom:12px;z-index:7}
+  #mzoom button{width:42px;height:42px;border-radius:12px;border:1px solid #e1e5eb;background:#fffffff2;font-size:18px;box-shadow:0 4px 14px #0f172a1f;padding:0;color:#1b1f27}
+  body.mshell #mchip.on{display:flex}
+  #mchip{position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:7;align-items:center;gap:8px;background:#1b1f27;color:#fff;border-radius:999px;padding:6px 6px 6px 14px;font:600 13px system-ui,sans-serif;box-shadow:0 6px 20px #0f172a40;max-width:calc(100% - 20px)}
+  #mchip span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #mchip button{border:0;background:#ffffff26;color:#fff;border-radius:999px;padding:6px 12px;font:600 12.5px system-ui,sans-serif;white-space:nowrap}
+  body.mshell .menu.open.msheet,body.mshell .msheet.open{position:fixed!important;left:8px!important;right:8px!important;top:auto!important;bottom:calc(66px + env(safe-area-inset-bottom))!important;width:auto!important;max-width:none!important;max-height:72dvh;overflow:auto;border-radius:16px;z-index:120;box-shadow:0 -8px 40px #0f172a40}
+  body.mshell .menu.msheet>button,body.mshell .menu.msheet .mi{padding:12px 12px;font-size:15px}
+  body.mshell #catList{max-height:none!important}
+  .mtools{display:none;padding:12px}
+  .mtools.open{display:block}
+  .mtools h6{margin:6px 2px 8px;font:600 11px system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:#697386}
+  .mtools .tg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
+  .mtools .tg button{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px;border:1px solid #e1e5eb;border-radius:12px;background:#fff;font:500 12.5px system-ui,sans-serif;color:#1b1f27;min-height:62px}
+  .mtools .tg button.on{border-color:#2563eb;background:#eef3ff;color:#2563eb}
+  .mtools .tg button .i{font-size:18px}
+  .mtools .lay{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;font:14px system-ui,sans-serif}
+  .mtools .lay label{display:flex;gap:8px;align-items:center;padding:8px 0}
+  .mtools .lay select{font:inherit;padding:6px;border:1px solid #e1e5eb;border-radius:8px;background:#fff}
+  .mtools .slot{margin-bottom:10px}
+  body.mshell .modal{padding:0!important;align-items:stretch!important}
+  body.mshell .mbox{width:100%!important;max-height:none!important;height:100%;border-radius:0!important}
+  body.mshell .v3bar{top:6px;left:6px;right:6px}
+  body.mshell #selbar{max-width:calc(100% - 16px)}`;
+  let MS = null;
+  function mobileShell(cfg) {
+    const mq = matchMedia('(max-width: 900px), (pointer: coarse) and (max-height: 520px)');
+    if (!document.getElementById('mshell-css')) { const st = document.createElement('style'); st.id = 'mshell-css'; st.textContent = MOBILE_CSS; document.head.appendChild(st); }
+    const nav = document.createElement('nav'); nav.id = 'mnav';
+    nav.innerHTML = `<button data-mv="plan"><span class="i">📐</span>${cfg.planLabel ?? 'Plan'}</button><button data-mv="3d"><span class="i">🧊</span>3D</button><button data-mv="add" class="add"><span class="i">＋</span>${cfg.addLabel ?? 'Ajouter'}</button><button data-mv="panel"><span class="i">✏️</span>Modifier<span class="dot"></span></button><button data-mv="tools"><span class="i">🛠</span>Outils</button>`;
+    document.body.appendChild(nav);
+    const box = document.querySelector(cfg.planBox);
+    const zoom = document.createElement('div'); zoom.id = 'mzoom'; zoom.innerHTML = '<button data-z="in" aria-label="Zoomer">＋</button><button data-z="out" aria-label="Dézoomer">−</button><button data-z="fit" aria-label="Tout voir">⤢</button>'; box.appendChild(zoom);
+    zoom.addEventListener('pointerdown', e => e.stopPropagation());
+    zoom.addEventListener('click', e => { const b = e.target.closest('[data-z]'); if (b) document.querySelector(cfg.zoom[b.dataset.z])?.click(); });
+    const chip = document.createElement('div'); chip.id = 'mchip'; chip.innerHTML = '<span></span><button>Terminer</button>'; box.appendChild(chip);
+    chip.addEventListener('pointerdown', e => e.stopPropagation());
+    chip.querySelector('button').onclick = () => { cfg.selectTool(); refresh(); };
+    // feuille « Outils »
+    const wrap = document.createElement('div'); wrap.className = 'menuwrap'; wrap.style.cssText = 'position:static';
+    const sheet = document.createElement('div'); sheet.className = 'menu mtools msheet'; sheet.id = 'mtools'; wrap.appendChild(sheet); document.body.appendChild(wrap);
+    const closeSheet = () => sheet.classList.remove('open', 'mtools-open');
+    const icOf = b => (b.querySelector('.ic')?.textContent ?? cfg.icons?.[b.dataset.tool ?? b.dataset.view] ?? '•').trim();
+    const renderTools = () => {
+      const tbtn = q => [...document.querySelectorAll(q)].map(b => `<button data-click="${b.dataset.tool ? `[data-tool='${b.dataset.tool}']` : b.dataset.view ? `[data-view='${b.dataset.view}']` : '#' + b.id}" class="${b.classList.contains('on') ? 'on' : ''}"><span class="i">${icOf(b)}</span>${b.textContent.replace(icOf(b), '').trim()}</button>`).join('');
+      sheet.innerHTML = (cfg.views ? `<h6>Vue</h6><div class="tg">${tbtn(cfg.views)}</div>` : '') + `<h6>Outils</h6><div class="tg">${tbtn(cfg.tools)}${(cfg.extra ?? []).map((x, i) => `<button data-extra="${i}"><span class="i">${x.ic}</span>${x.label}</button>`).join('')}</div>`
+        + (cfg.slots ?? []).map((sel, i) => `<div class="slot" data-slot="${i}"></div>`).join('')
+        + `<h6>Affichage du plan</h6><div class="lay">${cfg.layers.map(id => { const el = document.getElementById(id); if (!el) return ''; const lbl = el.closest('label')?.textContent.trim() ?? id; return el.tagName === 'SELECT' ? `<label>${lbl.split(/\s/)[0]} <select data-mirror="${id}">${el.innerHTML}</select></label>` : `<label><input type="checkbox" data-mirror="${id}"${el.checked ? ' checked' : ''}> ${lbl}</label>`; }).join('')}</div>`;
+      (cfg.slots ?? []).forEach((selr, i) => { const el = document.querySelector(selr); if (el) sheet.querySelector(`[data-slot="${i}"]`).appendChild(el); });
+      sheet.querySelectorAll('select[data-mirror]').forEach(s2 => { s2.value = document.getElementById(s2.dataset.mirror).value; });
+    };
+    sheet.addEventListener('click', e => {
+      const b = e.target.closest('[data-click]'); if (b) { document.querySelector(b.dataset.click)?.click(); closeSheet(); show('plan'); refresh(); return; }
+      const x = e.target.closest('[data-extra]'); if (x) { closeSheet(); cfg.extra[+x.dataset.extra].run(); refresh(); }
+    });
+    sheet.addEventListener('change', e => { const id = e.target.dataset.mirror; if (!id) return; const o = document.getElementById(id); if (o.type === 'checkbox') o.checked = e.target.checked; else o.value = e.target.value; o.dispatchEvent(new Event('change', { bubbles: true })); });
+    // menus déplacés hors de la barre d'outils (masquée sur mobile) pour rester accessibles
+    const moved = [];
+    const relocate = on => {
+      for (const id of cfg.relocate ?? []) {
+        const el = document.getElementById(id); if (!el) continue;
+        if (on && !moved.some(m => m.el === el)) { const w = document.createElement('div'); w.className = 'menuwrap'; w.style.cssText = 'position:static'; moved.push({ el, parent: el.parentNode, next: el.nextSibling, w }); el.parentNode.insertBefore(document.createComment('m'), el); w.appendChild(el); document.body.appendChild(w); }
+        if (!on) { const m = moved.find(x => x.el === el); if (m) { m.parent.insertBefore(el, m.next); m.w.remove(); moved.splice(moved.indexOf(m), 1); } }
+      }
+      for (const id of cfg.sheets ?? []) document.getElementById(id)?.classList.toggle('msheet', on);
+    };
+    let view = 'plan';
+    function show(v) {
+      if (v === 'add') { closeSheet(); cfg.onAdd(); return; }
+      if (v === 'tools') { const open = !sheet.classList.contains('open'); cfg.closeMenus?.(); if (open) { renderTools(); sheet.classList.add('open'); } else closeSheet(); return; }
+      closeSheet(); view = v; document.body.dataset.mview = v; cfg.onView?.(v); refresh();
+    }
+    nav.addEventListener('click', e => { const b = e.target.closest('[data-mv]'); if (b) show(b.dataset.mv); });
+    document.addEventListener('pointerdown', e => { if (sheet.classList.contains('open') && !e.target.closest('#mtools,#mnav')) closeSheet(); });
+    function refresh() {
+      if (!document.body.classList.contains('mshell')) return;
+      nav.querySelectorAll('[data-mv]').forEach(b => b.classList.toggle('on', b.dataset.mv === view));
+      nav.querySelector('[data-mv="panel"]').classList.toggle('has', !!cfg.hasSel?.() && view !== 'panel');
+      const t = cfg.toolLabel?.(); chip.classList.toggle('on', !!t && view === 'plan'); if (t) chip.querySelector('span').textContent = t;
+    }
+    const apply = () => { const on = mq.matches; document.body.classList.toggle('mshell', on); relocate(on); if (on) { document.body.dataset.mview = view; cfg.onView?.(view); } else delete document.body.dataset.mview; cfg.onToggle?.(on); refresh(); };
+    mq.addEventListener('change', apply); apply();
+    MS = { show, refresh, on: () => document.body.classList.contains('mshell'), view: () => view };
+    return MS;
+  }
+
   const tipOfDay = () => TIPS.general[Math.floor(Date.now() / 864e5) % TIPS.general.length];
 
-  window.MoovoLib = { attachPinch, EXT_STYLES, PANEL_DRAW, EXT_TIPS, EXT_TOUR, PALETTES, MATERIALS, WALL_FINISHES, WALL_DRAW, WALL_DEFAULT_COLOR, SHEENS, FLOORS_EXTRA, FLOOR_DRAW, FLOOR_TIPS, STYLES, TIPS, GLOSSARY, colorInfo, colorName, pickerHTML, openPicker, closePicker, tipOfDay, rng };
+  window.MoovoLib = { mobileShell, mobile: () => MS, attachPinch, EXT_STYLES, PANEL_DRAW, EXT_TIPS, EXT_TOUR, PALETTES, MATERIALS, WALL_FINISHES, WALL_DRAW, WALL_DEFAULT_COLOR, SHEENS, FLOORS_EXTRA, FLOOR_DRAW, FLOOR_TIPS, STYLES, TIPS, GLOSSARY, colorInfo, colorName, pickerHTML, openPicker, closePicker, tipOfDay, rng };
 })();

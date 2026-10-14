@@ -131,9 +131,12 @@
 <header>
   <a class="brand" href="index.html" title="Retour à mes projets"><img src="img/logo-mark-128.png" alt=""><span class="wm">Mo<span class="o2">o</span>vo</span> <small>3D</small></a>
   <input id="projName" class="projname" spellcheck="false">
-  <span id="saveState" class="savestate"></span>
-  <div class="menuwrap"><button id="bProj" class="ghost">Projet ▾</button>
+  <span id="saveState" class="savestate dsk"></span>
+  <div class="menuwrap"><button id="bProj" class="ghost" aria-label="Menu du projet"><span class="dsk">Projet ▾</span><span class="mshonly" style="font-size:20px;line-height:1">⋯</span></button>
     <div class="menu" id="projMenu">
+      <button class="mshonly" style="width:100%" data-cmd="help">? Aide</button>
+      <button class="mshonly" style="width:100%" data-cmd="tour">🎓 Guide de démarrage</button>
+      <hr class="mshonly" style="width:100%">
       <button data-cmd="save">💾 Enregistrer dans un fichier <kbd>Ctrl+S</kbd></button>
       <button data-cmd="devis">📄 Générer le devis…</button>
       <button data-cmd="csv">📋 Liste de débit (CSV)</button>
@@ -149,8 +152,8 @@
   </div>
   <div class="seg"><button id="bUndo" class="ghost" title="Annuler (Ctrl+Z)">↶</button><button id="bRedo" class="ghost" title="Rétablir (Ctrl+Y)">↷</button></div>
   <div class="sp"></div>
-  <div class="seg"><button data-layout="2d">2D</button><button data-layout="split" class="on">2D + 3D</button><button data-layout="3d">3D</button></div>
-  <button id="bHelp" class="ghost" title="Aide (?)">?</button>
+  <div class="seg dsk"><button data-layout="2d">2D</button><button data-layout="split" class="on">2D + 3D</button><button data-layout="3d">3D</button></div>
+  <button id="bHelp" class="ghost dsk" title="Aide (?)">?</button>
 </header>
 <main>
   <section id="planWrap">
@@ -854,7 +857,7 @@ function frameSel() {
   const c = pts.reduce((a, p) => add(a, p), [0, 0, 0]).map(v => v / pts.length), r = Math.max(...pts.map(p => len3(sub(p, c))), .5);
   const dir = new THREE.Vector3().subVectors(cam.position, ctl.target).normalize(); ctl.target.copy(T(c)); cam.position.copy(T(c)).addScaledVector(dir, r * 3 + 1.5); ctl.update();
 }
-function resize3D() { const r = v3.getBoundingClientRect(); if (!r.width || !r.height) return; renderer.setSize(r.width, r.height); labelR.setSize(r.width, r.height); cam.aspect = r.width / r.height; cam.updateProjectionMatrix(); }
+function resize3D() { const r = v3.getBoundingClientRect(); if (!r.width || !r.height) return; renderer.setSize(r.width, r.height); labelR.setSize(r.width, r.height); cam.aspect = r.width / r.height; cam.updateProjectionMatrix(); if (typeof kick3D === 'function') kick3D(); }
 new ResizeObserver(resize3D).observe(v3);
 const ray = new THREE.Raycaster(); let d3 = null;
 renderer.domElement.addEventListener('pointerdown', e => { d3 = [e.clientX, e.clientY]; });
@@ -877,6 +880,7 @@ const fld = (label, path, val, type = 'text', cls = '') => type === 'color' ? `<
 const lenF = (label, path, v, cls = '') => fld(label + ` (${UNIT()})`, path, prefs.unit === 'mm' ? Math.round(v * 1000) : Math.round(v * 1000) / 10, 'number', cls) .replace('data-p=', 'data-len="1" data-p=');
 const selF = (label, path, opts, cls = '') => `<label class="f ${cls}"><span>${label}</span><select data-p="${path}">${opts}</select></label>`;
 function renderPanel() {
+  window.MoovoLib.mobile()?.refresh();
   if (panel.contains(document.activeElement) && document.activeElement.matches('input,select')) return;
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
   panel.innerHTML = tab === 'bom' ? bomPanel() : tab === 'gens' ? gensPanel() : tab === 'prices' ? pricesPanel() : selPanel();
@@ -1087,7 +1091,7 @@ function download(data, name) { const a = document.createElement('a'); a.href = 
 const HINTS = { select: 'Clic : sélectionner · Maj+clic : ajouter · glisser : déplacer · ronds bleus : déplacer une extrémité · glisser le fond : se déplacer',
   beam: 'Clique le départ puis l’arrivée de la barre (Maj = horizontale/verticale) · s’aimante aux extrémités · double-clic ou Échap pour arrêter',
   post: 'Clique pour poser un poteau (hauteur dans l’onglet Sélection quand rien n’est sélectionné)', panel: 'Clique deux coins opposés du panneau sur le plan de travail', dim: 'Clique deux points pour poser une cote' };
-function setTool(t) { tool = t; draw = null; document.querySelectorAll('[data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === t)); document.getElementById('hint').textContent = HINTS[t]; svg.style.cursor = t === 'select' ? 'default' : 'crosshair'; render2D(); }
+function setTool(t) { tool = t; draw = null; document.querySelectorAll('[data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === t)); document.getElementById('hint').textContent = HINTS[t]; svg.style.cursor = t === 'select' ? 'default' : 'crosshair'; render2D(); window.MoovoLib.mobile()?.refresh(); }
 document.querySelectorAll('[data-tool]').forEach(b => b.onclick = () => setTool(b.dataset.tool));
 function setView(v) {
   view = v; prefs.view = v; savePrefs(); document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === v));
@@ -1134,7 +1138,7 @@ function exportSVG() {
 }
 document.getElementById('projMenu').addEventListener('click', e => {
   const b = e.target.closest('[data-cmd]'); if (!b) return; document.getElementById('projMenu').classList.remove('open');
-  ({ save: saveFile, devis: openDevis, csv: exportCSV, share, versions: openVersions, snapshot: () => { const n = prompt('Nom du point de sauvegarde :', 'Avant modification'); if (n !== null) { backup(n || 'Point de sauvegarde', false); toast('📌 Point de sauvegarde créé'); } }, shot, svg: exportSVG })[b.dataset.cmd]?.();
+  ({ help: () => document.getElementById('bHelp').click(), tour: startTour, save: saveFile, devis: openDevis, csv: exportCSV, share, versions: openVersions, snapshot: () => { const n = prompt('Nom du point de sauvegarde :', 'Avant modification'); if (n !== null) { backup(n || 'Point de sauvegarde', false); toast('📌 Point de sauvegarde créé'); } }, shot, svg: exportSVG })[b.dataset.cmd]?.();
 });
 document.getElementById('fImport').onchange = async e => { const f = e.target.files[0]; if (!f) return; e.target.value = ''; try { const d = JSON.parse(await f.text()); if (!Array.isArray(d.members)) throw 0; backup('Avant import', false); S = migrate(d); sel = []; commit(); fit(); setView3('persp'); } catch { toast('Fichier non reconnu'); } };
 document.getElementById('bUndo').onclick = undo; document.getElementById('bRedo').onclick = redo;
@@ -1171,7 +1175,7 @@ document.getElementById('tourPrev').onclick = () => { tourI = Math.max(0, tourI 
 document.getElementById('tourNext').onclick = () => { if (tourI >= TOUR.length - 1) endTour(); else { tourI++; renderTour(); } };
 document.getElementById('tourSkip').onclick = endTour;
 document.getElementById('tour').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Escape') endTour(); });
-function setLayout(l) { prefs.layout = l; savePrefs(); document.body.className = 'layout-' + l; document.querySelectorAll('[data-layout]').forEach(b => b.classList.toggle('on', b.dataset.layout === l)); setTimeout(() => { resize3D(); render2D(); }, 30); }
+function setLayout(l) { prefs.layout = l; savePrefs(); document.body.classList.remove('layout-2d', 'layout-split', 'layout-3d'); document.body.classList.add('layout-' + l); document.querySelectorAll('[data-layout]').forEach(b => b.classList.toggle('on', b.dataset.layout === l)); setTimeout(() => { resize3D(); render2D(); }, 30); }
 document.querySelectorAll('[data-layout]').forEach(b => b.onclick = () => setLayout(b.dataset.layout));
 function splitter(id, fn) { const el = document.getElementById(id); el.addEventListener('pointerdown', e => { e.preventDefault(); el.setPointerCapture(e.pointerId); const mv = ev => { fn(ev); applySizes(); resize3D(); render2D(); }; const up = () => { el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); savePrefs(); }; el.addEventListener('pointermove', mv); el.addEventListener('pointerup', up); }); }
 function applySizes() { document.documentElement.style.setProperty('--aside', prefs.aside + 'px'); document.documentElement.style.setProperty('--v3h', prefs.v3h + '%'); }
@@ -1202,11 +1206,26 @@ addEventListener('keydown', e => {
 //  Boucle
 // =====================================================================
 function renderAll() { render2D(); renderPanel(); dirty3D = true; document.getElementById('bUndo').disabled = !past.length; document.getElementById('bRedo').disabled = !future.length; }
-function loop() { if (dirty3D) { build3D(); dirty3D = false; } ctl.update(); renderer.render(scene, cam); labelR.render(scene, cam); requestAnimationFrame(loop); }
+// rendu 3D à la demande (seulement si quelque chose a changé et si la vue est visible)
+let frames3D = 3; const kick3D = (n = 2) => { frames3D = Math.max(frames3D, n); }; ctl.addEventListener('change', () => kick3D());
+function loop() { const vis = v3.offsetWidth > 0 && v3.offsetHeight > 0; if (dirty3D && vis) { build3D(); dirty3D = false; kick3D(); } if (ctl.update()) kick3D(); if (vis && frames3D > 0) { frames3D--; renderer.render(scene, cam); labelR.render(scene, cam); } requestAnimationFrame(loop); }
 document.title = S.name + ' · Moovo 3D';
 applySizes(); setLayout(prefs.layout); setTool('select'); save(); backup('Ouverture du projet');
 document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === view));
 document.getElementById('wpLbl').textContent = VIEWS[view].h; syncWp();
+// interface mobile
+window.MoovoLib.mobileShell({
+  planLabel: '2D', addLabel: 'Assistants', planBox: '#planBox', zoom: { in: '#zIn', out: '#zOut', fit: '#zFit' },
+  tools: '#tools [data-tool]', views: '#views [data-view]', slots: ['#wpBox'],
+  icons: { select: '↖', beam: '▬', post: '▮', panel: '▦', dim: '↔', top: '⬒', front: '▭', side: '◧' },
+  extra: [{ ic: '📄', label: 'Devis', run: openDevis }, { ic: '📋', label: 'Débit (CSV)', run: exportCSV }, { ic: '🏠', label: 'Bâtiment existant', run: () => act('addBlock') }],
+  layers: ['lDims', 'lPanels', 'lGrid', 'snap', 'unitSel'],
+  relocate: ['genMenu', 'v3menu'], sheets: ['genMenu', 'projMenu', 'v3menu'], closeMenus: () => menus.forEach(([, x]) => document.getElementById(x).classList.remove('open')),
+  onAdd: () => document.getElementById('bGen').click(), selectTool: () => setTool('select'), hasSel: () => sel.length > 0,
+  toolLabel: () => ({ beam: '▬ Barre : touche le départ puis l’arrivée', post: '▮ Poteau : touche où le poser', panel: '▦ Panneau : touche deux coins opposés', dim: '↔ Cote : touche deux points' })[tool] ?? null,
+  onView: () => setTimeout(() => { resize3D(); render2D(); renderPanel(); dirty3D = true; }, 30),
+  onToggle: on => { if (on && prefs.layout !== 'split') setLayout('split'); setTimeout(() => { resize3D(); render2D(); }, 50); },
+});
 requestAnimationFrame(() => { fit(); renderAll(); resize3D(); setView3('persp'); loop(); });
 if (!prefs.toured) setTimeout(startTour, 400);
 </script>

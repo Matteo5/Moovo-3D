@@ -30,11 +30,13 @@
   }
   function touch(id, patch) { const l = list(), p = l.find(x => x.id === id); if (p) { Object.assign(p, patch || {}, { updated: Date.now() }); saveList(l); } }
   function load(id) { const raw = ls.get(PFX + id); if (!raw) return null; try { return JSON.parse(raw); } catch { return null; } }
-  function remove(id) { saveList(list().filter(p => p.id !== id)); ls.del(PFX + id); ls.del(BPFX + id); }
+  // le plan de fond (image) est gardé à part : on le supprime / copie avec le projet
+  function remove(id) { saveList(list().filter(p => p.id !== id)); ls.del(PFX + id); ls.del(BPFX + id); ls.del('moovo-bg-' + id); }
   function duplicate(id) {
     const p = get(id); if (!p) return null;
     const raw = ls.get(PFX + id), n = create({ name: p.name + ' (copie)', type: p.type, template: p.template });
     if (raw) { try { const o = JSON.parse(raw); o.name = n.name; ls.set(PFX + n.id, JSON.stringify(o)); } catch { ls.set(PFX + n.id, raw); } }
+    const bg = ls.get('moovo-bg-' + id); if (bg) ls.set('moovo-bg-' + n.id, bg);
     return n;
   }
   // Ancienne version (un seul appartement) : reprise automatique, sans effacer l'original
@@ -96,7 +98,7 @@
   .mv-two{display:grid;grid-template-columns:1fr 1fr;gap:0 8px}
   .mv-ov button{font:inherit;font-size:13px;border:1px solid #dfe3e9;background:#fff;border-radius:8px;padding:6px 11px;cursor:pointer}
   .mv-ov button:hover{border-color:#b9c1cc}
-  .mv-ov button.pri{background:#2563eb;border-color:#2563eb;color:#fff;font-weight:600}
+  .mv-ov button.pri{background:linear-gradient(135deg,#2563eb,#6d4fd8);border-color:#3f55e2;color:#fff;font-weight:600}
   .mv-ov table{width:100%;border-collapse:collapse;font-size:13px}
   .mv-ov th{font-weight:500;color:#697386;font-size:11.5px;text-align:left;padding:5px 4px;border-bottom:1px solid #e1e5eb}
   .mv-ov td{padding:3px 4px;border-bottom:1px solid #eef0f3;vertical-align:middle}
@@ -109,7 +111,8 @@
   .mv-tot .big{font-size:17px;font-weight:700;border-top:1px solid #e1e5eb;margin-top:4px;padding-top:6px}
   .mv-warn{background:#fff6e5;border:1px solid #f3d9a4;color:#9a5b00;border-radius:8px;padding:7px 9px;font-size:12px;margin:8px 0}
   .mv-x{border:0!important;background:transparent!important;color:#b42318;padding:2px 6px!important}
-  @media (max-width:820px){.mv-body{grid-template-columns:1fr}.mv-side{max-height:none;border-right:0;border-bottom:1px solid #e1e5eb}}`;
+  @media (max-width:820px){.mv-body{grid-template-columns:1fr}.mv-side{max-height:none;border-right:0;border-bottom:1px solid #e1e5eb}.mv-main{max-height:none}}
+  @media (max-width:600px){.mv-ov{padding:0}.mv-box{border-radius:0;min-height:100%}.mv-head{flex-wrap:wrap;border-radius:0;padding:10px 12px}.mv-head b{flex-basis:100%;font-size:15px}.mv-ov button{padding:9px 12px}.mv-tot{width:100%}.mv-main{padding:10px;overflow-x:auto}.mv-ov input,.mv-ov select,.mv-ov textarea{font-size:16px}.mv-two{grid-template-columns:1fr}}`;
   function ensureCss() { if (!document.getElementById('mv-css')) { const s = document.createElement('style'); s.id = 'mv-css'; s.textContent = CSS; document.head.appendChild(s); } }
 
   const TVA_RATES = [[20, '20 % — construction neuve, extension, abri, carport…'], [10, '10 % — rénovation d’un logement de plus de 2 ans'], [5.5, '5,5 % — rénovation énergétique'], [0, '0 % — TVA non applicable (art. 293 B du CGI)']];

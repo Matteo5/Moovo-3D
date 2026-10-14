@@ -90,6 +90,10 @@
   .v3menu select,.v3menu input[type=number]{font:inherit;font-size:13px;border:1px solid var(--line);border-radius:7px;padding:4px 6px;background:#fff}
   .v3menu input[type=range]{width:100%}
   .v3menu .two{display:grid;grid-template-columns:1fr 1fr;gap:2px 10px}
+  #wpad{position:absolute;left:14px;bottom:14px;z-index:4;display:none;grid-template-areas:". u x" "l d r";grid-template-columns:repeat(3,54px);grid-template-rows:repeat(2,54px);gap:6px;touch-action:none;user-select:none}
+  #wpad.on{display:grid}
+  #wpad button{border:0;border-radius:14px;background:#1d2129b3;color:#fff;font-size:20px;padding:0}
+  #wpad button:active,#wpad button.on{background:#2563eb}
   #walkHint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:#1d2129e0;color:#fff;padding:6px 12px;border-radius:999px;font-size:12px;display:none;white-space:nowrap;z-index:3}
   .lbl3{font-size:12px;font-weight:600;background:#ffffffd9;padding:2px 7px;border-radius:6px;text-align:center;line-height:1.25;pointer-events:none;white-space:nowrap}
   .lbl3 span{display:block;font-weight:400;font-size:11px;color:#555}
@@ -261,10 +265,15 @@
 <header>
   <a class="brand" href="index.html" title="Retour à mes projets"><img src="img/logo-mark-128.png" alt=""><span class="wm">Mo<span class="o2">o</span>vo</span> <small>3D</small></a>
   <input id="projName" class="projname" spellcheck="false" title="Nom du projet (cliquer pour renommer)">
-  <span id="saveState" class="savestate"></span>
+  <span id="saveState" class="savestate dsk"></span>
   <div class="menuwrap">
-    <button id="bProj" class="ghost">Projet ▾</button>
+    <button id="bProj" class="ghost" aria-label="Menu du projet"><span class="dsk">Projet ▾</span><span class="mshonly" style="font-size:20px;line-height:1">⋯</span></button>
     <div class="menu" id="projMenu">
+      <button class="mshonly" style="width:100%" data-cmd="settings">⚙ Réglages</button>
+      <button class="mshonly" style="width:100%" data-cmd="hist">🕘 Historique des modifications</button>
+      <button class="mshonly" style="width:100%" data-cmd="help">? Aide &amp; glossaire</button>
+      <button class="mshonly" style="width:100%" data-cmd="tour">🎓 Guide de démarrage</button>
+      <hr class="mshonly" style="width:100%">
       <button data-cmd="save">💾 Enregistrer dans un fichier <kbd>Ctrl+S</kbd></button>
       <button data-cmd="saveAs">Enregistrer sous…</button>
       <button data-cmd="open">📂 Ouvrir un fichier… <kbd>Ctrl+O</kbd></button>
@@ -285,12 +294,12 @@
       <button id="bReset" class="danger">Repartir du plan d’origine…</button>
     </div>
   </div>
-  <div class="seg"><button id="bUndo" class="ghost" title="Annuler (Ctrl+Z)">↶</button><button id="bRedo" class="ghost" title="Rétablir (Ctrl+Y)">↷</button><button id="bHist" class="ghost" title="Historique des modifications">🕘</button></div>
+  <div class="seg"><button id="bUndo" class="ghost" title="Annuler (Ctrl+Z)">↶</button><button id="bRedo" class="ghost" title="Rétablir (Ctrl+Y)">↷</button><button id="bHist" class="ghost dsk" title="Historique des modifications">🕘</button></div>
   <div class="spacer"></div>
-  <div class="seg" id="layoutSeg"><button data-layout="plan">Plan</button><button data-layout="split" class="on">Plan + 3D</button><button data-layout="3d">3D</button></div>
+  <div class="seg dsk" id="layoutSeg"><button data-layout="plan">Plan</button><button data-layout="split" class="on">Plan + 3D</button><button data-layout="3d">3D</button></div>
   <button id="bCmd" class="ghost cmdbtn" title="Tout trouver et tout faire (Ctrl+K)">🔍<span class="lbl"> Rechercher… <kbd>Ctrl K</kbd></span></button>
-  <button id="bSettings" class="ghost" title="Réglages">⚙<span class="lbl"> Réglages</span></button>
-  <button id="bHelp" class="ghost" title="Aide et raccourcis (?)">?</button>
+  <button id="bSettings" class="ghost dsk" title="Réglages">⚙<span class="lbl"> Réglages</span></button>
+  <button id="bHelp" class="ghost dsk" title="Aide et raccourcis (?)">?</button>
 </header>
 <main>
   <section id="planWrap">
@@ -377,6 +386,7 @@
       </div>
       <div id="tourCap"><div><b id="tourRoom"></b><span id="tourInfo"></span></div><button id="tourStop">⏹ Arrêter</button></div>
       <div id="walkHint">Glisser pour regarder · ZQSD / flèches pour avancer · Maj pour courir · Échap pour sortir</div>
+      <div id="wpad" aria-label="Se déplacer"><button data-k="ArrowUp" style="grid-area:u">▲</button><button data-k="ArrowLeft" style="grid-area:l">◀</button><button data-k="ArrowDown" style="grid-area:d">▼</button><button data-k="ArrowRight" style="grid-area:r">▶</button><button data-exit style="grid-area:x;font-size:12px">Sortir</button></div>
     </div>
     <div id="vsplit" class="splitter h" title="Glisser pour redimensionner"></div>
     <nav class="tabs"><button data-tab="sel" class="on">Sélection</button><button data-tab="rooms">Pièces</button><button data-tab="elec">Électricité</button><button data-tab="works">Travaux &amp; budget</button></nav>
@@ -1779,7 +1789,7 @@ selbar.addEventListener('pointerdown', e => e.stopPropagation());
 selbar.addEventListener('click', e => {
   const b = e.target.closest('[data-sb]'); if (!b) return; const c = b.dataset.sb;
   if (['rotate', 'dup', 'del', 'cycleDoor', 'split'].includes(c)) return act(c);
-  if (c === 'color' || c === 'accent' || c === 'styles') { tab = 'sel'; renderPanel(); setTimeout(() => { const t = c === 'accent' ? panel.querySelector('select[data-key^="accent."]') : c === 'styles' ? panel.querySelector('.styles') : panel.querySelector('.cpick'); t?.scrollIntoView({ block: 'center', behavior: 'smooth' }); if (c === 'color') t?.click(); else if (c === 'accent') t?.focus(); }, 30); return; }
+  if (c === 'color' || c === 'accent' || c === 'styles') { tab = 'sel'; if (ML.mobile()?.on()) ML.mobile().show('panel'); renderPanel(); setTimeout(() => { const t = c === 'accent' ? panel.querySelector('select[data-key^="accent."]') : c === 'styles' ? panel.querySelector('.styles') : panel.querySelector('.cpick'); t?.scrollIntoView({ block: 'center', behavior: 'smooth' }); if (c === 'color') t?.click(); else if (c === 'accent') t?.focus(); }, 30); return; }
   if (c === 'door' || c === 'window') { const w = resolveSel(), f = frame(w), p = at(w, f, sel.at ?? f.L / 2, 0); setTool(c); clickTool(p, null, null); setTool('select'); return; }
   if (c === 'rename') { const r = resolveSel(); renameRoom(r?.tags?.[0]); return; }
   if (c === 'addHere') { const r = resolveSel(), t = r?.tags?.[0]; if (t) { view.cx = t.x; view.cy = t.y; } document.getElementById('bCatalog').click(); }
@@ -1991,7 +2001,7 @@ function setTool(t) {
   document.querySelectorAll('[data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === t));
   document.getElementById('hint').textContent = HINTS[t];
   svg.style.cursor = t === 'select' ? 'default' : 'crosshair';
-  schedule(false);
+  schedule(false); ML.mobile()?.refresh();
 }
 document.querySelectorAll('[data-tool]').forEach(b => b.onclick = () => setTool(b.dataset.tool));
 for (const [id, k] of [['lDims', 'dims'], ['lElec', 'elec'], ['lFurn2', 'furn']]) document.getElementById(id).onchange = e => { layer[k] = e.target.checked; schedule(false); };
@@ -2175,6 +2185,7 @@ const check = (label, target, key, val) => `<label class="chk"><input type="chec
 // Astuces pour débutants (désactivables dans les réglages)
 const tipBox = (txt, title = 'Astuce') => prefs.tips === false || !txt ? '' : `<div class="tipbox"><b>💡 ${title}</b> ${txt}</div>`;
 function renderPanel() {
+  ML.mobile()?.refresh();
   { const jp = document.getElementById('jumpPanel'); if (jp) jp.hidden = !sel || panel.getBoundingClientRect().top < innerHeight; }
   if (panel.contains(document.activeElement) && document.activeElement.matches('input,select')) return;
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
@@ -3184,7 +3195,9 @@ function setView(v) {
   document.querySelectorAll('[data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === v));
   const b = bounds();
   sun.position.set(b.cx + 6, 16, b.cz + 5); sun.target.position.set(b.cx, 0, b.cz); ground.position.set(b.cx, -.005, b.cz);
-  document.getElementById('walkHint').style.display = v === 'walk' ? 'block' : 'none';
+  const touchUI = matchMedia('(pointer: coarse)').matches || document.body.classList.contains('mshell');
+  document.getElementById('walkHint').style.display = v === 'walk' && !touchUI ? 'block' : 'none';
+  document.getElementById('wpad').classList.toggle('on', v === 'walk' && touchUI);
   if (v === 'walk') {
     ctl.enabled = false; cam.fov = 70; cam.updateProjectionMatrix();
     const o = S.openings.find(x => x.main) ?? S.openings[0], w = o && wallById(o.wall);
@@ -3205,7 +3218,7 @@ function renderImage(W, H) {
   const sz = renderer.getSize(new THREE.Vector2()), pr = renderer.getPixelRatio();
   renderer.setPixelRatio(1); renderer.setSize(W, H, false); cam.aspect = W / H; cam.updateProjectionMatrix();
   renderer.render(scene, cam); const url = renderer.domElement.toDataURL('image/png');
-  renderer.setPixelRatio(pr); renderer.setSize(sz.x, sz.y); cam.aspect = sz.x / sz.y; cam.updateProjectionMatrix();
+  renderer.setPixelRatio(pr); renderer.setSize(sz.x, sz.y); cam.aspect = sz.x / sz.y; cam.updateProjectionMatrix(); kick3D();
   return url;
 }
 const ensure3D = () => { if (prefs.layout === 'plan') setLayout('split'); };
@@ -3281,7 +3294,7 @@ document.getElementById('bShot').onclick = () => beautyShot();
 document.getElementById('bTour3').onclick = () => tourA ? stopTour() : autoTour();
 document.getElementById('bCmp').onclick = () => openCompare();
 syncOptUI();
-function resize3D() { const r = v3.getBoundingClientRect(); if (!r.width || !r.height) return; renderer.setSize(r.width, r.height); labelR.setSize(r.width, r.height); cam.aspect = r.width / r.height; cam.updateProjectionMatrix(); }
+function resize3D() { const r = v3.getBoundingClientRect(); if (!r.width || !r.height) return; renderer.setSize(r.width, r.height); labelR.setSize(r.width, r.height); cam.aspect = r.width / r.height; cam.updateProjectionMatrix(); if (typeof kick3D === 'function') kick3D(); }
 new ResizeObserver(resize3D).observe(v3);
 // sélection & visite à la souris en 3D
 const ray = new THREE.Raycaster(); let d3 = null;
@@ -3301,6 +3314,13 @@ renderer.domElement.addEventListener('pointerup', e => {
 addEventListener('keydown', e => { if (!e.target.closest('input,select,textarea')) keys[e.code] = true; });
 addEventListener('keyup', e => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+// croix directionnelle tactile pour la visite (téléphone, tablette)
+{
+  const pad = document.getElementById('wpad');
+  pad.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); const b = e.target.closest('[data-k]'); if (b) { keys[b.dataset.k] = true; b.classList.add('on'); pad.setPointerCapture(e.pointerId); pad._k = b; } else if (e.target.closest('[data-exit]')) setView('persp'); });
+  const up = () => { if (pad._k) { keys[pad._k.dataset.k] = false; pad._k.classList.remove('on'); pad._k = null; } };
+  pad.addEventListener('pointerup', up); pad.addEventListener('pointercancel', up);
+}
 
 // =====================================================================
 //  Boucle & fichiers
@@ -3309,12 +3329,19 @@ let needA = false, need2D = false;
 function schedule(full) { if (full) { needA = true; dirty3D = true; } need2D = true; }
 function renderAll() { analyze(); render2D(); renderPanel(); dirty3D = true; document.getElementById('bUndo').disabled = !past.length; document.getElementById('bRedo').disabled = !future.length; }
 const clock = new THREE.Clock();
+// Rendu 3D à la demande : on ne redessine que si quelque chose a changé et si la vue 3D est visible
+// (économise la batterie et garde le plan fluide sur téléphone)
+let frames3D = 3;
+const kick3D = (n = 2) => { frames3D = Math.max(frames3D, n); };
+ctl.addEventListener('change', () => kick3D());
 function loop() {
   const dt = Math.min(clock.getDelta(), .05);
   if (needA) { analyze(false); needA = false; renderPanel(); }
   if (need2D) { render2D(); need2D = false; }
-  if (dirty3D) { build3D(); dirty3D = false; }
+  const vis = v3.offsetWidth > 0 && v3.offsetHeight > 0;
+  if (dirty3D && vis) { build3D(); dirty3D = false; kick3D(); }
   if (viewMode === 'walk') {
+    kick3D();
     const fw = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0), st = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
     const sp = opt.speed * (keys.ShiftLeft || keys.ShiftRight ? 2 : 1) * dt;
     const mx = (-Math.sin(yaw) * fw + Math.cos(yaw) * st) * sp, mz = (-Math.cos(yaw) * fw - Math.sin(yaw) * st) * sp;
@@ -3323,9 +3350,9 @@ function loop() {
     else { if (free(mx, 0)) cam.position.x += mx; if (free(0, mz)) cam.position.z += mz; }
     cam.position.y = opt.eye;
     cam.rotation.set(pitch, yaw, 0, 'YXZ');
-  } else if (tourA) tourStep(dt);
-  else ctl.update();
-  renderer.render(scene, cam); labelR.render(scene, cam);
+  } else if (tourA) { tourStep(dt); kick3D(); }
+  else if (ctl.update()) kick3D();
+  if (vis && frames3D > 0) { frames3D--; renderer.render(scene, cam); labelR.render(scene, cam); }
   requestAnimationFrame(loop);
 }
 document.getElementById('bUndo').onclick = undo;
@@ -3735,7 +3762,7 @@ ctxEl.addEventListener('click', e => {
   else if (c === 'copy') { clip = JSON.stringify(resolveSel()); toast('Objet copié · Ctrl+V pour le coller (sans frais de livraison)'); }
   else if (c === 'paste' && clip) { const it = { ...JSON.parse(clip), id: uid() }; const f = fp(it); it.x = r2(p[0] - f.w / 2); it.y = r2(p[1] - f.h / 2); S.items.push(it); sel = { kind: 'item', id: it.id }; commit(); }
   else if (c === 'size') { const it = resolveSel(); if (it) { const f0 = fp(it), cx = f0.x + f0.w / 2, cy = f0.y + f0.h / 2; it.w = +b.dataset.w; it.d = +b.dataset.d; const f1 = fp(it); it.x = r2(cx - f1.w / 2); it.y = r2(cy - f1.h / 2); commit(); } }
-  else if (c === 'color' || c === 'accent') { tab = 'sel'; renderPanel(); setTimeout(() => { const t = c === 'accent' ? panel.querySelector('select[data-key^="accent."]') : panel.querySelector('.cpick'); t?.scrollIntoView({ block: 'center' }); if (c === 'color') t?.click(); else t?.focus(); }, 30); }
+  else if (c === 'color' || c === 'accent') { tab = 'sel'; if (ML.mobile()?.on()) ML.mobile().show('panel'); renderPanel(); setTimeout(() => { const t = c === 'accent' ? panel.querySelector('select[data-key^="accent."]') : panel.querySelector('.cpick'); t?.scrollIntoView({ block: 'center' }); if (c === 'color') t?.click(); else t?.focus(); }, 30); }
   else if (c === 'door' || c === 'window') { setTool(c); clickTool(p, null, null); setTool('select'); }
   else if (c === 'style') { const r = resolveSel(); if (r && r !== true && r.tags?.[0]) { applyStyle(r, b.dataset.style); commit(); toast(`Ambiance « ${ML.STYLES[b.dataset.style].label} » appliquée. ${ML.STYLES[b.dataset.style].wink ?? ''}`, 3800); } }
   else if (c === 'addHere') { view.cx = p[0]; view.cy = p[1]; document.getElementById('bCatalog').click(); }
@@ -3819,7 +3846,7 @@ addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key.toLower
 // --- guide de démarrage (affiché à la première ouverture, puis depuis l'aide)
 const TOUR = [
   ['<img src="img/logo-mark.png" width="72" height="72" alt="Moovo">', 'Bienvenue dans Moovo 3D', 'Tu vas dessiner ton logement au centimètre près, le visiter en 3D, choisir couleurs et matériaux, puis obtenir un budget et un devis. Le tout sans poussière, sans bruit et sans voisin qui frappe au plafond. Ce guide prend une minute : moins qu’un débat sur la couleur du canapé.'],
-  ['📐', 'Le plan', 'À gauche, le plan vu de dessus. <b>Glisse un mur</b> pour le déplacer : les murs accrochés suivent, solidaires comme on aimerait que le soient tous les corps de métier. <b>Clique sur une cote soulignée</b> pour taper la valeur exacte. Molette = zoom, glisser le fond = se déplacer.'],
+  ['📐', 'Le plan', 'Le plan, vu de dessus. <b>Glisse un mur</b> pour le déplacer : les murs accrochés suivent, solidaires comme on aimerait que le soient tous les corps de métier. <b>Clique sur une cote soulignée</b> pour taper la valeur exacte. Molette = zoom, glisser le fond = se déplacer.'],
   ['🧱', 'Murs et ouvertures', 'Outil <b>Mur</b> (touche M) : clique le point de départ puis le point d’arrivée. Outils <b>Porte</b>, <b>Fenêtre</b>, <b>Baie</b> : clique sur un mur pour poser l’ouverture. Ici, abattre une cloison prend une seconde et ne remplit aucune benne. Profites-en : dans la vraie vie, c’est la dernière fois.'],
   ['🛋️', 'Meubles et équipements', 'Bouton <b>＋ Ajouter</b> (touche A) : plus de 100 objets avec recherche (canapé, lit, cuisine, salle de bain, prises…). Choisis une <b>taille standard</b> dans le panneau, touche <b>R</b> pour pivoter. Ils ne pèsent rien, ne rayent pas le parquet et passent toujours dans l’escalier.'],
   ['🎨', 'Couleurs et matériaux', 'Clique <b>dans une pièce</b> : choisis une <b>ambiance</b> en un clic (scandinave, industriel, bohème…), puis affine murs, sol et couleurs avec le <b>nuancier</b> (références RAL). Il compte quatorze blancs différents. Nous non plus, on n’en revenait pas.'],
@@ -3844,13 +3871,13 @@ document.getElementById('tour').addEventListener('keydown', e => { e.stopPropaga
 // --- menus
 const menus = [['bProj', 'projMenu'], ['bCatalog', 'catalog'], ['bV3opt', 'v3menu']];
 function closeMenus(except) { for (const [, m] of menus) if (m !== except) document.getElementById(m).classList.remove('open'); }
-for (const [b, m] of menus) document.getElementById(b).addEventListener('click', e => { e.stopPropagation(); const el = document.getElementById(m); const open = !el.classList.contains('open'); closeMenus(); el.classList.toggle('open', open); if (open && m === 'catalog') { renderCatalog(); document.getElementById('catSearch').focus(); } });
+for (const [b, m] of menus) document.getElementById(b).addEventListener('click', e => { e.stopPropagation(); const el = document.getElementById(m); const open = !el.classList.contains('open'); closeMenus(); el.classList.toggle('open', open); if (open && m === 'catalog') { renderCatalog(); if (!ML.mobile()?.on()) document.getElementById('catSearch').focus(); } });
 document.addEventListener('pointerdown', e => { if (!e.target.closest('.menuwrap')) closeMenus(); });
 document.getElementById('projMenu').addEventListener('click', e => {
   const b = e.target.closest('[data-cmd]'); if (!b) return; closeMenus();
   ({ save: () => saveFile(false), saveAs: () => saveFile(true), open: openFile, versions: openVersions,
      snapshot: () => { const n = prompt('Nom du point de sauvegarde :', 'Avant modification'); if (n !== null) { backup(n || 'Point de sauvegarde', false); toast('📌 Point de sauvegarde créé'); } },
-     devis: openDevis, share: shareProject, baseline: setBaseline,
+     devis: openDevis, share: shareProject, baseline: setBaseline, settings: openSettings, help: openHelp, hist: openHistory, tour: startTour,
      exportSvg: () => exportPlan('svg'), exportPng: () => exportPlan('png'), shot3d: () => shot3D() }[b.dataset.cmd] ?? (() => {}))();
 });
 document.getElementById('bReset').addEventListener('click', closeMenus);
@@ -3871,7 +3898,7 @@ function renderCatalog() {
 }
 document.getElementById('catSearch').addEventListener('input', renderCatalog);
 document.getElementById('catSearch').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') document.querySelector('#catList [data-add]')?.click(); if (e.key === 'Escape') closeMenus(); });
-document.getElementById('catList').addEventListener('click', e => { const kb = e.target.closest('[data-kit]'); if (kb) { closeMenus(); startKit(kb.dataset.kit); return; } const b = e.target.closest('[data-add]'); if (!b) return; closeMenus(); startAdd(b.dataset.add); });
+document.getElementById('catList').addEventListener('click', e => { const kb = e.target.closest('[data-kit]'); if (kb) { closeMenus(); startKit(kb.dataset.kit); ML.mobile()?.on() && ML.mobile().show('plan'); return; } const b = e.target.closest('[data-add]'); if (!b) return; closeMenus(); startAdd(b.dataset.add); ML.mobile()?.on() && ML.mobile().show('plan'); });
 // --- disposition & séparateurs redimensionnables
 function setLayout(l) {
   prefs.layout = l; savePrefs();
@@ -3925,6 +3952,19 @@ applySizes(); syncPrefsUI(); setLayout(prefs.layout);
 lastSaveAt = new Date(); fileDirty = true; updateSaveState();
 backup('Ouverture du projet');
 
+// interface mobile (téléphone, petite tablette)
+const TOOL_TIP = { wall: '▭ Mur : touche le départ puis chaque angle', door: '🚪 Porte : touche un mur', window: '🪟 Fenêtre : touche un mur', baie: '🪟 Baie : touche un mur', opening: '⬚ Passage : touche un mur', placard: '🗄 Placard : touche un mur', dim: '↔ Cote : touche deux points', measure: '📏 Mesure : touche deux points', calib: '📏 Échelle : touche les 2 bouts d’une longueur connue', bgmove: '✋ Glisse le plan de fond' };
+ML.mobileShell({
+  planBox: '#planBox', zoom: { in: '#zIn', out: '#zOut', fit: '#zFit' }, tools: '#tools [data-tool]',
+  icons: { baie: '🪟', opening: '⬚', placard: '🗄' },
+  extra: [{ ic: '🖼', label: 'Plan de fond', run: openBg }, { ic: '🔍', label: 'Rechercher', run: openCmd }, { ic: '🎬', label: 'Visite', run: () => { ML.mobile().show('3d'); autoTour(); } }, { ic: '⇆', label: 'Avant / après', run: openCompare }, { ic: '📷', label: 'Capture', run: () => { ML.mobile().show('3d'); setTimeout(beautyShot, 60); } }, { ic: '📄', label: 'Devis', run: openDevis }],
+  layers: ['lDims', 'lElec', 'lFurn2', 'lAlerts', 'lMagnet', 'snap', 'unitSel'],
+  relocate: ['catalog', 'v3menu'], sheets: ['catalog', 'projMenu', 'v3menu'], closeMenus: () => closeMenus(),
+  onAdd: () => document.getElementById('bCatalog').click(), selectTool: () => setTool('select'), hasSel: () => !!sel,
+  toolLabel: () => tool === 'select' ? null : tool === 'kit' && kitPlacing ? `✨ ${KITS[kitPlacing].label} : touche où le poser` : tool === 'place' && placing ? `${CAT[placing].label} : touche un mur` : TOOL_TIP[tool] ?? null,
+  onView: v => { setTimeout(() => { if (v === '3d') resize3D(); if (v === 'panel') renderPanel(); schedule(false); }, 30); },
+  onToggle: on => { if (on && prefs.layout !== 'split') setLayout('split'); setTimeout(() => { resize3D(); schedule(false); }, 50); },
+});
 setTool('select');
 renderAll();
 requestAnimationFrame(() => { fit(); render2D(); resize3D(); setView('persp'); loop(); });

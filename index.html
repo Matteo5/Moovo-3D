@@ -93,7 +93,7 @@
     <div>
       <h1>Concevez, chiffrez et partagez vos projets en 3D</h1>
       <p>Aménagement intérieur, extension, pergola, carport, abri, terrasse ou charpente métallique : dessinez au millimètre, visualisez en 3D, obtenez le métré et un devis prêt à envoyer. Tout fonctionne dans le navigateur, et aucun mur n’est maltraité pendant les essais.</p>
-      <button class="pri" id="bNew2">Commencer un projet</button>
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="pri" id="bNew2">Commencer un projet</button><button id="bDemo" style="background:#ffffff26;color:#fff">🏠 Visiter l’appartement témoin</button></div>
     </div>
     <ul>
       <li>📐 Plans cotés au millimètre, cotes modifiables d’un clic</li>
@@ -223,6 +223,7 @@ $('okNew').onclick = () => {
 };
 $('cNew').onclick = () => $('ovNew').hidden = true;
 for (const id of ['bNew', 'bNew2']) $(id).onclick = openNew;
+$('bDemo').onclick = () => { const p = C.create({ name: 'Appartement témoin', type: 'interior', template: 't4' }); location.href = url(p) + '&demo=1'; };
 for (const ov of ['ovNew', 'ovCo']) $(ov).addEventListener('pointerdown', e => { if (e.target.id === ov) $(ov).hidden = true; });
 addEventListener('keydown', e => { if (e.key === 'Escape') { $('ovNew').hidden = true; $('ovCo').hidden = true; } });
 

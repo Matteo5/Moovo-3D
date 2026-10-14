@@ -149,6 +149,8 @@
   #catList h6{margin:10px 2px 5px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
   #catList .cgrid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
   #catList button{display:flex;gap:8px;align-items:center;text-align:left;white-space:normal;padding:6px 8px;font-size:12.5px}
+  #catList .kitb{flex-direction:column;align-items:flex-start;gap:2px;background:#f6f9ff;border-color:#d6e2fb}
+  #catList .kitb span{font-size:11.5px;color:var(--muted)}
   #catList .chip{width:16px;height:16px;border-radius:4px;flex:none;border:1px solid #0002}
   /* modale */
   .modal{position:fixed;inset:0;background:#0f172a66;display:flex;align-items:flex-start;justify-content:center;z-index:100;padding:6vh 16px}
@@ -485,6 +487,35 @@ const SIZES = {
 };
 for (const k of ['bed90', 'bed140', 'bed180']) SIZES[k] = SIZES.bed;
 for (const k of ['loveseat']) SIZES[k] = SIZES.sofa;
+// Ensembles prêts à poser : [type, x, y, rot, options], x/y = coin haut-gauche de l'emprise, dos des meubles vers le haut (y = 0)
+const KITS = {
+  salon:     { label: 'Coin salon', desc: 'Canapé, fauteuil, table basse, tapis, meuble TV', W: 3.6, D: 3.4, items: [['rug', .8, .95, 0, { w: 2.0, d: 1.4 }], ['sofa', .7, 0, 0], ['coffeeTable', 1.25, 1.35, 0], ['armchair', 0, 1.1, 270], ['tv', 1.0, 2.95, 180], ['lamp', 0, 0, 0], ['plant', 3.15, 0, 0]] },
+  repas:     { label: 'Coin repas 6 personnes', desc: 'Table 160 × 90 et ses chaises, buffet', W: 2.6, D: 2.7, items: [['table', .5, .45, 0, { w: 1.6, d: .9 }], ['sideboard', .4, 2.25, 180]] },
+  cuisineI:  { label: 'Cuisine linéaire 3 m', desc: 'Frigo, évier, plaques, four, meubles hauts, hotte', W: 3.0, D: .65, items: [['fridge', 0, 0, 0], ['counter', .6, 0, 0, { w: 1.8 }], ['sink', .8, .05, 0], ['hob', 1.75, .04, 0], ['oven', 2.4, 0, 0], ['wallCabinet', .6, 0, 0], ['wallCabinet', 1.2, 0, 0], ['hood', 1.75, 0, 0], ['backsplash', .6, 0, 0, { w: 1.8 }]] },
+  cuisineL:  { label: 'Cuisine en L', desc: 'Évier sous la fenêtre, plaques en retour, frigo', W: 3.0, D: 2.4, items: [['fridge', 0, 0, 0], ['counter', .6, 0, 0, { w: 2.4 }], ['sink', 1.1, .05, 0], ['dishwasher', 1.9, 0, 0], ['counter', 2.4, .6, 90, { w: 1.8 }], ['hob', 2.44, 1.2, 90], ['wallCabinet', .6, 0, 0], ['wallCabinet', 1.2, 0, 0], ['backsplash', .6, 0, 0, { w: 2.4 }]] },
+  parents:   { label: 'Chambre parentale', desc: 'Lit 160 × 200, chevets, armoire, tapis', W: 3.4, D: 3.4, items: [['rug', .5, 1.0, 0, { w: 2.4, d: 1.6 }], ['bed', .9, 0, 0, { w: 1.6, d: 2.0 }], ['nightstand', .4, 0, 0], ['nightstand', 2.55, 0, 0], ['wardrobe', .95, 2.8, 180, { w: 1.5 }]] },
+  enfant:    { label: 'Chambre d’enfant', desc: 'Lit 90, bureau, chaise, rangements, tapis', W: 3.0, D: 3.0, items: [['rug', 1.0, 1.1, 90, { w: 1.2, d: 1.7 }], ['bed90', 0, 0, 0], ['nightstand', .95, 0, 0], ['desk', 1.8, 0, 0], ['chair', 2.17, .65, 180], ['storageUnit', 0, 2.61, 180]] },
+  bureau:    { label: 'Coin bureau', desc: 'Bureau 140, fauteuil, bibliothèque, plante', W: 2.1, D: 1.8, items: [['desk', .3, 0, 0, { w: 1.4, d: .7 }], ['officeChair', .69, .78, 0], ['bookcase', 1.75, .9, 90], ['plant', 0, 1.3, 0]] },
+  sde:       { label: 'Salle d’eau', desc: 'Douche à l’italienne, meuble vasque, WC, sèche-serviettes', W: 2.2, D: 1.9, items: [['walkIn', 0, 0, 0, { w: 1.2, d: .9 }], ['vanity', 1.3, 0, 0], ['wc', 1.6, 1.35, 180], ['towel', .3, 1.82, 180]] },
+  sdb:       { label: 'Salle de bain', desc: 'Baignoire, double vasque, WC', W: 2.6, D: 2.2, items: [['bath', 0, 0, 0], ['doubleVanity', 0, 1.72, 180], ['wc', 2.05, .9, 90]] },
+  entree:    { label: 'Entrée', desc: 'Meuble à chaussures, miroir, porte-manteau', W: 1.6, D: .5, items: [['shoeCabinet', 0, 0, 0], ['mirror', .1, 0, 0, { elev: 1.2 }], ['coatRack', 1.05, 0, 0]] },
+  balcon:    { label: 'Balcon / terrasse', desc: 'Table de jardin, bain de soleil, jardinières', W: 3.2, D: 2.0, items: [['outdoorSet', 0, .4, 0], ['lounger', 2.4, 0, 0], ['planter', 0, 0, 0], ['planter', 1.1, 0, 0]] },
+};
+// Ensemble pivoté d'un quart de tour (sens horaire) autant de fois que demandé : emprises et rotations recalculées
+function kitLayout(k, quarter = 0) {
+  const K = KITS[k]; let W = K.W, D = K.D;
+  let its = K.items.map(([type, x, y, rot, o = {}]) => { const c = CAT[type], w = o.w ?? c.w, d = o.d ?? c.d, sw = rot % 180 ? [d, w] : [w, d]; return { type, x, y, fw: sw[0], fh: sw[1], rot, o: { ...o, w, d } }; });
+  for (let q = 0; q < quarter; q++) { its = its.map(i => ({ ...i, x: D - (i.y + i.fh), y: i.x, fw: i.fh, fh: i.fw, rot: (i.rot + 90) % 360 })); [W, D] = [D, W]; }
+  return { W, D, its };
+}
+let kitPlacing = null, kitRot = 0;
+function startKit(k) { setTool('kit'); kitPlacing = k; kitRot = 0; document.getElementById('hint').textContent = `${KITS[k].label} : clique où le poser · R pour pivoter l’ensemble · Échap pour annuler`; }
+function placeKit(p) {
+  const L2 = kitLayout(kitPlacing, kitRot), x0 = snapV(p[0] - L2.W / 2), y0 = snapV(p[1] - L2.D / 2);
+  for (const i of L2.its) { const c = CAT[i.type]; S.items.push(I_(i.type, c.label, r2(x0 + i.x), r2(y0 + i.y), i.o.w, i.o.d, { price: c.price, rot: i.rot, ...i.o })); }
+  const n = L2.its.length, lbl = KITS[kitPlacing].label; setTool('select'); commit();
+  toast(`✨ ${lbl} posé (${n} objets). Chaque meuble se déplace ensuite séparément.`, 4000);
+}
 const CAT_GROUP = t => CAT[t]?.group ?? CAT[t]?.cg ?? ({
   bed: 'Chambre', bed90: 'Chambre', nightstand: 'Chambre', wardrobe: 'Chambre',
   sofa: 'Séjour', armchair: 'Séjour', tv: 'Séjour', rug: 'Séjour', table: 'Séjour', chair: 'Séjour', box: 'Séjour', bookcase: 'Séjour', shelf: 'Séjour', lamp: 'Séjour', plant: 'Séjour', desk: 'Séjour',
@@ -1386,6 +1417,11 @@ function render2D() {
     if (hw) { const f = frame(hw.w), pnt = at(hw.w, f, clamp(snapV(hw.al), 0, f.L), hw.side * hw.w.t / 2); h += `<circle cx="${n4(pnt[0])}" cy="${n4(pnt[1])}" r="${n4(7 * s)}" fill="${c.color ?? '#2563eb'}" stroke="#1f2937" stroke-width="1" class="ns" pointer-events="none"/>`; }
     else h += `<circle cx="${n4(cursor[0])}" cy="${n4(cursor[1])}" r="${n4(7 * s)}" fill="${c.color ?? '#2563eb'}" fill-opacity=".6" pointer-events="none"/>`;
   }
+  if (tool === 'kit' && kitPlacing && cursor) {
+    const L2 = kitLayout(kitPlacing, kitRot), x0 = snapV(cursor[0] - L2.W / 2), y0 = snapV(cursor[1] - L2.D / 2);
+    h += `<g pointer-events="none"><rect x="${n4(x0)}" y="${n4(y0)}" width="${n4(L2.W)}" height="${n4(L2.D)}" fill="#2563eb" fill-opacity=".06" stroke="#2563eb" stroke-dasharray="6 4" stroke-width="1.5" class="ns"/>`
+      + L2.its.map(i => `<rect x="${n4(x0 + i.x)}" y="${n4(y0 + i.y)}" width="${n4(i.fw)}" height="${n4(i.fh)}" fill="${CAT[i.type].color ?? '#d9d2c5'}" fill-opacity=".55" stroke="#1f2937" stroke-width="1" class="ns"/>`).join('') + '</g>';
+  }
   if (tool === 'calib' && calib?.a) {
     const b = cursor ?? calib.a;
     h += `<circle cx="${n4(calib.a[0])}" cy="${n4(calib.a[1])}" r="${n4(4 * s)}" fill="#dc2626"/><line x1="${n4(calib.a[0])}" y1="${n4(calib.a[1])}" x2="${n4(b[0])}" y2="${n4(b[1])}" stroke="#dc2626" stroke-width="2" class="ns" stroke-dasharray="6 3"/>`;
@@ -1617,6 +1653,7 @@ function applyDrag(p) {
   } else if (drag.kind === 'tag') { drag.t.x = r2(drag.x + d[0]); drag.t.y = r2(drag.y + d[1]); sel = { kind: 'room', x: drag.t.x, y: drag.t.y }; schedule(true); }
 }
 function clickTool(p, el, kind) {
+  if (tool === 'kit' && kitPlacing) { placeKit(p); return; }
   if (tool === 'calib') {
     if (!calib?.a) { calib = { a: p }; schedule(false); return; }
     const d = Math.hypot(p[0] - calib.a[0], p[1] - calib.a[1]); if (d < 1e-3) return;
@@ -1692,6 +1729,7 @@ addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
   if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); redo(); return; }
   if (viewMode === 'walk') { if (k === 'escape') setView('persp'); return; }
+  if (tool === 'kit' && k === 'r') { kitRot = (kitRot + 1) % 4; schedule(false); return; }
   if (k === 'escape') { if (draw) draw = null; else if (dimDraw) dimDraw = null; else if (tool !== 'select') setTool('select'); else setSel(null); meas = null; schedule(false); return; }
   if (!e.ctrlKey && !e.metaKey) {
     const tk = { v: 'select', m: 'wall', p: 'door', f: 'window', d: 'measure', c: 'dim' }[k];
@@ -1721,9 +1759,10 @@ const HINTS = {
   place: '',
   calib: 'Mise à l’échelle : clique le début puis la fin d’une longueur connue sur le plan (une cote, un mur mesuré…) · Échap pour annuler',
   bgmove: 'Glisse le plan de fond pour l’aligner · Échap ou Sélection pour terminer',
+  kit: '',
 };
 function setTool(t) {
-  tool = t; draw = null; dimDraw = null; hoverWall = null; calib = null; if (t !== 'measure') meas = null; if (t !== 'place') placing = null;
+  tool = t; draw = null; dimDraw = null; hoverWall = null; calib = null; if (t !== 'kit') kitPlacing = null; if (t !== 'measure') meas = null; if (t !== 'place') placing = null;
   document.querySelectorAll('[data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === t));
   document.getElementById('hint').textContent = HINTS[t];
   svg.style.cursor = t === 'select' ? 'default' : 'crosshair';
@@ -3389,11 +3428,13 @@ function renderCatalog() {
     if (q && !hay.includes(q)) continue;
     (groups[g] ??= []).push(`<button data-add="${k}"><span class="chip" style="background:${c.color ?? '#d9d2c5'}"></span>${c.label}</button>`);
   }
-  document.getElementById('catList').innerHTML = Object.entries(groups).map(([g, b]) => `<h6>${g}</h6><div class="cgrid">${b.join('')}</div>`).join('') || '<p class="muted">Aucun objet trouvé.</p>';
+  const kits = Object.entries(KITS).filter(([, k]) => { const hay = (k.label + ' ' + k.desc + ' ensemble').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); return !q || hay.includes(q); })
+    .map(([key, k]) => `<button data-kit="${key}" class="kitb"><b>✨ ${k.label}</b><span>${k.desc}</span></button>`);
+  document.getElementById('catList').innerHTML = (kits.length ? `<h6>Ensembles prêts à poser</h6><div class="cgrid">${kits.join('')}</div>` : '') + Object.entries(groups).map(([g, b]) => `<h6>${g}</h6><div class="cgrid">${b.join('')}</div>`).join('') || '<p class="muted">Rien trouvé. Le catalogue est grand, mais pas encore infini.</p>';
 }
 document.getElementById('catSearch').addEventListener('input', renderCatalog);
 document.getElementById('catSearch').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') document.querySelector('#catList [data-add]')?.click(); if (e.key === 'Escape') closeMenus(); });
-document.getElementById('catList').addEventListener('click', e => { const b = e.target.closest('[data-add]'); if (!b) return; closeMenus(); startAdd(b.dataset.add); });
+document.getElementById('catList').addEventListener('click', e => { const kb = e.target.closest('[data-kit]'); if (kb) { closeMenus(); startKit(kb.dataset.kit); return; } const b = e.target.closest('[data-add]'); if (!b) return; closeMenus(); startAdd(b.dataset.add); });
 // --- disposition & séparateurs redimensionnables
 function setLayout(l) {
   prefs.layout = l; savePrefs();
@@ -3448,7 +3489,16 @@ backup('Ouverture du projet');
 setTool('select');
 renderAll();
 requestAnimationFrame(() => { fit(); render2D(); resize3D(); setView('persp'); loop(); });
-if (new URLSearchParams(location.search).get('bg')) { history.replaceState(null, '', location.pathname + '?p=' + encodeURIComponent(PID)); setTimeout(openBg, 300); }
+if (new URLSearchParams(location.search).get('demo')) {
+  history.replaceState(null, '', location.pathname + '?p=' + encodeURIComponent(PID));
+  // appartement témoin : une ambiance par pièce et quelques travaux cochés, pour montrer le rendu final
+  const pick = { sejour: 'scandinave', cuisine: 'contemporain', sdb: 'marin', wc: 'boheme', circ: 'classique' }, ch = ['cocooning', 'nature', 'japandi']; let ci = 0;
+  for (const r of A.rooms) { const t = r.tags[0]; if (!t) continue; const ty = roomType(t.name), st = ty === 'chambre' ? ch[ci++ % 3] : pick[ty]; if (st) applyStyle(r, st); t.works.paint = true; t.works.floor = ty !== 'sdb'; }
+  commit();
+  setTimeout(() => toast('🏠 Bienvenue dans l’appartement témoin. Ici, tout est permis : casse, repeins, déplace. C’est fait pour.', 6000), 600);
+  if (!prefs.toured) setTimeout(startTour, 2500);
+}
+else if (new URLSearchParams(location.search).get('bg')) { history.replaceState(null, '', location.pathname + '?p=' + encodeURIComponent(PID)); setTimeout(openBg, 300); }
 else if (!prefs.toured) setTimeout(startTour, 400);
 </script>
 </body>

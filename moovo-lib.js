@@ -174,7 +174,7 @@
     for (let y = 0, row = 0; y < 512; y += ch, row++) for (let x = offsetRows && row % 2 ? -cw / 2 : 0; x < 512; x += cw) { g.fillStyle = vary(base, r, dl, 3); g.fillRect(x + gap, y + gap, cw - gap * 2, ch - gap * 2); }
   }
   function noise(g, n, seed, alpha = .05, size = 2) { const r = rng(seed); for (let i = 0; i < n; i++) { g.fillStyle = `rgba(${r() > .5 ? '255,255,255' : '0,0,0'},${r() * alpha})`; g.fillRect(r() * 512, r() * 512, size, size); } }
-  function clouds(g, base, seed, n = 60, amp = 8) { const r = rng(seed); g.fillStyle = base; g.fillRect(0, 0, 512, 512); for (let i = 0; i < n; i++) { const x = r() * 512, y = r() * 512, rad = 30 + r() * 120, gr = g.createRadialGradient(x, y, 0, x, y, rad); gr.addColorStop(0, shade(base, (r() - .5) * amp)); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(x - rad, y - rad, rad * 2, rad * 2); } }
+  function clouds(g, base, seed, n = 60, amp = 8) { const r = rng(seed); g.fillStyle = base; g.fillRect(0, 0, 512, 512); for (let i = 0; i < n; i++) { const x = r() * 512, y = r() * 512, rad = 30 + r() * 120, gr = g.createRadialGradient(x, y, 0, x, y, rad); const [hh, ss, ll] = hexToHsl(base), dl = (r() - .5) * amp; gr.addColorStop(0, hsl(hh, ss, ll + dl, .9)); gr.addColorStop(1, hsl(hh, ss, ll + dl, 0)); g.fillStyle = gr; g.fillRect(x - rad, y - rad, rad * 2, rad * 2); } }
 
   const FLOOR_DRAW = {
     oakLight: g => planks(g, '#e0c9a3', 41, 64, 220, 280),

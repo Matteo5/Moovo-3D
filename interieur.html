@@ -4,7 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Moovo 3D · Intérieur</title>
-<link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg"><meta name="theme-color" content="#2563eb">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png">
+<link rel="icon" type="image/png" sizes="64x64" href="img/favicon-64.png">
+<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+<meta name="theme-color" content="#2563eb">
 <style>
   :root{
     --bg:#eef0f3;--panel:#fff;--panel2:#f7f8fa;--ink:#1b1f27;--muted:#697386;--line:#e1e5eb;--line2:#cfd5de;
@@ -16,8 +20,10 @@
   body{display:grid;grid-template-rows:auto 1fr;height:100vh;overflow:hidden;background:var(--bg);color:var(--ink);font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
   .mono{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;font-variant-numeric:tabular-nums}
   header{display:flex;align-items:center;gap:8px;padding:7px 12px;background:var(--panel);border-bottom:1px solid var(--line);position:relative;z-index:30}
-  .brand{font-size:15px;display:flex;gap:6px;align-items:center;color:var(--accent)}
-  .brand b{color:var(--ink)}
+  .brand{display:flex;gap:7px;align-items:center;text-decoration:none;color:#1e2f4f;font-weight:800;font-size:16px;letter-spacing:-.01em}
+  .brand img{width:26px;height:26px;display:block}
+  .brand .o2{background:linear-gradient(135deg,#7c4ddb,#22c3e6);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .brand small{font-size:10px;font-weight:700;color:#fff;background:linear-gradient(135deg,#2563eb,#7c4ddb);border-radius:5px;padding:1px 5px;letter-spacing:.03em}
   .projname{font:inherit;font-weight:600;font-size:14px;border:1px solid transparent;border-radius:7px;padding:4px 8px;background:transparent;color:var(--ink);width:220px}
   .projname:hover{border-color:var(--line)} .projname:focus{outline:none;border-color:var(--accent);background:#fff}
   .savestate{font-size:12px;color:var(--muted);white-space:nowrap}
@@ -27,8 +33,8 @@
   button,.btn,select.tb{font:inherit;font-size:13px;border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 10px;cursor:pointer;color:var(--ink);white-space:nowrap;line-height:1.25}
   button:hover,.btn:hover{border-color:var(--line2);background:#fbfcfd}
   button.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
-  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
-  button.primary:hover{background:#1d4ed8}
+  button.primary{background:linear-gradient(135deg,#2563eb,#6d4fd8);border-color:#3f55e2;color:#fff;font-weight:600}
+  button.primary:hover{background:linear-gradient(135deg,#1d4ed8,#5b3fc4)}
   button.ghost{border-color:transparent;background:transparent}
   button.ghost:hover{background:#f1f3f6}
   button.danger{color:var(--danger)}
@@ -189,6 +195,15 @@
   .mbox{background:#fff;border-radius:14px;box-shadow:var(--shadow);width:min(680px,100%);max-height:86vh;display:flex;flex-direction:column}
   .mhead{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);font-size:15px}
   #mBody{padding:14px 16px 18px;overflow:auto}
+  #toast.act{pointer-events:auto}
+  #toast button{margin-left:8px;background:#ffffff1f;color:#fff;border:1px solid #ffffff40;border-radius:999px;padding:3px 12px;font-size:12.5px}
+  #toast button:hover{background:#ffffff33}
+  #selbar{position:absolute;z-index:6;transform:translateX(-50%);display:flex;gap:2px;background:#1b1f27;border-radius:12px;padding:4px;box-shadow:var(--shadow)}
+  #selbar[hidden]{display:none}
+  #selbar button{background:transparent;border:0;color:#fff;padding:6px 9px;border-radius:8px;font-size:12.5px;display:flex;gap:5px;align-items:center}
+  #selbar button:hover{background:#ffffff1f}
+  #selbar button.danger{color:#fca5a5}
+  @media (max-width:640px){#selbar span{display:none} #selbar button{padding:9px 11px;font-size:15px}}
   #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:#1b1f27;color:#fff;padding:9px 16px;border-radius:999px;font-size:13px;opacity:0;pointer-events:none;transition:.25s;z-index:200;max-width:90vw}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   /* SVG */
@@ -244,7 +259,7 @@
 </head>
 <body class="layout-split">
 <header>
-  <a class="brand" href="index.html" title="Retour à mes projets" style="text-decoration:none">⌂ <b>Moovo 3D</b></a>
+  <a class="brand" href="index.html" title="Retour à mes projets"><img src="img/logo-mark-128.png" alt=""><span class="wm">Mo<span class="o2">o</span>vo</span> <small>3D</small></a>
   <input id="projName" class="projname" spellcheck="false" title="Nom du projet (cliquer pour renommer)">
   <span id="saveState" class="savestate"></span>
   <div class="menuwrap">
@@ -300,7 +315,7 @@
       <div class="spacer"></div>
       <div class="seg"><button id="zOut" title="Dézoomer">−</button><span id="zoomPct">100 %</span><button id="zIn" title="Zoomer">+</button><button id="zFit" title="Tout voir (0)">Ajuster</button></div>
     </div>
-    <div id="planBox"><svg id="plan" xmlns="http://www.w3.org/2000/svg"><image id="bgI" preserveAspectRatio="none" pointer-events="none" style="display:none"/><g id="G"></g></svg><input id="dimEdit" autocomplete="off"></div>
+    <div id="planBox"><svg id="plan" xmlns="http://www.w3.org/2000/svg"><image id="bgI" preserveAspectRatio="none" pointer-events="none" style="display:none"/><g id="G"></g></svg><input id="dimEdit" autocomplete="off"><div id="selbar" hidden></div></div>
     <div class="foot">
       <span id="hint"></span>
       <label title="Cotes automatiques des pièces"><input type="checkbox" id="lDims" checked> Cotes</label>
@@ -1286,6 +1301,18 @@ function dimLine(x1, y1, x2, y2, txt, off = 0, col = 'var(--accent)', extra = ''
     `<path class="ns" d="M${n4(a[0] - uy * tk)},${n4(a[1] + ux * tk)}L${n4(a[0] + uy * tk)},${n4(a[1] - ux * tk)}M${n4(b[0] - uy * tk)},${n4(b[1] + ux * tk)}L${n4(b[0] + uy * tk)},${n4(b[1] - ux * tk)}" stroke="${col}" stroke-width="1.3"/>` +
     `<text class="dimt${eid ? ' edt' : ''}" ${eid ? `data-kind="edim" data-id="${eid}"` : ''} style="fill:${col}${eid ? ';pointer-events:auto;cursor:text' : ''}" x="${n4(tx)}" y="${n4(ty)}" font-size="${n4(11 * s)}" stroke-width="${n4(3 * s)}"${vert ? ` transform="rotate(-90 ${n4(tx)} ${n4(ty)})"` : ''}>${txt}</text></g>`;
 }
+// battant de porte : panneau de 4 cm d'épaisseur avec un point de poignée côté libre
+function doorLeaf(a, b, ud, col, sl) {
+  const t = .02, q = [[a[0] + ud[0] * t, a[1] + ud[1] * t], [b[0] + ud[0] * t, b[1] + ud[1] * t], [b[0] - ud[0] * t, b[1] - ud[1] * t], [a[0] - ud[0] * t, a[1] - ud[1] * t]];
+  const hx = a[0] + (b[0] - a[0]) * .88 + ud[0] * .045, hy = a[1] + (b[1] - a[1]) * .88 + ud[1] * .045;
+  return poly(q, `fill="${sl ? '#dbe6ff' : '#fff'}" stroke="${col}" stroke-width="${sl ? 2 : 1.5}" class="ns"`) + `<circle cx="${n4(hx)}" cy="${n4(hy)}" r="${n4(Math.max(.018, 2.2 * view.s))}" fill="${col}"/>`;
+}
+// largeur de passage écrite dans l'épaisseur du mur (seulement si on est assez près)
+function opWidthLabel(w, f, o) {
+  if (o.width / view.s < 46) return '';
+  const m = at(w, f, o.at + o.width / 2, 0), ang = Math.atan2(f.u[1], f.u[0]) * 180 / Math.PI, rot = ang > 90 || ang < -90 ? ang + 180 : ang;
+  return `<text class="t2" x="${n4(m[0])}" y="${n4(m[1])}" font-size="${n4(9 * view.s)}" stroke-width="${n4(3 * view.s)}" transform="rotate(${n4(rot)} ${n4(m[0])} ${n4(m[1])})" style="fill:#6b7280">${cmTxt(o.width)}</text>`;
+}
 function doorGeom(w, f, o) {
   const side = o.side || 1, ha = o.hinge !== 'b';
   return { hp: at(w, f, ha ? o.at : o.at + o.width, side * w.t / 2), ud: [f.u[0] * (ha ? 1 : -1), f.u[1] * (ha ? 1 : -1)], nd: [f.n[0] * side, f.n[1] * side] };
@@ -1453,16 +1480,19 @@ function render2D() {
       for (const [hs, ud] of [[o.at, 1], [o.at + o.width, -1]]) {
         const hp = at(w, f, hs, sd * w.t / 2), u = [f.u[0] * ud, f.u[1] * ud], nn = [f.n[0] * sd, f.n[1] * sd];
         let arc = ''; for (let i = 0; i <= 14; i++) { const th = i / 14 * Math.PI / 2; arc += `${i ? 'L' : 'M'}${n4(hp[0] + half * (nn[0] * Math.cos(th) + u[0] * Math.sin(th)))},${n4(hp[1] + half * (nn[1] * Math.cos(th) + u[1] * Math.sin(th)))}`; }
-        h += `<path d="${arc}L${n4(hp[0])},${n4(hp[1])}Z" fill="${sl ? '#2563eb22' : 'transparent'}"/><path class="ns" d="${arc}" fill="none" stroke="#8a909a" stroke-width="1" stroke-dasharray="4 3"/>`;
-        h += `<line class="ns" x1="${n4(hp[0])}" y1="${n4(hp[1])}" x2="${n4(hp[0] + nn[0] * half)}" y2="${n4(hp[1] + nn[1] * half)}" stroke="${col}" stroke-width="3"/>`;
+        h += `<path d="${arc}L${n4(hp[0])},${n4(hp[1])}Z" fill="${sl ? '#2563eb2e' : '#2563eb0d'}"/><path class="ns" d="${arc}" fill="none" stroke="${sl ? '#2563eb' : '#8a909a'}" stroke-width="1"/>`;
+        h += doorLeaf(hp, [hp[0] + nn[0] * half, hp[1] + nn[1] * half], u, col, sl);
       }
+      h += `<title>${esc(o.label ?? 'Porte double')} · ${cmTxt(o.width)} ${UNIT()}</title>` + opWidthLabel(w, f, o);
     } else if (o.type === 'door') {
       const g = doorGeom(w, f, o), e = [g.hp[0] + g.nd[0] * o.width, g.hp[1] + g.nd[1] * o.width];
       let arc = '';
       for (let i = 0; i <= 18; i++) { const th = i / 18 * Math.PI / 2; arc += `${i ? 'L' : 'M'}${n4(g.hp[0] + o.width * (g.nd[0] * Math.cos(th) + g.ud[0] * Math.sin(th)))},${n4(g.hp[1] + o.width * (g.nd[1] * Math.cos(th) + g.ud[1] * Math.sin(th)))}`; }
-      h += `<path d="${arc}L${n4(g.hp[0])},${n4(g.hp[1])}Z" fill="${sl ? '#2563eb22' : 'transparent'}"/><path class="ns" d="${arc}" fill="none" stroke="#8a909a" stroke-width="1" stroke-dasharray="4 3"/>`;
-      h += `<line class="ns" x1="${n4(g.hp[0])}" y1="${n4(g.hp[1])}" x2="${n4(e[0])}" y2="${n4(e[1])}" stroke="${o.main ? '#7a5a3a' : col}" stroke-width="3"/>`;
+      h += `<path d="${arc}L${n4(g.hp[0])},${n4(g.hp[1])}Z" fill="${sl ? '#2563eb2e' : '#2563eb0d'}"/><path class="ns" d="${arc}" fill="none" stroke="${sl ? '#2563eb' : '#8a909a'}" stroke-width="1"/>`;
+      h += doorLeaf(g.hp, e, g.ud, o.main ? '#7a5a3a' : col, sl);
+      h += `<title>${esc(o.label ?? 'Porte')} · ${cmTxt(o.width)} ${UNIT()} · double-clic pour changer le sens d’ouverture</title>` + opWidthLabel(w, f, o);
     } else if (o.type === 'window' || o.type === 'baie') {
+      h += `<title>${esc(o.label ?? OPS[o.type].label)} · ${cmTxt(o.width)} × ${cmTxt(o.height)} ${UNIT()}, allège ${cmTxt(o.sill || 0)} ${UNIT()}</title>` + opWidthLabel(w, f, o);
       for (const k of [-.35, 0, .35]) { const p1 = at(w, f, o.at, k * w.t), p2 = at(w, f, o.at + o.width, k * w.t); h += `<line class="ns" x1="${n4(p1[0])}" y1="${n4(p1[1])}" x2="${n4(p2[0])}" y2="${n4(p2[1])}" stroke="${sl ? 'var(--accent)' : '#3b82c4'}" stroke-width="1.4"/>`; }
     } else if (o.type === 'placard') {
       const m = o.at + o.width / 2;
@@ -1571,6 +1601,7 @@ function render2D() {
     h += `<circle cx="${n4(meas.a[0])}" cy="${n4(meas.a[1])}" r="${n4(3.5 * s)}" fill="var(--accent)"/>` + dimLine(meas.a[0], meas.a[1], b[0], b[1], `${cmTxt(Math.hypot(b[0] - meas.a[0], b[1] - meas.a[1]))} ${UNIT()}`);
   }
   G.innerHTML = h;
+  updateSelbar();
   if (!exportBox) document.getElementById('zoomPct').textContent = Math.round(.01 / view.s * 100) + ' %';
 }
 
@@ -1709,8 +1740,51 @@ svg.addEventListener('pointerleave', () => { cursor = null; hoverWall = null; if
 svg.addEventListener('dblclick', e => {
   if (tool === 'wall') { draw = null; schedule(false); return; }
   const el = e.target.closest('[data-kind="opening"]');
-  if (tool === 'select' && el) { const o = S.openings.find(x => x.id === el.dataset.id); if (o?.type === 'door') { sel = { kind: 'opening', id: o.id }; act('cycleDoor'); } }
+  if (tool === 'select' && el) { const o = S.openings.find(x => x.id === el.dataset.id); if (o?.type === 'door') { sel = { kind: 'opening', id: o.id }; act('cycleDoor'); } return; }
+  const tg = e.target.closest('[data-kind="tag"]');
+  if (tool === 'select' && tg) renameRoom(S.rooms.find(x => x.id === tg.dataset.id));
 });
+// Barre d'actions flottante au-dessus de la sélection
+const selbar = document.getElementById('selbar');
+function selBox() {
+  const o = resolveSel(); if (!o || !sel) return null;
+  if (sel.kind === 'item') { const f = fp(o); return { x0: f.x, y0: f.y, x1: f.x + f.w, y1: f.y + f.h }; }
+  if (sel.kind === 'wall' || sel.kind === 'opening') {
+    const w = sel.kind === 'wall' ? o : wallById(o.wall); if (!w) return null; const f = frame(w);
+    const pts = sel.kind === 'wall' ? [w.a, w.b] : [at(w, f, o.at, -w.t / 2), at(w, f, o.at + o.width, w.t / 2)];
+    if (sel.kind === 'wall' && sel.at != null) { const p = at(w, f, sel.at, 0); return { x0: p[0], y0: p[1], x1: p[0], y1: p[1] }; }
+    return { x0: Math.min(...pts.map(p => p[0])), y0: Math.min(...pts.map(p => p[1])), x1: Math.max(...pts.map(p => p[0])), y1: Math.max(...pts.map(p => p[1])) };
+  }
+  if (sel.kind === 'room' && o !== true) { const t = o.tags?.[0]; const x = t ? t.x : o.cx, y = t ? t.y : o.cy; return { x0: x, y0: y - .25, x1: x, y1: y + .15 }; }
+  return null;
+}
+function updateSelbar() {
+  const b = tool === 'select' && !(drag && down?.moved) && !exportBox ? selBox() : null;
+  if (!b) { selbar.hidden = true; return; }
+  const o = resolveSel(), B = (c, ic, l, cls = '') => `<button data-sb="${c}" class="${cls}" title="${l}">${ic}<span>${l}</span></button>`;
+  let html = '';
+  if (sel.kind === 'item') html = B('rotate', '↻', 'Pivoter') + B('dup', '⧉', 'Dupliquer') + B('color', '🎨', 'Couleur') + B('del', '🗑', 'Supprimer', 'danger');
+  else if (sel.kind === 'opening') html = (o.type === 'door' ? B('cycleDoor', '↻', 'Sens d’ouverture') : '') + B('dup', '⧉', 'Dupliquer') + B('del', '🗑', 'Supprimer', 'danger');
+  else if (sel.kind === 'wall') html = B('door', '🚪', 'Porte ici') + B('window', '🪟', 'Fenêtre ici') + B('split', '✂', 'Couper') + B('accent', '🎨', 'Accent') + B('del', '🗑', '', 'danger');
+  else if (sel.kind === 'room') { const r = o !== true ? o : null; if (!r?.tags?.[0]) { selbar.hidden = true; return; } html = B('styles', '🎨', 'Ambiance') + B('rename', '✏️', 'Renommer') + B('addHere', '＋', 'Meuble ici'); }
+  selbar.innerHTML = html;
+  const v = vb(), sx = ((b.x0 + b.x1) / 2 - v.x) / view.s, top = (b.y0 - v.y) / view.s, bot = (b.y1 - v.y) / view.s, W = v.r.width, H = v.r.height;
+  if (sx < 0 || sx > W || bot < 0 || top > H) { selbar.hidden = true; return; }
+  selbar.hidden = false;
+  const bh = selbar.offsetHeight || 40, bw = selbar.offsetWidth || 200;
+  selbar.style.left = clamp(sx, bw / 2 + 6, W - bw / 2 - 6) + 'px';
+  selbar.style.top = (top - bh - 14 > 4 ? top - bh - 14 : Math.min(H - bh - 6, bot + 14)) + 'px';
+}
+selbar.addEventListener('pointerdown', e => e.stopPropagation());
+selbar.addEventListener('click', e => {
+  const b = e.target.closest('[data-sb]'); if (!b) return; const c = b.dataset.sb;
+  if (['rotate', 'dup', 'del', 'cycleDoor', 'split'].includes(c)) return act(c);
+  if (c === 'color' || c === 'accent' || c === 'styles') { tab = 'sel'; renderPanel(); setTimeout(() => { const t = c === 'accent' ? panel.querySelector('select[data-key^="accent."]') : c === 'styles' ? panel.querySelector('.styles') : panel.querySelector('.cpick'); t?.scrollIntoView({ block: 'center', behavior: 'smooth' }); if (c === 'color') t?.click(); else if (c === 'accent') t?.focus(); }, 30); return; }
+  if (c === 'door' || c === 'window') { const w = resolveSel(), f = frame(w), p = at(w, f, sel.at ?? f.L / 2, 0); setTool(c); clickTool(p, null, null); setTool('select'); return; }
+  if (c === 'rename') { const r = resolveSel(); renameRoom(r?.tags?.[0]); return; }
+  if (c === 'addHere') { const r = resolveSel(), t = r?.tags?.[0]; if (t) { view.cx = t.x; view.cy = t.y; } document.getElementById('bCatalog').click(); }
+});
+function renameRoom(t) { if (!t) return; const n = prompt('Nom de la pièce :', t.name); if (n && n.trim()) { t.name = n.trim(); commit(); } }
 // pincement : zoom à deux doigts sur tablette et téléphone
 ML.attachPinch(svg, {
   start: () => { down = drag = pan = null; },
@@ -1950,7 +2024,8 @@ function act(a) {
     if (sel.kind === 'opening') S.openings = S.openings.filter(o => o !== obj);
     if (sel.kind === 'wall') { S.walls = S.walls.filter(w => w !== obj); S.openings = S.openings.filter(o => o.wall !== obj.id); }
     if (sel.kind === 'dim') S.dims = S.dims.filter(d => d !== obj);
-    sel = null; commit();
+    const what = sel.kind === 'item' ? `« ${obj.name} » supprimé` : sel.kind === 'wall' ? 'Mur supprimé' : sel.kind === 'opening' ? `${obj.label ?? OPS[obj.type].label} supprimée` : 'Cote supprimée';
+    sel = null; commit(); toast(what, 5000, { label: '↶ Annuler', fn: undo });
   } else if (a === 'rotate') {
     const f = fp(obj), cx = f.x + f.w / 2, cy = f.y + f.h / 2;
     obj.rot = (obj.rot + 90) % 360; const g = fp(obj); obj.x = r2(cx - g.w / 2); obj.y = r2(cy - g.h / 2); commit();
@@ -3135,6 +3210,7 @@ function renderImage(W, H) {
 }
 const ensure3D = () => { if (prefs.layout === 'plan') setLayout('split'); };
 // --- belle capture : rendu réaliste, ombres, sans sélection, grand format, signée
+const brandImg = new Image(); brandImg.src = 'img/logo-mark-128.png';
 function beautyShot() {
   ensure3D(); stopTour();
   const keepO = { real: opt.real, shadow: opt.shadow }, sel0 = sel; opt.real = true; opt.shadow = true; sel = null; dirty3D = true;
@@ -3144,7 +3220,7 @@ function beautyShot() {
   im.onload = () => {
     const c = document.createElement('canvas'); c.width = 2400; c.height = 1500; const g = c.getContext('2d'); g.drawImage(im, 0, 0);
     const gr = g.createLinearGradient(0, 1300, 0, 1500); gr.addColorStop(0, '#0000'); gr.addColorStop(1, '#0008'); g.fillStyle = gr; g.fillRect(0, 1300, 2400, 200);
-    g.fillStyle = '#fff'; g.font = '600 46px system-ui,sans-serif'; g.fillText(S.name, 56, 1430); g.font = '28px system-ui,sans-serif'; g.globalAlpha = .8; g.fillText('Conçu avec Moovo 3D', 56, 1470);
+    g.fillStyle = '#fff'; g.font = '600 46px system-ui,sans-serif'; g.fillText(S.name, 56, 1430); g.font = '28px system-ui,sans-serif'; g.globalAlpha = .8; g.fillText('Conçu avec Moovo 3D', 56, 1470); g.globalAlpha = 1; if (brandImg.complete && brandImg.naturalWidth) g.drawImage(brandImg, 2400 - 56 - 96, 1500 - 40 - 96, 96, 96);
     c.toBlob(b => download(b, slug(S.name) + '-rendu.png')); toast('📷 Belle capture enregistrée. Encadrement non fourni.');
   };
   im.src = url;
@@ -3280,7 +3356,11 @@ document.getElementById('bReset').onclick = () => {
 //  Application : notifications, menus, fichiers, versions, exports, réglages
 // =====================================================================
 let toastT = null;
-function toast(msg, ms = 2600) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms); }
+function toast(msg, ms = 2600, action = null) {
+  const t = document.getElementById('toast'); t.textContent = msg; t.classList.toggle('act', !!action);
+  if (action) { const b = document.createElement('button'); b.textContent = action.label; b.onclick = () => { t.classList.remove('show'); action.fn(); }; t.append(' ', b); }
+  t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms);
+}
 const slug = n => (n || 'appartement').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'appartement';
 const cleanJSON = () => JSON.stringify(S, (k, v) => k.startsWith('_') ? undefined : v, 2);
 function download(data, name, type) { const a = document.createElement('a'); a.href = typeof data === 'string' && data.startsWith('data:') ? data : URL.createObjectURL(data instanceof Blob ? data : new Blob([data], { type })); a.download = name; a.click(); }
@@ -3738,7 +3818,7 @@ document.getElementById('bCmd').onclick = openCmd;
 addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); e.stopPropagation(); cmdEl.hidden ? openCmd() : closeCmd(); } }, true);
 // --- guide de démarrage (affiché à la première ouverture, puis depuis l'aide)
 const TOUR = [
-  ['👋', 'Bienvenue dans Moovo 3D', 'Tu vas dessiner ton logement au centimètre près, le visiter en 3D, choisir couleurs et matériaux, puis obtenir un budget et un devis. Le tout sans poussière, sans bruit et sans voisin qui frappe au plafond. Ce guide prend une minute : moins qu’un débat sur la couleur du canapé.'],
+  ['<img src="img/logo-mark.png" width="72" height="72" alt="Moovo">', 'Bienvenue dans Moovo 3D', 'Tu vas dessiner ton logement au centimètre près, le visiter en 3D, choisir couleurs et matériaux, puis obtenir un budget et un devis. Le tout sans poussière, sans bruit et sans voisin qui frappe au plafond. Ce guide prend une minute : moins qu’un débat sur la couleur du canapé.'],
   ['📐', 'Le plan', 'À gauche, le plan vu de dessus. <b>Glisse un mur</b> pour le déplacer : les murs accrochés suivent, solidaires comme on aimerait que le soient tous les corps de métier. <b>Clique sur une cote soulignée</b> pour taper la valeur exacte. Molette = zoom, glisser le fond = se déplacer.'],
   ['🧱', 'Murs et ouvertures', 'Outil <b>Mur</b> (touche M) : clique le point de départ puis le point d’arrivée. Outils <b>Porte</b>, <b>Fenêtre</b>, <b>Baie</b> : clique sur un mur pour poser l’ouverture. Ici, abattre une cloison prend une seconde et ne remplit aucune benne. Profites-en : dans la vraie vie, c’est la dernière fois.'],
   ['🛋️', 'Meubles et équipements', 'Bouton <b>＋ Ajouter</b> (touche A) : plus de 100 objets avec recherche (canapé, lit, cuisine, salle de bain, prises…). Choisis une <b>taille standard</b> dans le panneau, touche <b>R</b> pour pivoter. Ils ne pèsent rien, ne rayent pas le parquet et passent toujours dans l’escalier.'],

@@ -1,6 +1,6 @@
 // Moovo 3D — mise en cache pour fonctionner hors connexion une fois l'application en ligne
-const CACHE = 'moovo3d-v4';
-const CORE = ['./', 'index.html', 'interieur.html', 'exterieur.html', 'moovo-core.js', 'moovo-lib.js', 'manifest.webmanifest', 'icon.svg'];
+const CACHE = 'moovo3d-v5';
+const CORE = ['./', 'index.html', 'interieur.html', 'exterieur.html', 'moovo-core.js', 'moovo-lib.js', 'manifest.webmanifest', 'img/logo-mark.png', 'img/logo-mark-128.png', 'img/favicon-32.png', 'img/favicon-64.png', 'img/icon-192.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 // réseau d'abord pour nos pages (toujours la dernière version), cache en secours ; cache d'abord pour la bibliothèque 3D

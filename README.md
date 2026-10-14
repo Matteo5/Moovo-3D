@@ -1,5 +1,7 @@
 # Moovo 3D — conception 3D, métré et devis dans le navigateur
 
+<img src="img/logo-full.png" alt="Moovo" width="260">
+
 Application 100 % navigateur (aucun serveur, aucune installation) pour :
 - **Intérieur** : plan coté au millimètre, cloisons, portes, sols, faïence, électricité (rappels NF C 15-100), budget travaux, devis.
 - **Extérieur & structures** : pergola, carport, abri, terrasse, hangar métallique, clôture ; sections bois/acier réelles, liste de débit optimisée, devis.

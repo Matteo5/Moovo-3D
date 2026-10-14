@@ -4,13 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Moovo 3D · Extérieur & structures</title>
-<link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg"><meta name="theme-color" content="#0f766e">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png">
+<link rel="icon" type="image/png" sizes="64x64" href="img/favicon-64.png">
+<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+<meta name="theme-color" content="#6d4fd8">
 <style>
-  :root{--bg:#eef0f3;--panel:#fff;--ink:#1b1f27;--muted:#5d6678;--line:#e1e5eb;--line2:#cfd5de;--accent:#0f766e;--accent2:#2563eb;--accent-weak:#e6f5f2;--danger:#b42318;--warn:#9a5b00;--warn-bg:#fff6e5;--aside:470px;--v3h:52%;--shadow:0 8px 30px #0f172a1f}
+  :root{--bg:#eef0f3;--panel:#fff;--ink:#1b1f27;--muted:#5d6678;--line:#e1e5eb;--line2:#cfd5de;--accent:#6d4fd8;--accent2:#2563eb;--accent-weak:#f0ecfd;--danger:#b42318;--warn:#9a5b00;--warn-bg:#fff6e5;--aside:470px;--v3h:52%;--shadow:0 8px 30px #0f172a1f}
   *{box-sizing:border-box} html,body{margin:0;height:100%}
   body{display:grid;grid-template-rows:auto 1fr;height:100vh;overflow:hidden;background:var(--bg);color:var(--ink);font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
   header{display:flex;align-items:center;gap:8px;padding:7px 12px;background:var(--panel);border-bottom:1px solid var(--line);position:relative;z-index:30}
-  .brand{font-size:15px;display:flex;gap:6px;align-items:center;color:var(--accent);text-decoration:none} .brand b{color:var(--ink)}
+  .brand{display:flex;gap:7px;align-items:center;text-decoration:none;color:#1e2f4f;font-weight:800;font-size:16px;letter-spacing:-.01em}
+  .brand img{width:26px;height:26px;display:block}
+  .brand .o2{background:linear-gradient(135deg,#7c4ddb,#22c3e6);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .brand small{font-size:10px;font-weight:700;color:#fff;background:linear-gradient(135deg,#2563eb,#7c4ddb);border-radius:5px;padding:1px 5px;letter-spacing:.03em}
   .projname{font:inherit;font-weight:600;border:1px solid transparent;border-radius:7px;padding:4px 8px;background:transparent;color:var(--ink);width:230px}
   .projname:hover{border-color:var(--line)} .projname:focus{outline:none;border-color:var(--accent);background:#fff}
   .savestate{font-size:12px;color:#15803d;white-space:nowrap}
@@ -105,7 +112,7 @@
   #mBody{padding:14px 16px 18px}
   #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:#1b1f27;color:#fff;padding:9px 16px;border-radius:999px;font-size:13px;opacity:0;pointer-events:none;transition:.25s;z-index:200}
   #toast.show{opacity:1;transform:translateX(-50%)}
-  .lbl3{font:600 11px system-ui;background:#ffffffe6;padding:3px 8px;border-radius:5px;pointer-events:none;white-space:nowrap;color:#0f766e}
+  .lbl3{font:600 11px system-ui;background:#ffffffe6;padding:3px 8px;border-radius:5px;pointer-events:none;white-space:nowrap;color:#6d4fd8}
   .ns{vector-effect:non-scaling-stroke}
   .g{stroke:#eceef1;stroke-width:1;vector-effect:non-scaling-stroke} .gM{stroke:#d3d8df;stroke-width:1;vector-effect:non-scaling-stroke}
   .t2{fill:#1f2937;paint-order:stroke;stroke:#ffffffd0;text-anchor:middle;dominant-baseline:middle;pointer-events:none}
@@ -122,7 +129,7 @@
 </head>
 <body class="layout-split">
 <header>
-  <a class="brand" href="index.html" title="Retour à mes projets">⌂ <b>Moovo 3D</b></a>
+  <a class="brand" href="index.html" title="Retour à mes projets"><img src="img/logo-mark-128.png" alt=""><span class="wm">Mo<span class="o2">o</span>vo</span> <small>3D</small></a>
   <input id="projName" class="projname" spellcheck="false">
   <span id="saveState" class="savestate"></span>
   <div class="menuwrap"><button id="bProj" class="ghost">Projet ▾</button>
@@ -267,7 +274,7 @@ const PANEL = {
   canisse: { l: 'Brise-vue canisse', price: 12, color: '#c8b48c', t: .01 },
 };
 const CLAD = new Set(['bardage', 'claireVoie', 'composite', 'fibre', 'claustra', 'canisse', 'bardacier']), ROOF = new Set(['bac', 'tuile', 'epdm']);
-const ROLES = { poteau: ['Poteau', '#2563eb'], poutre: ['Poutre / sablière', '#0f766e'], chevron: ['Chevron / panne', '#d97706'], solive: ['Solive / lambourde', '#7c3aed'], montant: ['Montant d’ossature', '#0891b2'], lisse: ['Lisse', '#65a30d'], contrev: ['Contreventement', '#dc2626'], lame: ['Lame', '#a16207'], plot: ['Plot / pied', '#475569'], autre: ['Autre', '#6b7280'] };
+const ROLES = { poteau: ['Poteau', '#2563eb'], poutre: ['Poutre / sablière', '#6d4fd8'], chevron: ['Chevron / panne', '#d97706'], solive: ['Solive / lambourde', '#7c3aed'], montant: ['Montant d’ossature', '#0891b2'], lisse: ['Lisse', '#65a30d'], contrev: ['Contreventement', '#dc2626'], lame: ['Lame', '#a16207'], plot: ['Plot / pied', '#475569'], autre: ['Autre', '#6b7280'] };
 
 // =====================================================================
 //  État, sauvegarde, historique
@@ -621,7 +628,7 @@ function render2D() {
   if (prefs.l.dims && S.members.length) {
     const pts = S.members.flatMap(m => corners(m).map(V.p)), xs = pts.map(q => q[0]), ys = pts.map(q => q[1]);
     const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
-    h += dimLine([x0, y1], [x1, y1], `${L(x1 - x0)}`, 26 * s, '#0f766e') + dimLine([x1, y0], [x1, y1], `${L(y1 - y0)}`, -26 * s, '#0f766e');
+    h += dimLine([x0, y1], [x1, y1], `${L(x1 - x0)}`, 26 * s, '#6d4fd8') + dimLine([x1, y0], [x1, y1], `${L(y1 - y0)}`, -26 * s, '#6d4fd8');
   }
   for (const d of S.dims) if (d.view === view) {
     const a = V.p(d.a), b = V.p(d.b), on = isSel('d', d.id);

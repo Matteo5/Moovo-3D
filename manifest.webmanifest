@@ -1,14 +1,16 @@
 {
   "name": "Moovo 3D — conception & devis",
-  "short_name": "Moovo 3D",
+  "short_name": "Moovo",
   "description": "Concevez en 3D un aménagement intérieur ou une structure extérieure, obtenez le métré et un devis.",
   "start_url": "index.html",
   "scope": ".",
   "display": "standalone",
-  "background_color": "#f4f5f8",
+  "background_color": "#ffffff",
   "theme_color": "#2563eb",
   "lang": "fr",
   "icons": [
-    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+    { "src": "img/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "img/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "img/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

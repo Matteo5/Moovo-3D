@@ -449,7 +449,7 @@
     prices: 'Les prix sont des moyennes de négoce en France : compare avec ton fournisseur, surtout pour le bois et l’acier dont les cours varient beaucoup.',
   };
   const EXT_TOUR = [
-    ['🏗️', 'Bienvenue dans l’atelier extérieur', 'Pergola, carport, abri, terrasse, hangar ou clôture : tu dessines la structure, la 3D suit, et le métré, la liste de débit et le devis se calculent seuls. Aucune scie n’a été allumée pendant la conception.'],
+    ['<img src="img/logo-mark.png" width="72" height="72" alt="Moovo">', 'Bienvenue dans l’atelier extérieur', 'Pergola, carport, abri, terrasse, hangar ou clôture : tu dessines la structure, la 3D suit, et le métré, la liste de débit et le devis se calculent seuls. Aucune scie n’a été allumée pendant la conception.'],
     ['✨', 'Les assistants', 'Bouton <b>Assistants</b> : quelques dimensions et la structure complète apparaît (poteaux, poutres, chevrons, couverture). Tu peux la régénérer ou la modifier barre par barre.'],
     ['📐', 'Dessiner à la main', 'Outils <b>Barre</b>, <b>Poteau</b> et <b>Panneau</b>. Les vues <b>Dessus</b>, <b>Face</b> et <b>Côté</b> servent à placer les éléments en hauteur. Les cotes soulignées se modifient au clavier.'],
     ['🎨', 'Teintes et bardages', 'Dans l’onglet <b>Sélection</b> (sans rien sélectionner), choisis une <b>ambiance</b> : bois naturel, nordique, contemporain… Puis affine chaque barre (lasure, RAL) et chaque panneau (bardage, sens des lames).'],

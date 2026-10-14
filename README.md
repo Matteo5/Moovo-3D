@@ -4,6 +4,13 @@ Application 100 % navigateur (aucun serveur, aucune installation) pour :
 - **Intérieur** : plan coté au millimètre, cloisons, portes, sols, faïence, électricité (rappels NF C 15-100), budget travaux, devis.
 - **Extérieur & structures** : pergola, carport, abri, terrasse, hangar métallique, clôture ; sections bois/acier réelles, liste de débit optimisée, devis.
 
+## Personnalisation & aide aux débutants
+- **Nuancier** sur tous les champs couleur : 69 teintes de peinture (références RAL et couleurs tendance) et 51 matières (bois, laqués, métal, tissus, pierre), couleurs récentes et couleur libre.
+- **10 ambiances** en un clic par pièce (scandinave, japandi, industriel, bohème, classique chic…) : murs, sol, plafond et couleurs du mobilier.
+- **12 revêtements muraux** texturés en 3D (peinture mat/velours/satin/brillant, chaux, béton ciré, papiers peints, lambris, tasseaux, brique, pierre, métro, zellige) et **22 sols** (parquets, carreaux de ciment, terrazzo, tomettes, travertin…).
+- **101 objets** au catalogue, avec tailles standard en un clic (lits, canapés, tables, douches…).
+- **Guide de démarrage** à la première ouverture, astuces contextuelles (désactivables), glossaire du bâtiment, liste des matériaux à acheter.
+
 ## Fichiers
 | Fichier | Rôle |
 |---|---|
@@ -11,6 +18,7 @@ Application 100 % navigateur (aucun serveur, aucune installation) pour :
 | `interieur.html` | Éditeur intérieur (plan 2D + 3D) |
 | `exterieur.html` | Éditeur de structures extérieures (vues dessus/face/côté + 3D) |
 | `moovo-core.js` | Commun : stockage des projets, fiche entreprise, devis imprimable, partage par lien |
+| `moovo-lib.js` | Commun : nuanciers, matières, revêtements et sols texturés, ambiances, astuces, glossaire, sélecteur de couleur |
 | `manifest.webmanifest`, `icon.svg`, `sw.js` | Installation comme une appli et fonctionnement hors connexion (une fois en ligne) |
 | `archives/` | Anciennes versions, gardées par sécurité |
 

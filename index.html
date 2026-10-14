@@ -49,6 +49,9 @@
   .new:hover{border-color:var(--accent);color:var(--accent)}
   .new span{font-size:34px;line-height:1}
   .empty{color:var(--muted)}
+  .tipday{display:flex;gap:10px;align-items:flex-start;background:#fff8e6;border:1px solid #f6e3b0;border-radius:14px;padding:12px 16px;margin:-12px 0 26px;color:#5c4400;font-size:14px}
+  .tipday b{color:#3d2e00;white-space:nowrap}
+  .tipday button{margin-left:auto;font-size:12.5px;padding:3px 10px;background:transparent;border-color:#f0d58f}
   .feat{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-top:34px}
   .feat div{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;font-size:14px;color:#3b4252}
   .feat b{display:block;color:var(--ink);margin-bottom:3px}
@@ -96,16 +99,20 @@
       <li>📐 Plans cotés au millimètre, cotes modifiables d’un clic</li>
       <li>🧱 Intérieur : cloisons, portes, électricité aux normes, budget travaux</li>
       <li>🪵 Extérieur : structures bois et acier, sections réelles, liste de débit</li>
+      <li>🎨 120 couleurs et matières réelles (références RAL), 10 ambiances déco, 22 sols, 12 revêtements muraux</li>
+      <li>🛋️ Plus de 100 objets 3D : séjour, chambre, cuisine, salle de bain, bureau, extérieur</li>
       <li>📄 Devis professionnel imprimable en PDF, aux mentions françaises</li>
     </ul>
   </section>
 
+  <div class="tipday" id="tipDay"></div>
   <h2>Mes projets <small id="count"></small></h2>
   <div class="grid" id="grid"></div>
 
   <div class="feat">
     <div><b>Vos données restent chez vous</b>Les projets sont enregistrés dans ce navigateur, avec des versions automatiques. Exportez un fichier pour les garder ou les ouvrir ailleurs.</div>
     <div><b>Partage par lien</b>Envoyez un projet à un client ou un collègue : il en reçoit une copie modifiable, sans compte.</div>
+    <div><b>Idéal pour débuter</b>Guide de démarrage, astuces de pro dans chaque panneau, glossaire du bâtiment, liste des matériaux à acheter calculée automatiquement.</div>
     <div><b>Pensé pour les artisans</b>Profil d’entreprise, numérotation des devis, TVA 20 / 10 / 5,5 %, acompte, assurance décennale, liste de débit à commander.</div>
   </div>
 </main>
@@ -140,9 +147,16 @@
 <div id="toast"></div>
 
 <script src="moovo-core.js"></script>
+<script src="moovo-lib.js"></script>
 <script>
 'use strict';
 const C = MoovoCore, $ = id => document.getElementById(id), esc = C.esc;
+// astuce du jour (bouton « Suivante » pour en lire d'autres)
+{
+  const T = MoovoLib.TIPS.general; let i = Math.floor(Date.now() / 864e5) % T.length;
+  const show = () => { $('tipDay').innerHTML = `<span>💡</span><div><b>Astuce du jour</b> · ${T[i]}</div><button id="tipNext">Suivante</button>`; $('tipNext').onclick = () => { i = (i + 1) % T.length; show(); }; };
+  show();
+}
 const TEMPLATES = {
   interior: [
     ['room', 'Pièce vide', '4,20 × 3,60 m, une porte, une fenêtre'],

@@ -105,6 +105,27 @@
   .f input[type=color]{padding:2px;height:34px}
   .chk{display:flex;gap:8px;align-items:flex-start;margin:7px 0;font-size:13px;cursor:pointer}
   .row{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+  .tipbox{margin-top:10px;padding:8px 10px;background:#fff8e6;border:1px solid #f6e3b0;border-radius:8px;font-size:12.5px;color:#5c4400;line-height:1.45}
+  .tipbox b{color:#3d2e00;margin-right:2px}
+  .styles{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .styles button{display:flex;flex-direction:column;align-items:flex-start;gap:5px;text-align:left;padding:7px 8px;font-size:12.5px}
+  .styles button.on{background:var(--accent-weak);border-color:var(--accent);color:var(--ink)}
+  .styles .sw{display:flex;width:100%;height:14px;border-radius:4px;overflow:hidden;border:1px solid #0001}
+  .styles .sw i{flex:1}
+  .dot{display:inline-block;width:12px;height:12px;border-radius:3px;border:1px solid #0002;vertical-align:-1px;margin-right:6px}
+  .tour{position:fixed;inset:0;z-index:150;background:#0f172a73;display:flex;align-items:center;justify-content:center;padding:16px}
+  .tour[hidden]{display:none}
+  .tour .tbox{background:#fff;border-radius:16px;box-shadow:var(--shadow);width:min(520px,100%);padding:22px 24px 18px}
+  .tour .tstep{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+  .tour h2{margin:6px 0 8px;font-size:20px}
+  .tour .tico{font-size:40px;line-height:1}
+  .tour p{margin:0 0 8px;color:#374151;line-height:1.5}
+  .tour .tdots{display:flex;gap:6px;margin:14px 0}
+  .tour .tdots i{width:8px;height:8px;border-radius:50%;background:var(--line2)}
+  .tour .tdots i.on{background:var(--accent)}
+  .tour .tnav{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .gloss dt{font-weight:600;margin-top:8px}
+  .gloss dd{margin:2px 0 0;color:#4b5563;font-size:13px}
   .swatches{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
   .swatches button{width:22px;height:22px;padding:0;border-radius:6px;border:1px solid #0002}
   .tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -287,9 +308,11 @@
   </aside>
 </main>
 <div id="toast"></div>
+<div id="tour" class="tour" hidden><div class="tbox" role="dialog" aria-modal="true"><div id="tourBody"></div><div class="tdots" id="tourDots"></div><div class="tnav"><button id="tourSkip" class="ghost">Passer le guide</button><div class="seg"><button id="tourPrev">← Précédent</button><button id="tourNext" class="primary">Suivant →</button></div></div></div></div>
 <div id="modal" class="modal" hidden><div class="mbox"><div class="mhead"><b id="mTitle"></b><button id="mClose" class="ghost">✕</button></div><div id="mBody"></div></div></div>
 
 <script src="moovo-core.js"></script>
+<script src="moovo-lib.js"></script>
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -374,15 +397,98 @@ const CAT = {
   island:     { label: 'Îlot central',             w: 1.80, d: .90, price: 1200, color: '#f3f1ec' },
   vmc:        { label: 'Bouche VMC',                   w: .15, d: .15, h: .03, price: 40, group: 'Chauffage & ventilation', elec: 'vmc', sym: 'V', color: '#94a3b8', ceil: true },
 };
-const ORDER = { coffrage: -1, rug: 0, shower: 1, bath: 1 };
-const CAT_GROUP = t => CAT[t]?.group ?? ({
+const ORDER = { coffrage: -1, rug: 0, rugRound: 0, shower: 1, bath: 1, walkIn: 1 };
+// Catalogue étendu (cg = rubrique du catalogue pour le mobilier libre)
+Object.assign(CAT, {
+  // Séjour
+  sofaCorner:  { label: 'Canapé d’angle',              w: 2.60, d: 1.60, price: 1300, color: '#8d9096', cg: 'Séjour' },
+  loveseat:    { label: 'Canapé 2 places',             w: 1.60, d: .88,  price: 650,  color: '#d9cfbf', cg: 'Séjour' },
+  pouf:        { label: 'Pouf',                        w: .50, d: .50, h: .42, price: 90, color: '#c9952f', cg: 'Séjour' },
+  coffeeTable: { label: 'Table basse',                 w: 1.10, d: .60, h: .40, price: 180, color: '#c19a6b', cg: 'Séjour' },
+  coffeeRound: { label: 'Table basse ronde',           w: .80, d: .80, h: .38, price: 160, color: '#d8b98a', cg: 'Séjour' },
+  roundTable:  { label: 'Table ronde',                 w: 1.10, d: 1.10, price: 350, color: '#c19a6b', chairs: true, cg: 'Séjour' },
+  sideboard:   { label: 'Buffet / enfilade',           w: 1.80, d: .45, h: .80, price: 450, color: '#8a6a4a', cg: 'Séjour' },
+  console:     { label: 'Console',                     w: 1.10, d: .35, h: .80, price: 150, color: '#1f2328', cg: 'Séjour' },
+  tvWall:      { label: 'TV murale',                   w: 1.25, d: .06, h: .72, elev: 1.00, price: 700, color: '#16171a', cg: 'Séjour' },
+  fireplace:   { label: 'Cheminée',                    w: 1.40, d: .45, h: 1.10, price: 2500, color: '#efe7da', cg: 'Séjour' },
+  stove:       { label: 'Poêle à bois / granulés',     w: .55, d: .50, h: 1.05, price: 2200, color: '#2a2b2d', cg: 'Séjour' },
+  piano:       { label: 'Piano droit',                 w: 1.50, d: .60, h: 1.25, price: 3000, color: '#141416', cg: 'Séjour' },
+  bench:       { label: 'Banc',                        w: 1.20, d: .38, h: .45, price: 120, color: '#c19a6b', cg: 'Séjour' },
+  rugRound:    { label: 'Tapis rond',                  w: 1.60, d: 1.60, price: 140, color: '#bfb6a8', cg: 'Séjour' },
+  // Décoration
+  mirror:      { label: 'Miroir mural',                w: .60, d: .03, h: 1.20, elev: .80, price: 120, color: '#b5a26a', cg: 'Décoration' },
+  mirrorFloor: { label: 'Miroir sur pied',             w: .60, d: .40, h: 1.80, price: 150, color: '#1f2328', cg: 'Décoration' },
+  artwork:     { label: 'Tableau / cadre',             w: .80, d: .03, h: .60, elev: 1.20, price: 80, color: '#1f5a63', cg: 'Décoration' },
+  curtain:     { label: 'Rideaux (paire)',             w: 1.60, d: .08, h: 2.40, price: 120, color: '#d9cfbf', cg: 'Décoration' },
+  plantTall:   { label: 'Grande plante (ficus)',       w: .60, d: .60, h: 1.80, price: 90, cg: 'Décoration' },
+  plantSmall:  { label: 'Petite plante en pot',        w: .30, d: .30, h: .50, price: 25, cg: 'Décoration' },
+  // Chambre
+  bed140:      { label: 'Lit double 140×190',          w: 1.40, d: 1.90, price: 450, color: '#d9cfbf', cg: 'Chambre' },
+  bed180:      { label: 'Lit king size 180×200',       w: 1.80, d: 2.00, price: 900, color: '#8d9096', cg: 'Chambre' },
+  bunk:        { label: 'Lits superposés',             w: .97, d: 2.00, h: 1.60, price: 450, color: '#e6dccb', cg: 'Chambre' },
+  crib:        { label: 'Lit bébé 60×120',             w: .66, d: 1.26, h: .90, price: 250, color: '#f4f4f2', cg: 'Chambre' },
+  dresser:     { label: 'Commode',                     w: 1.00, d: .50, h: .85, price: 300, color: '#f4f4f2', cg: 'Chambre' },
+  dressing:    { label: 'Dressing ouvert',             w: 2.00, d: .60, h: 2.20, price: 800, color: '#d8b98a', cg: 'Chambre' },
+  vanityTable: { label: 'Coiffeuse',                   w: 1.00, d: .45, h: .76, price: 250, color: '#f3f1ec', cg: 'Chambre' },
+  // Bureau
+  officeChair: { label: 'Fauteuil de bureau',          w: .62, d: .62, price: 220, color: '#1f2328', cg: 'Bureau' },
+  deskCorner:  { label: 'Bureau d’angle',              w: 1.60, d: 1.20, h: .75, price: 350, color: '#f4f4f2', cg: 'Bureau' },
+  filing:      { label: 'Caisson à tiroirs',           w: .42, d: .55, h: .62, price: 120, color: '#cfd0cd', cg: 'Bureau' },
+  // Cuisine
+  fridgeUS:    { label: 'Réfrigérateur américain',     w: .91, d: .75, h: 1.78, price: 1500, color: '#c9ced3', cg: 'Cuisine' },
+  tallUnit:    { label: 'Colonne de rangement',        w: .60, d: .60, h: 2.10, price: 450, color: '#f3f1ec', cg: 'Cuisine' },
+  microwave:   { label: 'Micro-ondes (sur plan)',      w: .50, d: .38, h: .30, elev: .90, price: 150, color: '#2a2b2d', cg: 'Cuisine' },
+  wineCooler:  { label: 'Cave à vin',                  w: .60, d: .60, h: 1.45, price: 700, color: '#1d1d1f', cg: 'Cuisine' },
+  barStool:    { label: 'Tabouret de bar',             w: .40, d: .40, h: .75, price: 90, color: '#1f2328', cg: 'Cuisine' },
+  bar:         { label: 'Comptoir / bar',              w: 1.60, d: .45, h: 1.05, price: 500, color: '#f3f1ec', cg: 'Cuisine' },
+  // Salle de bain
+  doubleVanity:{ label: 'Meuble double vasque',        w: 1.40, d: .48, h: .85, price: 900, color: '#c19a6b', cg: 'Salle de bain' },
+  bathFree:    { label: 'Baignoire îlot',              w: 1.70, d: .80, price: 1500, wet: true, cg: 'Salle de bain' },
+  walkIn:      { label: 'Douche à l’italienne',        w: 1.40, d: .90, price: 1800, wet: true, cg: 'Salle de bain' },
+  bathColumn:  { label: 'Colonne de salle de bain',    w: .40, d: .35, h: 1.70, price: 250, color: '#f4f4f2', cg: 'Salle de bain' },
+  handBasin:   { label: 'Lave-mains',                  w: .40, d: .25, h: .85, price: 180, cg: 'Salle de bain' },
+  // Entrée & rangement
+  coatRack:    { label: 'Porte-manteau',               w: .50, d: .50, h: 1.80, price: 60, color: '#1f2328', cg: 'Entrée & rangement' },
+  shoeCabinet: { label: 'Meuble à chaussures',         w: .80, d: .30, h: 1.00, price: 150, color: '#f4f4f2', cg: 'Entrée & rangement' },
+  storageUnit: { label: 'Étagère cubes',               w: 1.47, d: .39, h: 1.47, price: 120, color: '#f4f4f2', cg: 'Entrée & rangement' },
+  // Chauffage, eau chaude, climatisation
+  airCon:      { label: 'Climatisation murale (split)', w: .85, d: .25, h: .30, elev: 2.00, price: 1500, group: 'Chauffage & ventilation', color: '#f4f4f2' },
+  waterHeater: { label: 'Chauffe-eau / ballon 200 L',  w: .60, d: .60, h: 1.50, price: 900, color: '#f4f4f2', cg: 'Chauffage & ventilation' },
+  // Construction
+  stairs:      { label: 'Escalier droit',              w: .90, d: 3.20, price: 2500, color: '#c19a6b', cg: 'Construction' },
+  column:      { label: 'Poteau / colonne',            w: .25, d: .25, price: 300, color: '#efefea', cg: 'Construction' },
+  // Extérieur & balcon
+  lounger:     { label: 'Bain de soleil',              w: .65, d: 1.90, price: 150, color: '#e6dccb', cg: 'Extérieur & balcon' },
+  planter:     { label: 'Jardinière',                  w: 1.00, d: .40, h: .45, price: 70, color: '#55595f', cg: 'Extérieur & balcon' },
+  outdoorSet:  { label: 'Table de jardin + 4 chaises', w: 1.20, d: .80, price: 300, color: '#2f3234', chairs: true, cg: 'Extérieur & balcon' },
+});
+// Tailles standard proposées dans le panneau de l'objet : [largeur, profondeur, libellé]
+const SIZES = {
+  bed: [[.9, 1.9, '90×190'], [1.4, 1.9, '140×190'], [1.6, 2.0, '160×200'], [1.8, 2.0, '180×200']],
+  sofa: [[1.6, .88, '2 places'], [2.2, .9, '3 places'], [2.6, .95, '4 places']],
+  table: [[.8, .8, '2 pers.'], [1.2, .8, '4 pers.'], [1.6, .9, '6 pers.'], [2.2, 1.0, '8 pers.']],
+  roundTable: [[.9, .9, 'Ø 90 · 4'], [1.1, 1.1, 'Ø 110 · 5'], [1.3, 1.3, 'Ø 130 · 6']],
+  rug: [[1.2, 1.7, '120×170'], [1.6, 2.3, '160×230'], [2.0, 2.9, '200×290']],
+  rugRound: [[1.2, 1.2, 'Ø 120'], [1.6, 1.6, 'Ø 160'], [2.0, 2.0, 'Ø 200']],
+  wardrobe: [[.8, .6, '80 cm'], [1.0, .6, '1 m'], [1.5, .6, '1,50 m'], [2.0, .6, '2 m']],
+  desk: [[1.0, .5, '100×50'], [1.2, .6, '120×60'], [1.4, .7, '140×70']],
+  shower: [[.8, .8, '80×80'], [.9, .9, '90×90'], [1.2, .8, '120×80'], [1.2, .9, '120×90']],
+  walkIn: [[1.2, .9, '120×90'], [1.4, .9, '140×90'], [1.6, 1.0, '160×100']],
+  bath: [[1.6, .7, '160×70'], [1.7, .7, '170×70'], [1.8, .8, '180×80']],
+  counter: [[.6, .6, '60 cm'], [1.2, .6, '1,20 m'], [1.8, .6, '1,80 m'], [2.4, .6, '2,40 m']],
+  island: [[1.2, .9, '120×90'], [1.8, .9, '180×90'], [2.4, 1.0, '240×100']],
+  stairs: [[.8, 3.0, '80 cm'], [.9, 3.2, '90 cm'], [1.0, 3.4, '1 m']],
+};
+for (const k of ['bed90', 'bed140', 'bed180']) SIZES[k] = SIZES.bed;
+for (const k of ['loveseat']) SIZES[k] = SIZES.sofa;
+const CAT_GROUP = t => CAT[t]?.group ?? CAT[t]?.cg ?? ({
   bed: 'Chambre', bed90: 'Chambre', nightstand: 'Chambre', wardrobe: 'Chambre',
   sofa: 'Séjour', armchair: 'Séjour', tv: 'Séjour', rug: 'Séjour', table: 'Séjour', chair: 'Séjour', box: 'Séjour', bookcase: 'Séjour', shelf: 'Séjour', lamp: 'Séjour', plant: 'Séjour', desk: 'Séjour',
   counter: 'Cuisine', sink: 'Cuisine', hob: 'Cuisine', fridge: 'Cuisine', wallCabinet: 'Cuisine', oven: 'Cuisine', dishwasher: 'Cuisine', hood: 'Cuisine', island: 'Cuisine',
   shower: 'Salle de bain', bath: 'Salle de bain', vanity: 'Salle de bain', wc: 'Salle de bain', washer: 'Salle de bain', dryer: 'Salle de bain', towel: 'Salle de bain', glass: 'Salle de bain',
   halfwall: 'Construction', gaine: 'Construction',
 }[t] ?? 'Divers');
-const MOUNT = new Set(['shelf', 'wallCabinet', 'hood']);   // objets posés contre un mur en hauteur
+const MOUNT = new Set(['shelf', 'wallCabinet', 'hood', 'tvWall', 'mirror', 'artwork', 'curtain']);   // objets posés contre un mur en hauteur
 // Sols
 Object.assign(FLOORS, {
   parquetDark: { label: 'Parquet foncé',           color: '#b98f63' },
@@ -391,6 +497,8 @@ Object.assign(FLOORS, {
   marble:      { label: 'Marbre',                   color: '#efefee' },
   carpet:      { label: 'Moquette',                 color: '#cbc6be' },
 });
+const ML = window.MoovoLib;
+for (const [k, v] of Object.entries(ML.FLOORS_EXTRA)) FLOORS[k] = { label: v.label, color: v.color };
 const isElec = it => !!CAT[it.type]?.elec;
 // Prises / interrupteurs : elev = hauteur de l'AXE depuis le sol (c'est ainsi que la norme les donne)
 const PLATE = new Set(['socket', 'socketWork', 'socket20', 'socket32', 'switch', 'rj45']);
@@ -542,6 +650,9 @@ function migrate(st) {
   for (const [k, v] of Object.entries({ ceiling: 45, verriere: 650, coffrage: 55, demo: 35, wall: 50, newOpening: 350, door: 250, closeOpening: 150, paint: 12, tile: 50, misc: 0 })) st.prices[k] ??= v;
   st.prices.floor ??= {};
   for (const [k, v] of Object.entries({ parquet: 45, parquetDark: 55, chevron: 85, tile: 55, tileWarm: 55, tileLarge: 70, marble: 120, concrete: 35, carpet: 30 })) st.prices.floor[k] ??= v;
+  for (const [k, v] of Object.entries(ML.FLOORS_EXTRA)) st.prices.floor[k] ??= v.price;
+  st.prices.wallFinish ??= {};
+  for (const [k, v] of Object.entries(ML.WALL_FINISHES)) if (k !== 'paint') st.prices.wallFinish[k] ??= v.price;
   for (const t of st.rooms) t.works ??= { floor: false, paint: false, tile: false };
   return st;
 }
@@ -926,7 +1037,11 @@ function works() {
     if (t.works.floor) out.lines.push({ label: `Sol ${nm} (${FLOORS[t.floor]?.label ?? t.floor})`, qty: `${fm(st.area)} m²`, key: 'floor.' + t.floor, unit: '€/m²', total: st.area * (P.floor[t.floor] ?? 0), sec: 'Revêtements de sol', qn: st.area, un: 'm²', pu: P.floor[t.floor] ?? 0 });
     if (t.works.tile) out.lines.push({ label: `Faïence ${nm}`, qty: `${fm(st.tile)} m² (+10 % de chute à l’achat)`, key: 'tile', unit: '€/m²', total: st.tile * 1.1 * P.tile, sec: 'Faïence', qn: st.tile * 1.1, un: 'm²', pu: P.tile });
     if (t.ceiling) out.lines.push({ label: `Faux plafond ${nm} à ${cmTxt(st.H)} ${UNIT()}`, qty: `${fm(st.area)} m² (placo sur ossature)`, key: 'ceiling', unit: '€/m²', total: st.area * (P.ceiling ?? 45), sec: 'Plafonds', qn: st.area, un: 'm²', pu: P.ceiling ?? 45 });
-    if (t.works.paint) out.lines.push({ label: `Peinture ${nm}`, qty: `${fm(st.paint)} m² murs + plafond`, key: 'paint', unit: '€/m²', total: st.paint * P.paint, sec: 'Peinture', qn: st.paint, un: 'm²', pu: P.paint });
+    if (t.works.paint && t.wallFinish && ML.WALL_FINISHES[t.wallFinish]) {
+      const fin = t.wallFinish, wa = Math.max(0, st.paint - st.area), pu = P.wallFinish?.[fin] ?? ML.WALL_FINISHES[fin].price;
+      out.lines.push({ label: `${ML.WALL_FINISHES[fin].label} ${nm}`, qty: `${fm(wa)} m² de murs (+10 % de chute)`, key: 'wallFinish.' + fin, unit: '€/m²', total: wa * 1.1 * pu, sec: 'Revêtements muraux', qn: wa * 1.1, un: 'm²', pu });
+      out.lines.push({ label: `Peinture plafond ${nm}`, qty: `${fm(st.area)} m²`, key: 'paint', unit: '€/m²', total: st.area * P.paint, sec: 'Peinture', qn: st.area, un: 'm²', pu: P.paint });
+    } else if (t.works.paint) out.lines.push({ label: `Peinture ${nm}${t.paintColor ? ` (${ML.colorName(t.paintColor)}, ${ML.SHEENS[t.sheen ?? 'velours'].label.toLowerCase()})` : ''}`, qty: `${fm(st.paint)} m² murs + plafond`, key: 'paint', unit: '€/m²', total: st.paint * P.paint, sec: 'Peinture', qn: st.paint, un: 'm²', pu: P.paint });
   }
   const cof = S.items.filter(it => it.type === 'coffrage');
   if (cof.length) {
@@ -955,7 +1070,7 @@ const step = () => parseFloat(document.getElementById('snap').value);
 const snapV = v => r2(Math.round(v / step()) * step());
 let cursor = null, draw = null, meas = null, hoverWall = null;
 const layer = { dims: true, elec: false, furn: true };
-const FIXED = new Set(['counter', 'sink', 'hob', 'fridge', 'gaine', 'bath', 'shower', 'vanity', 'wc', 'halfwall', 'glass', 'towel', 'washer', 'dryer', 'coffrage', 'radiator']);
+const FIXED = new Set(['counter', 'sink', 'hob', 'fridge', 'gaine', 'bath', 'shower', 'vanity', 'wc', 'halfwall', 'glass', 'towel', 'washer', 'dryer', 'coffrage', 'radiator', 'stairs', 'column', 'walkIn', 'bathFree', 'doubleVanity', 'handBasin', 'fireplace', 'stove', 'waterHeater', 'fridgeUS', 'tallUnit', 'wineCooler']);
 const isFurniture = it => !FIXED.has(it.type) && !CAT[it.type]?.group;
 // Cote posée : lignes d'attache + ligne de cote décalée de d.off
 function placedDim(d, selected) {
@@ -997,6 +1112,7 @@ function doorGeom(w, f, o) {
   const side = o.side || 1, ha = o.hinge !== 'b';
   return { hp: at(w, f, ha ? o.at : o.at + o.width, side * w.t / 2), ud: [f.u[0] * (ha ? 1 : -1), f.u[1] * (ha ? 1 : -1)], nd: [f.n[0] * side, f.n[1] * side] };
 }
+const ROUND2D = new Set(['rugRound', 'roundTable', 'coffeeRound', 'pouf', 'plantTall', 'plantSmall', 'waterHeater', 'barStool', 'officeChair', 'coatRack']);
 function itemSym(it) {
   const c = CAT[it.type] ?? {}, w = it.w, d = it.d, x = -w / 2, y = -d / 2, s = view.s;
   const base = it.type === 'rug' ? (it.color ?? '#d8cfbf') : (it.color ?? ({ shower: '#d6e6f2', bath: '#e7eef3', gaine: '#aeb3ba', halfwall: '#b9bec6', glass: '#bfe3f5', counter: '#eeeae3', fridge: '#e9ecef', washer: '#e3e6ea', dryer: '#e3e6ea', wc: '#f6f6f6', vanity: '#dcc3a0', sink: '#c6ccd2', hob: '#2b2b2e' }[it.type] ?? c.color ?? '#d9d2c5'));
@@ -1011,7 +1127,23 @@ function itemSym(it) {
     return g;
   }
   let g = `<rect x="${n4(x)}" y="${n4(y)}" width="${n4(w)}" height="${n4(d)}" fill="${base}" fill-opacity="${it.type === 'rug' ? .55 : it.type === 'coffrage' ? .35 : .95}" ${st}${it.type === 'coffrage' ? ' stroke-dasharray="6 3"' : ''}/>`;
+  if (ROUND2D.has(it.type)) g = `<ellipse cx="0" cy="0" rx="${n4(w / 2)}" ry="${n4(d / 2)}" fill="${base}" fill-opacity="${it.type === 'rugRound' ? .55 : .95}" ${st}/>`;
   switch (it.type) {
+    case 'roundTable': if (it.chairs) { const r = Math.min(w, d) / 2, n = Math.max(2, Math.min(8, Math.round(2 * Math.PI * r / .6))); for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; g += `<rect x="${n4(Math.cos(a) * (r + .2) - .2)}" y="${n4(Math.sin(a) * (r + .2) - .2)}" width=".4" height=".4" fill="#9ca3af" fill-opacity=".6" ${st}/>`; } } break;
+    case 'plantTall': case 'plantSmall': case 'planter': g += `<circle r="${n4(Math.min(w, d) * .38)}" fill="#6aa56f" ${th}/>`; break;
+    case 'stairs': { const n = Math.max(2, Math.round(S.H / .175)); for (let i = 1; i < n; i++) g += `<line x1="${n4(x)}" y1="${n4(-y - i * d / n)}" x2="${n4(-x)}" y2="${n4(-y - i * d / n)}" ${th}/>`; g += `<path class="ns" d="M0,${n4(-y - .1)}L0,${n4(y + .2)}M${n4(-.08)},${n4(y + .32)}L0,${n4(y + .2)}L${n4(.08)},${n4(y + .32)}" stroke="#1f2937" stroke-width="1.4" fill="none"/>`; break; }
+    case 'sofaCorner': { const sd = Math.min(.95, d * .6); g = `<path d="M${n4(x)},${n4(y)}H${n4(-x)}V${n4(-y)}H${n4(-x - sd)}V${n4(y + sd)}H${n4(x)}Z" fill="${base}" ${st}/><path d="M${n4(x)},${n4(y + .22)}H${n4(-x - .22)}V${n4(-y)}" ${th}/>`; break; }
+    case 'deskCorner': { const dw = Math.min(.7, d * .55); g = `<path d="M${n4(x)},${n4(y)}H${n4(-x)}V${n4(y + dw)}H${n4(x + dw)}V${n4(-y)}H${n4(x)}Z" fill="${base}" ${st}/>`; break; }
+    case 'walkIn': g += `<path d="M${n4(x)},${n4(y)}L${n4(-x)},${n4(-y)}M${n4(-x)},${n4(y)}L${n4(x)},${n4(-y)}" ${th}/><line x1="${n4(-x)}" y1="${n4(y)}" x2="${n4(-x)}" y2="${n4(y + d * .7)}" stroke="#2563eb" stroke-width="2" class="ns"/>`; break;
+    case 'bathFree': g += `<ellipse cx="0" cy="0" rx="${n4(w / 2 - .07)}" ry="${n4(d / 2 - .07)}" fill="#fff" ${th}/>`; break;
+    case 'doubleVanity': for (const sx of [-1, 1]) g += `<ellipse cx="${n4(sx * w / 4)}" cy="${n4(d * .05)}" rx="${n4(w * .13)}" ry="${n4(d * .26)}" fill="#fff" ${th}/>`; break;
+    case 'handBasin': g += `<ellipse cx="0" cy="${n4(d * .05)}" rx="${n4(w * .36)}" ry="${n4(d * .3)}" fill="#fff" ${th}/>`; break;
+    case 'bed140': case 'bed180': case 'bunk': case 'crib': g += `<rect x="${n4(x + .05)}" y="${n4(y + .05)}" width="${n4(w - .1)}" height="${n4(Math.min(.3, d * .2))}" rx=".05" fill="#fff" ${th}/><line x1="${n4(x)}" y1="${n4(y + d * .26)}" x2="${n4(-x)}" y2="${n4(y + d * .26)}" ${th}/>`; break;
+    case 'loveseat': g += `<line x1="${n4(x)}" y1="${n4(y + .22)}" x2="${n4(-x)}" y2="${n4(y + .22)}" ${th}/>`; break;
+    case 'fireplace': case 'stove': g += `<rect x="${n4(-w * .27)}" y="${n4(-y - d * .35)}" width="${n4(w * .54)}" height="${n4(d * .3)}" fill="#f97316" fill-opacity=".7" ${th}/>`; break;
+    case 'tvWall': case 'mirror': case 'artwork': case 'curtain': case 'airCon': g += `<path d="M${n4(x)},${n4(y)}L${n4(-x)},${n4(-y)}" ${th} stroke-dasharray="3 2"/>`; break;
+    case 'dressing': case 'storageUnit': case 'sideboard': case 'dresser': case 'shoeCabinet': { const n = Math.max(2, Math.round(w / (it.type === 'dressing' ? .8 : .4))); for (let k = 1; k < n; k++) g += `<line x1="${n4(x + w * k / n)}" y1="${n4(y)}" x2="${n4(x + w * k / n)}" y2="${n4(-y)}" ${th}/>`; break; }
+    case 'outdoorSet': if (it.chairs) for (const sd of [-1, 1]) for (const t of [-.25, .25]) { const [cx, cy] = [t * w, sd * (d / 2 + .22)]; g += `<rect x="${n4(cx - .2)}" y="${n4(cy - .2)}" width=".4" height=".4" fill="#9ca3af" fill-opacity=".6" ${st}/>`; } break;
     case 'coffrage': g = `<rect x="${n4(x)}" y="${n4(y)}" width="${n4(w)}" height="${n4(d)}" fill="${it.color ?? '#a78bfa'}" fill-opacity=".28" stroke="#6d28d9" stroke-width="1.3" stroke-dasharray="6 3" class="ns"/><path class="ns" d="M${n4(x)},${n4(y)}L${n4(-x)},${n4(-y)}" stroke="#6d28d9" stroke-width=".8" stroke-dasharray="2 3"/>`; break;
     case 'plant': case 'lamp': g += `<circle r="${n4(Math.min(w, d) * .4)}" fill="${it.type === 'plant' ? '#6aa56f' : '#f3e6cf'}" ${th}/>`; break;
     case 'chair': case 'armchair': g += `<line x1="${n4(x)}" y1="${n4(y + d * .22)}" x2="${n4(-x)}" y2="${n4(y + d * .22)}" ${th}/>`; break;
@@ -1702,11 +1834,14 @@ function field(label, target, key, unit, val, cls = '', extra = '') {
   if (unit === 'text') { type = 'text'; ex = ''; }
   if (unit === 'color') { type = 'color'; ex = ''; }
   if (unit === 'num') ex = 'step="any"';
+  if (unit === 'color') return `<div class="f ${cls}"><span>${label}</span>${ML.pickerHTML(v || '#ffffff', `data-target="${target}" data-key="${key}" data-unit="color"`, target === 'item' ? 'furn' : 'paint')}</div>`;
   return `<label class="f ${cls}"><span>${label}</span><input type="${type}" ${ex} ${extra} data-target="${target}" data-key="${key}" data-unit="${unit}" value="${esc(v)}"></label>`;
 }
 const selectF = (label, target, key, val, opts, cls = '') => `<label class="f ${cls}"><span>${label}</span><select data-target="${target}" data-key="${key}" data-unit="sel">${opts.map(([v, l]) => `<option value="${v}"${v === val ? ' selected' : ''}>${l}</option>`).join('')}</select></label>`;
 const check = (label, target, key, val) => `<label class="chk"><input type="checkbox" data-target="${target}" data-key="${key}" data-unit="bool"${val ? ' checked' : ''}><span>${label}</span></label>`;
 
+// Astuces pour débutants (désactivables dans les réglages)
+const tipBox = (txt, title = 'Astuce') => prefs.tips === false || !txt ? '' : `<div class="tipbox"><b>💡 ${title}</b> ${txt}</div>`;
 function renderPanel() {
   if (panel.contains(document.activeElement) && document.activeElement.matches('input,select')) return;
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
@@ -1781,7 +1916,8 @@ function wallPanel(w) {
       <div class="row">${cs.map(c => `<button data-act="round" data-end="${c.end}" data-other="${c.o.id}" data-oend="${c.oend}">Arrondir l’angle avec ${esc(c.o.id)}</button>`).join('')}</div>` : ''; })()}
     <h4>De part et d’autre</h4><ul class="muted" style="margin:0;padding-left:18px">${sideTxt}</ul>
     <p class="muted">Déplacer le mur (glisser, flèches, ou champ « Position ») étire aussi les murs qui s’y accrochent. Le point de coupe est celui où tu as cliqué.</p>
-    <div class="row"><button data-act="split">Couper au point cliqué</button><button data-act="del" class="danger">Supprimer le mur</button></div>`;
+    <div class="row"><button data-act="split">Couper au point cliqué</button><button data-act="del" class="danger">Supprimer le mur</button></div>
+    ${tipBox(ML.TIPS.wall)}`;
 }
 function openingPanel(o) {
   const w = wallById(o.wall), door = o.type === 'door';
@@ -1802,7 +1938,8 @@ function openingPanel(o) {
       <div class="row" style="margin-top:0"><button data-act="cycleDoor" class="on">↻ Changer le sens (4 positions)</button></div>
       <div class="row"><button data-act="flipSide">Ouvrir de l’autre côté du mur <kbd>I</kbd></button><button data-act="flipHinge">Gonds de l’autre côté <kbd>G</kbd></button></div>
       <p class="muted">Raccourci : double-clic sur la porte dans le plan.</p>` : ''}
-    <div class="row"><button data-act="dup">Dupliquer</button><button data-act="del" class="danger">Supprimer</button></div>`;
+    <div class="row"><button data-act="dup">Dupliquer</button><button data-act="del" class="danger">Supprimer</button></div>
+    ${tipBox(ML.TIPS[o.type] ?? ML.TIPS.door)}`;
 }
 const NORMS = {
   socket: 'Axe à 5 cm minimum du sol (en pratique 25 à 30 cm). Aucune prise dans les volumes 0, 1 et 2 de la salle de bain (60 cm autour de la douche ou de la baignoire).',
@@ -1839,11 +1976,28 @@ function itemPanel(it) {
       ${field('Couleur', 'item', 'color', 'color', it.color ?? c.color ?? '#d9d2c5')}
     </div>
     ${it.color ? '<div class="row" style="margin-top:6px"><button data-act="resetColor">Couleur d’origine</button></div>' : ''}
+    ${SIZES[it.type] ? `<h4>Tailles standard</h4><div class="row" style="margin-top:0">${SIZES[it.type].map(([w2, d2, l]) => `<button data-act="setSize" data-w="${w2}" data-d="${d2}" class="${Math.abs(it.w - w2) < .005 && Math.abs(it.d - d2) < .005 ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}
     ${norm}
+    ${tipBox(ML.TIPS.byGroup[CAT_GROUP(it.type)] ?? ML.TIPS.item)}
     ${['shower', 'bath'].includes(it.type) ? check('Zone humide : faïence montée à la hauteur « zone humide » sur les murs qu’elle touche', 'item', 'wet', it.wet) : ''}
     ${it.type === 'table' ? check('Chaises autour', 'item', 'chairs', it.chairs) : ''}
     ${it.type === 'halfwall' ? check(`Verrière au-dessus, jusqu’au plafond (${cmTxt(S.H - itemH(it, 1.2))} ${UNIT()})`, 'item', 'glassAbove', !!it.glassAbove) : ''}
     <div class="row"><button data-act="rotate">↻ Pivoter (R)</button><button data-act="dup">Dupliquer</button><button data-act="del" class="danger">Supprimer</button></div>`;
+}
+// Ambiance : murs, sol, plafond et couleurs du mobilier de la pièce
+const STYLE_FABRIC = new Set(['sofa', 'sofaCorner', 'loveseat', 'armchair', 'bed', 'bed90', 'bed140', 'bed180', 'curtain', 'rug', 'rugRound', 'officeChair']);
+const STYLE_WOOD = new Set(['table', 'roundTable', 'coffeeTable', 'coffeeRound', 'desk', 'deskCorner', 'sideboard', 'nightstand', 'bookcase', 'shelf', 'bench', 'tv', 'box', 'wardrobe', 'dresser', 'console', 'dressing', 'vanity', 'doubleVanity', 'vanityTable', 'bunk', 'stairs']);
+const STYLE_ACCENT = new Set(['pouf', 'artwork', 'mirror', 'lamp', 'barStool', 'chair', 'coatRack', 'mirrorFloor']);
+function applyStyle(r, key) {
+  const st = ML.STYLES[key], t = r.tags[0];
+  t.style = key; t.wallFinish = st.finish === 'paint' ? null : st.finish; t.paintColor = st.wallColor ?? st.paint; t.sheen = st.finish === 'paint' ? 'velours' : null;
+  t.floor = st.floor; t.floorTint = null; t.ceilColor = st.ceil;
+  for (const it of S.items) {
+    if (it._r !== r.id) continue;
+    if (STYLE_FABRIC.has(it.type)) it.color = it.type.startsWith('rug') ? st.accent : st.fabric;
+    else if (STYLE_WOOD.has(it.type)) it.color = st.wood;
+    else if (STYLE_ACCENT.has(it.type)) it.color = st.accent;
+  }
 }
 function roomPanel(r) {
   if (!r) return `<h3>Hors pièce</h3><p class="muted">Ce point n’est pas dans une pièce fermée.</p>`;
@@ -1852,22 +2006,35 @@ function roomPanel(r) {
   return `<h3>${esc(roomName(r))}</h3><div class="muted">${fm(r.area)} m² · périmètre ${fm(r.perim)} m · murs ${fm(st.wallNet)} m² nets</div>
     ${t ? `<div class="grid2">
         ${field('Nom', 'tag', 'name', 'text', t.name, 'full')}
-        ${selectF('Sol', 'tag', 'floor', t.floor, Object.entries(FLOORS).map(([k, v]) => [k, v.label]), 'full')}
-        ${field('Couleur des murs (peinture)', 'tag', 'paintColor', 'color', t.paintColor ?? '#f5f2ed')}
-        ${field('Teinte du sol', 'tag', 'floorTint', 'color', t.floorTint ?? '#ffffff')}
+      </div>
+      ${tipBox(ML.TIPS.byRoom[roomType(t.name)], 'Conseil pour cette pièce')}
+      <h4>Ambiance en un clic</h4>
+      <div class="styles">${Object.entries(ML.STYLES).map(([k, v]) => `<button data-act="applyStyle" data-style="${k}" title="${esc(v.desc)}" class="${t.style === k ? 'on' : ''}"><span class="sw">${[v.wallColor ?? v.paint, v.wood, v.fabric, v.accent].map(c => `<i style="background:${c}"></i>`).join('')}</span>${v.label}</button>`).join('')}</div>
+      <p class="muted" style="margin:6px 0 0">Applique murs, sol, plafond et couleurs du mobilier de la pièce. Tout reste modifiable ensuite (et Ctrl+Z annule).</p>
+      <h4>Murs</h4>
+      <div class="grid2">
+        ${selectF('Revêtement', 'tag', 'wallFinish', t.wallFinish ?? 'paint', Object.entries(ML.WALL_FINISHES).map(([k, v]) => [k, v.label]), 'full')}
+        ${field((t.wallFinish ?? 'paint') === 'paint' ? 'Couleur de peinture' : 'Teinte du revêtement', 'tag', 'paintColor', 'color', t.paintColor ?? S.settings.wallColor)}
+        ${(t.wallFinish ?? 'paint') === 'paint' ? selectF('Finition', 'tag', 'sheen', t.sheen ?? 'velours', Object.entries(ML.SHEENS).map(([k, v]) => [k, v.label])) : ''}
+      </div>
+      ${tipBox(ML.WALL_FINISHES[t.wallFinish ?? 'paint']?.tip, ML.WALL_FINISHES[t.wallFinish ?? 'paint']?.label)}
+      <h4>Sol</h4>
+      <div class="grid2">
+        ${selectF('Revêtement de sol', 'tag', 'floor', t.floor, Object.entries(FLOORS).map(([k, v]) => [k, v.label]), 'full')}
+        ${field('Teinte du sol (blanc = naturel)', 'tag', 'floorTint', 'color', t.floorTint ?? '#ffffff')}
         ${field('Couleur du plafond', 'tag', 'ceilColor', 'color', t.ceilColor ?? S.settings.ceilColor)}
-        ${field('Couleur de la faïence', 'tag', 'tileColor', 'color', t.tileColor ?? S.settings.tileColor)}
+        ${field('Couleur de la faïence', 'tag', 'tileColor', 'color', t.tileColor ?? S.settings.tileColor, 'full')}
       </div>
-      ${t.paintColor || t.floorTint || t.ceilColor || t.tileColor ? '<div class="row" style="margin-top:6px"><button data-act="resetRoomColors">Couleurs d’origine</button></div>' : ''}
-      <div>
-      </div>
+      ${tipBox(ML.FLOOR_TIPS[t.floor], FLOORS[t.floor]?.label)}
+      ${t.paintColor || t.floorTint || t.ceilColor || t.tileColor || t.wallFinish ? '<div class="row" style="margin-top:6px"><button data-act="resetRoomColors">Couleurs et revêtements d’origine</button></div>' : ''}
       <h4>Faux plafond</h4>
       ${check(`Faux plafond dans cette pièce${t.ceiling ? ` (${fm(r.area)} m²)` : ''}`, 'tag', 'fp', !!t.ceiling)}
       ${t.ceiling ? `<div class="grid2">${field('Hauteur sous faux plafond (cm)', 'tag', 'ceiling', 'cm', t.ceiling)}</div>` : ''}
       <h4>Travaux prévus dans cette pièce</h4>
       ${check(`Refaire le sol (${fm(r.area)} m²)`, 'tag', 'works.floor', t.works.floor)}
       ${check(`Faïence${t.works.tile ? ` (${fm(st.tile)} m²)` : ''}`, 'tag', 'works.tile', t.works.tile)}
-      ${check(`Peinture murs + plafond${t.works.paint ? ` (${fm(st.paint)} m²)` : ''}`, 'tag', 'works.paint', t.works.paint)}
+      ${check(`${(t.wallFinish ?? 'paint') === 'paint' ? 'Peinture murs + plafond' : `${ML.WALL_FINISHES[t.wallFinish].label} sur les murs + peinture du plafond`}${t.works.paint ? ` (${fm(st.paint)} m²)` : ''}`, 'tag', 'works.paint', t.works.paint)}
+      ${t.works.paint ? `<p class="muted" style="margin:0 0 0 26px">≈ ${Math.ceil(st.paint * 2 / 10)} L de peinture pour 2 couches (10 m²/L).</p>` : ''}
       ${r.tags.length > 1 ? `<div class="warn">Cette pièce porte plusieurs noms (des murs ont été retirés) : ${r.tags.map(x => `${esc(x.name)} <button data-act="deltag" data-id="${x.id}">retirer</button>`).join(' · ')}</div>` : ''}
       <div class="row"><button data-act="deltag" data-id="${t.id}" class="danger">Retirer le nom</button></div>`
     : `<p class="muted">Cette pièce n’a pas encore de nom (souvent après l’ajout d’une cloison).</p>
@@ -1878,7 +2045,9 @@ function roomPanel(r) {
 function generalPanel() {
   const st = S.settings;
   return `<h3>${esc(S.name)}</h3><div class="muted">Clique un mur, une ouverture, un objet ou une pièce pour le modifier. Clique une <b>cote soulignée</b> pour taper sa valeur exacte.</div>
-    <div class="row"><button data-act="openSettings">⚙ Réglages</button><button data-act="openVersions">🕘 Versions</button><button data-act="openHelp">? Raccourcis</button></div>
+    <div class="row"><button data-act="openSettings">⚙ Réglages</button><button data-act="openVersions">🕘 Versions</button><button data-act="openHelp">? Aide &amp; glossaire</button><button data-act="startTour">🎓 Guide de démarrage</button></div>
+    ${tipBox(ML.tipOfDay(), 'Astuce du jour')}
+    ${tipBox(ML.TIPS.room)}
     <div class="grid2">
       ${field('Hauteur sous plafond (cm)', 'root', 'H', 'cm', S.H)}
       ${field('Épaisseur des nouvelles cloisons (cm)', 'settings', 'defaultT', 'cm', st.defaultT)}
@@ -1983,11 +2152,12 @@ function elecPanel() {
       <tr><td>Salle de bain, volume 1</td><td class="n">au-dessus du bac, jusqu’à 2,25 m</td></tr>
       <tr><td>Salle de bain, volume 2</td><td class="n">60 cm autour du volume 1</td></tr>
     </tbody></table>
-    <p class="muted">Résumé simplifié de la norme NF C 15-100 pour t’aider à préparer le projet. Elle évolue et comporte d’autres règles (circuits, sections, différentiels) : fais valider l’installation par un électricien.</p>`;
+    <p class="muted">Résumé simplifié de la norme NF C 15-100 pour t’aider à préparer le projet. Elle évolue et comporte d’autres règles (circuits, sections, différentiels) : fais valider l’installation par un électricien.</p>
+    ${tipBox(ML.TIPS.elec)}`;
 }
 function worksPanel() {
   const W = works(), P = S.prices, d = W.diff;
-  const priceInput = l => l.key ? `<input type="number" step="any" data-target="price" data-key="${l.key}" data-unit="num" value="${l.key.startsWith('floor.') ? P.floor[l.key.slice(6)] ?? 0 : P[l.key] ?? 0}"> ${l.unit}` : '';
+  const priceInput = l => l.key ? `<input type="number" step="any" data-target="price" data-key="${l.key}" data-unit="num" value="${l.key.startsWith('floor.') ? P.floor[l.key.slice(6)] ?? 0 : l.key.startsWith('wallFinish.') ? P.wallFinish?.[l.key.slice(11)] ?? 0 : P[l.key] ?? 0}"> ${l.unit}` : '';
   const rows = W.lines.map(l => `<tr><td>${esc(l.label)}<div class="muted">${esc(l.qty)}</div></td><td class="n">${priceInput(l)}</td><td class="n">${eur(l.total)}</td></tr>`).join('') || `<tr><td colspan="3" class="muted">Aucun travaux pour l’instant : modifie le plan ou coche des travaux dans une pièce.</td></tr>`;
   const roomRows = W.rooms.map(({ r, st }) => { const t = st.tag; return `<tr><td>${esc(roomName(r))}<div class="muted">${fm(st.area)} m²</div></td>
       <td class="c"><input type="checkbox" data-target="tagid" data-id="${t.id}" data-key="works.floor" data-unit="bool"${t.works.floor ? ' checked' : ''}></td>
@@ -2014,7 +2184,33 @@ function worksPanel() {
       ${field('Faïence zone humide (cm)', 'settings', 'wetH', 'cm', S.settings.wetH)}
       ${field('Hauteur sous plafond (cm)', 'root', 'H', 'cm', S.H)}
     </div>
-    <p class="muted">Prix indicatifs (fourniture + pose), à remplacer par tes devis. Les démolitions et créations se calculent en comparant au plan d’origine. Les équipements comptent s’ils ont un prix.</p>`;
+    ${shoppingList(W)}
+    <p class="muted">Prix indicatifs (fourniture + pose), à remplacer par tes devis. Les démolitions et créations se calculent en comparant au plan d’origine. Les équipements comptent s’ils ont un prix.</p>
+    ${tipBox(ML.TIPS.works)}`;
+}
+// Liste d'achats : quantités de matériaux à commander pour les travaux cochés
+function shoppingList(W) {
+  const floors = {}, paints = {}, finishes = {}; let tile = 0;
+  for (const { r, st } of W.rooms) {
+    const t = st.tag;
+    if (t.works.floor) floors[t.floor] = (floors[t.floor] ?? 0) + st.area;
+    if (t.works.tile) tile += st.tile;
+    if (t.works.paint) {
+      const ceil = t.ceilColor ?? S.settings.ceilColor; paints[ceil] = (paints[ceil] ?? 0) + st.area;
+      const wa = Math.max(0, st.paint - st.area);
+      if (t.wallFinish) finishes[t.wallFinish] = (finishes[t.wallFinish] ?? 0) + wa;
+      else { const c = t.paintColor ?? S.settings.wallColor; paints[c] = (paints[c] ?? 0) + wa; }
+    }
+    void r;
+  }
+  const rows = [
+    ...Object.entries(floors).map(([k, a]) => [`Sol : ${FLOORS[k]?.label ?? k}`, `${fm(a * 1.1, 1)} m²`, '+10 % de chute']),
+    ...(tile ? [[`Faïence (${ML.colorName(S.settings.tileColor)})`, `${fm(tile * 1.1, 1)} m²`, '+10 % de chute']] : []),
+    ...Object.entries(finishes).map(([k, a]) => [ML.WALL_FINISHES[k].label, `${fm(a * 1.1, 1)} m²`, '+10 % de chute']),
+    ...Object.entries(paints).map(([c, a]) => [`<span class="dot" style="background:${c}"></span>Peinture ${esc(ML.colorName(c))}`, `${Math.ceil(a * 2 / 10)} L`, `${fm(a, 1)} m² × 2 couches`]),
+  ];
+  if (!rows.length) return '';
+  return `<h4>Matériaux à acheter</h4><table><tbody>${rows.map(([a, b, c]) => `<tr><td>${a}<div class="muted">${c}</div></td><td class="n">${b}</td></tr>`).join('')}</tbody></table>`;
 }
 function setPath(o, path, v) { const k = path.split('.'); let x = o; for (let i = 0; i < k.length - 1; i++) x = x[k[i]]; x[k.at(-1)] = v; }
 function onFieldChange(e) {
@@ -2046,6 +2242,7 @@ function onFieldChange(e) {
     if (tg) {
       if (key === 'fp') tg.ceiling = v ? r2(Math.min(2.30, S.H - .1)) : null;
       else if (key === 'ceiling') tg.ceiling = v == null ? null : r2(clamp(v, 1.8, S.H));
+      else if (key === 'wallFinish') { tg.wallFinish = v === 'paint' ? null : v; if (ML.WALL_DEFAULT_COLOR[v]) tg.paintColor = ML.WALL_DEFAULT_COLOR[v]; tg.style = null; }
       else setPath(tg, key, v);
     }
   }
@@ -2053,7 +2250,7 @@ function onFieldChange(e) {
   else if (target === 'settings') S.settings[key] = v;
   else if (target === 'root') S[key] = key === 'H' ? clamp(v, 1.8, 5) : v;
   else if (target === 'prefs') { prefs[key] = v; savePrefs(); syncPrefsUI(); }
-  else if (target === 'price') { if (key.startsWith('floor.')) S.prices.floor[key.slice(6)] = v; else S.prices[key] = v; }
+  else if (target === 'price') { if (key.startsWith('floor.')) S.prices.floor[key.slice(6)] = v; else if (key.startsWith('wallFinish.')) S.prices.wallFinish[key.slice(11)] = v; else S.prices[key] = v; }
   t.blur(); commit();
   if (!document.getElementById('modal').hidden && modalKind === 'settings') openSettings();
 }
@@ -2070,7 +2267,10 @@ panel.addEventListener('click', e => {
     if (a === 'openVersions') return openVersions();
     if (a === 'openHelp') return openHelp();
     if (a === 'selItem') { setSel({ kind: 'item', id: b.dataset.id }); return; }
-    if (a === 'resetRoomColors') { const t = resolveSel()?.tags?.[0]; if (t) { t.paintColor = null; t.floorTint = null; t.ceilColor = null; t.tileColor = null; commit(); } return; }
+    if (a === 'resetRoomColors') { const t = resolveSel()?.tags?.[0]; if (t) { t.paintColor = null; t.floorTint = null; t.ceilColor = null; t.tileColor = null; t.wallFinish = null; t.sheen = null; t.style = null; commit(); } return; }
+    if (a === 'applyStyle') { const r = resolveSel(); if (r && r !== true && r.tags?.[0]) { applyStyle(r, b.dataset.style); commit(); toast(`Ambiance « ${ML.STYLES[b.dataset.style].label} » appliquée`); } return; }
+    if (a === 'setSize') { const it = resolveSel(); if (it) { const f0 = fp(it), cx = f0.x + f0.w / 2, cy = f0.y + f0.h / 2; it.w = +b.dataset.w; it.d = +b.dataset.d; const f1 = fp(it); it.x = r2(cx - f1.w / 2); it.y = r2(cy - f1.h / 2); commit(); } return; }
+    if (a === 'startTour') return startTour();
     if (a === 'clearDims') { S.dims = []; sel = null; commit(); return; }
     if (a === 'round') { const w = resolveSel(), o = wallById(b.dataset.other); if (w && o) roundCorner(w, b.dataset.end, o, b.dataset.oend, roundR); return; }
     if (a === 'newtag') {
@@ -2149,6 +2349,19 @@ const TEX = {
   carpet: canvasTex(g => { const r = rng(37); g.fillStyle = '#c9c3ba'; g.fillRect(0, 0, 512, 512); for (let i = 0; i < 9000; i++) { g.fillStyle = `rgba(${r() > .5 ? '255,255,255' : '0,0,0'},${r() * .06})`; g.fillRect(r() * 512, r() * 512, 2, 2); } }, .8),
   concrete: canvasTex(g => { const r = rng(5); g.fillStyle = '#cfcfcc'; g.fillRect(0, 0, 512, 512); for (let i = 0; i < 2500; i++) { g.fillStyle = `rgba(0,0,0,${r() * .05})`; g.fillRect(r() * 512, r() * 512, 3, 3); } }, 2),
 };
+for (const [k, draw] of Object.entries(ML.FLOOR_DRAW)) TEX[k] = canvasTex(draw, ML.FLOORS_EXTRA[k]?.size ?? 1.2);
+// Revêtements muraux texturés (uv en mètres) : une texture par couple revêtement + couleur
+const _wf = new Map();
+function wallFinishMat(t) {
+  const fin = t.wallFinish ?? 'paint', col = t.paintColor ?? S.settings.wallColor;
+  if (fin === 'paint' || !ML.WALL_DRAW[fin] || !opt.tex) return M(col, { roughness: ML.SHEENS[t.sheen ?? 'velours']?.rough ?? .9 });
+  const k = fin + col;
+  if (!_wf.has(k)) {
+    const tx = canvasTex(g => ML.WALL_DRAW[fin](g, col), 1); tx.repeat.set(1 / (ML.WALL_FINISHES[fin].size ?? 1), 1 / (ML.WALL_FINISHES[fin].size ?? 1));
+    _wf.set(k, new THREE.MeshStandardMaterial({ map: tx, roughness: ['subway', 'zellige'].includes(fin) ? .3 : .9 }));
+  }
+  return _wf.get(k);
+}
 const _tt = new Map();
 function wallTileTex(color) {
   if (_tt.has(color)) return _tt.get(color);
@@ -2286,6 +2499,102 @@ Object.assign(B3, {
     for (let i = 0; i < n; i++) add3(g, it.w / n * .7, h, it.d, -it.w / 2 + (i + .5) * it.w / n, e, 0, m);
     add3(g, it.w, .03, it.d * .6, 0, e + h * .1, 0, m); add3(g, it.w, .03, it.d * .6, 0, e + h * .85, 0, m);
   },
+});
+
+// --- Catalogue étendu
+const cyl3 = (g, rt, rb, h, x, y0, z, m, seg = 24) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), m); o.position.set(x, y0 + h / 2, z); g.add(o); return o; };
+const legs4 = (g, w, d, h, m, inset = .05, t = .04) => { for (const sx of [-1, 1]) for (const sz of [-1, 1]) add3(g, t, h, t, sx * (w / 2 - inset), 0, sz * (d / 2 - inset), m); };
+const MIRROR = () => M('#dfe9ef', { metalness: .9, roughness: .05 });
+const foliage = (g, x, y, z, r, n = 6, seed = 1) => { const rr = rng(seed * 97 + 13); for (let i = 0; i < n; i++) { const b = new THREE.Mesh(new THREE.SphereGeometry(r * (.45 + rr() * .3), 12, 9), M(['#3f7d4a', '#4f9158', '#356b3f', '#5c9a5f'][i % 4], { roughness: .9 })); b.position.set(x + (rr() - .5) * r, y + (rr() - .3) * r * .9, z + (rr() - .5) * r); g.add(b); } };
+Object.assign(B3, {
+  sofaCorner: (g, it) => {
+    const f = M(it.color ?? '#8d9096'), W = it.w, D = it.d, sd = Math.min(.95, D * .6);
+    add3(g, W, .42, sd, 0, 0, -D / 2 + sd / 2, f); add3(g, W, .82, .22, 0, 0, -D / 2 + .11, f);
+    add3(g, sd, .42, D - sd, W / 2 - sd / 2, 0, sd / 2, f); add3(g, .22, .82, D, -W / 2 + .11, 0, 0, f);
+    add3(g, sd, .62, .2, W / 2 - sd / 2, 0, D / 2 - .1, f);
+    for (let i = 0; i < 3; i++) add3(g, .45, .38, .14, -W / 2 + .5 + i * .55, .42, -D / 2 + .3, M(['#d9cfbf', '#c9952f', '#efe9df'][i]));
+  },
+  loveseat: (g, it) => { B3.sofa(g, it); add3(g, .42, .36, .14, -it.w / 4, .42, -it.d / 2 + .3, M('#efe9df')); add3(g, .42, .36, .14, it.w / 4, .42, -it.d / 2 + .3, M('#c9952f')); },
+  pouf: (g, it) => cyl3(g, Math.min(it.w, it.d) / 2, Math.min(it.w, it.d) / 2, itemH(it, .42), 0, 0, 0, M(it.color ?? '#c9952f', { roughness: .95 }), 28),
+  coffeeTable: (g, it) => { const m = M(it.color ?? '#c19a6b'), h = itemH(it, .4); add3(g, it.w, .04, it.d, 0, h - .04, 0, m); add3(g, it.w - .1, .02, it.d - .1, 0, .12, 0, m); legs4(g, it.w, it.d, h - .04, m, .04, .035); },
+  coffeeRound: (g, it) => { const m = M(it.color ?? '#d8b98a'), h = itemH(it, .38), r = Math.min(it.w, it.d) / 2; cyl3(g, r, r, .035, 0, h - .035, 0, m, 40); cyl3(g, r * .35, r * .5, h - .035, 0, 0, 0, M('#1f2328', { metalness: .4, roughness: .5 })); },
+  roundTable: (g, it) => {
+    const m = M(it.color ?? '#c19a6b'), h = itemH(it, .75), r = Math.min(it.w, it.d) / 2;
+    cyl3(g, r, r, .04, 0, h - .04, 0, m, 40); cyl3(g, .06, .06, h - .1, 0, .06, 0, m); cyl3(g, r * .45, r * .5, .06, 0, 0, 0, m);
+    if (it.chairs) { const n = Math.max(2, Math.min(8, Math.round(2 * Math.PI * r / .6))); for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, cg = new THREE.Group(); cg.position.set(Math.cos(a) * (r + .2), 0, Math.sin(a) * (r + .2)); cg.rotation.y = Math.atan2(-Math.cos(a), -Math.sin(a)); chair3(cg, 0, 0, 'N'); g.add(cg); } }
+  },
+  sideboard: (g, it) => { const m = M(it.color ?? '#8a6a4a'), h = itemH(it, .8); add3(g, it.w, h - .15, it.d, 0, .15, 0, m); legs4(g, it.w, it.d, .15, M('#1f2328'), .08, .03); const n = Math.max(2, Math.round(it.w / .45)); for (let i = 1; i < n; i++) add3(g, .006, h - .2, .004, -it.w / 2 + i * it.w / n, .17, it.d / 2 + .002, M('#00000055')); },
+  console: (g, it) => { const m = M(it.color ?? '#1f2328', { metalness: .3, roughness: .5 }), h = itemH(it, .8); add3(g, it.w, .03, it.d, 0, h - .03, 0, M('#c19a6b')); legs4(g, it.w, it.d, h - .03, m, .03, .025); add3(g, it.w - .06, .02, it.d - .06, 0, .15, 0, m); },
+  tvWall: (g, it) => { const e = it.elev ?? 1, h = itemH(it, .72); add3(g, it.w, h, .04, 0, e, -it.d / 2 + .02, M('#111214', { roughness: .15, metalness: .3 })); add3(g, it.w - .03, h - .03, .002, 0, e + .015, -it.d / 2 + .041, M('#1d2633', { roughness: .05, metalness: .5 })); },
+  fireplace: (g, it, Hc) => {
+    const m = M(it.color ?? '#efe7da', { roughness: .8 }), h = itemH(it, 1.1);
+    add3(g, it.w, h - .06, it.d, 0, 0, 0, m); add3(g, it.w + .1, .06, it.d + .06, 0, h - .06, .03, m);
+    add3(g, it.w * .55, h * .55, .02, 0, .1, it.d / 2 - .009, M('#151515', { roughness: 1 }));
+    const fl = new THREE.Mesh(new THREE.SphereGeometry(.09, 10, 8), glow('#ff8a3d', true)); fl.scale.set(1.6, 1, .6); fl.position.set(0, .2, it.d / 2 - .06); g.add(fl);
+    add3(g, it.w * .5, Math.max(0, Hc - h), it.d * .7, 0, h, -it.d * .15, m);
+  },
+  stove: (g, it, Hc) => { const m = M(it.color ?? '#2a2b2d', { metalness: .4, roughness: .5 }), h = itemH(it, 1.05); add3(g, it.w * .9, h, it.d * .9, 0, 0, 0, m); add3(g, it.w * .55, h * .35, .01, 0, h * .35, it.d * .45 + .001, glow('#ff9a4d', true)); cyl3(g, .075, .075, Math.max(0, Hc - h), 0, h, -it.d * .15, m, 16); },
+  piano: (g, it) => { const m = M(it.color ?? '#141416', { roughness: .15, metalness: .2 }), h = itemH(it, 1.25); add3(g, it.w, h, it.d * .55, 0, 0, -it.d * .225, m); add3(g, it.w, .1, it.d * .45, 0, .66, it.d * .275, m); add3(g, it.w - .1, .02, .14, 0, .76, it.d * .2, M('#f7f7f2')); add3(g, .06, .66, .06, -it.w / 2 + .05, 0, it.d / 2 - .05, m); add3(g, .06, .66, .06, it.w / 2 - .05, 0, it.d / 2 - .05, m); },
+  bench: (g, it) => { const m = M(it.color ?? '#c19a6b'), h = itemH(it, .45); add3(g, it.w, .05, it.d, 0, h - .05, 0, m); for (const s of [-1, 1]) add3(g, .05, h - .05, it.d - .06, s * (it.w / 2 - .1), 0, 0, m); },
+  rugRound: (g, it) => cyl3(g, Math.min(it.w, it.d) / 2, Math.min(it.w, it.d) / 2, .008, 0, .003, 0, M(it.color ?? '#bfb6a8', { roughness: 1 }), 48),
+  mirror: (g, it) => { const e = it.elev ?? .8, h = itemH(it, 1.2); add3(g, it.w, h, .025, 0, e, -it.d / 2 + .0125, M(it.color ?? '#b5a26a', { metalness: .6, roughness: .35 })); add3(g, it.w - .05, h - .05, .004, 0, e + .025, -it.d / 2 + .027, MIRROR()); },
+  mirrorFloor: (g, it) => { const h = itemH(it, 1.8), fr = M(it.color ?? '#1f2328', { metalness: .4, roughness: .4 }), gg = new THREE.Group(); gg.rotation.x = -.12; gg.position.z = it.d / 2 - .05; add3(gg, it.w, h, .03, 0, 0, 0, fr); add3(gg, it.w - .05, h - .05, .004, 0, .025, .017, MIRROR()); g.add(gg); },
+  artwork: (g, it) => { const e = it.elev ?? 1.2, h = itemH(it, .6); add3(g, it.w, h, .025, 0, e, -it.d / 2 + .0125, M('#1f2328')); add3(g, it.w - .06, h - .06, .004, 0, e + .03, -it.d / 2 + .027, M('#f3efe7')); add3(g, (it.w - .06) * .6, (h - .06) * .55, .004, -it.w * .06, e + h * .25, -it.d / 2 + .03, M(it.color ?? '#1f5a63')); add3(g, (it.w - .06) * .25, (h - .06) * .3, .004, it.w * .22, e + h * .45, -it.d / 2 + .031, M('#c9952f')); },
+  curtain: (g, it, Hc) => { const h = Math.min(itemH(it, 2.4), Hc - .02), m = M(it.color ?? '#d9cfbf', { roughness: 1, side: THREE.DoubleSide }), pw = it.w * .28, n = 6; add3(g, it.w + .1, .02, .02, 0, h, -it.d / 2 + .01, M('#1f2328', { metalness: .5 }));
+    for (const s of [-1, 1]) for (let i = 0; i < n; i++) { const c = new THREE.Mesh(new THREE.CylinderGeometry(pw / n * .75, pw / n * .75, h - .02, 10, 1, true), m); c.position.set(s * (it.w / 2 - pw / 2) - pw / 2 + (i + .5) * pw / n, (h - .02) / 2, -it.d / 2 + .04); g.add(c); } },
+  plantTall: (g, it) => { const h = itemH(it, 1.8), r = Math.min(it.w, it.d) / 2; cyl3(g, r * .5, r * .4, h * .22, 0, 0, 0, M('#e9e4db', { roughness: .6 }), 20); add3(g, .03, h * .45, .03, 0, h * .2, 0, M('#6b4a32')); foliage(g, 0, h * .7, 0, r * 1.1, 9, 3); },
+  plantSmall: (g, it) => { const h = itemH(it, .5), r = Math.min(it.w, it.d) / 2; cyl3(g, r * .7, r * .55, h * .4, 0, 0, 0, M('#c7764e'), 18); foliage(g, 0, h * .6, 0, r * .9, 5, 7); },
+  bed140: (g, it) => B3.bed(g, it), bed180: (g, it) => B3.bed(g, it),
+  bunk: (g, it) => { const wood = M(it.color ?? '#e6dccb'), h = itemH(it, 1.6), W = it.w, D = it.d;
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) add3(g, .06, h, .06, sx * (W / 2 - .03), 0, sz * (D / 2 - .03), wood);
+    for (const y of [.2, h * .62]) { add3(g, W, .12, D, 0, y, 0, wood); add3(g, W - .06, .14, D - .1, 0, y + .12, 0, M('#f6f6f4')); add3(g, W - .1, .05, D * .65, 0, y + .26, D * .15, M('#8fa7c4')); }
+    for (const sz of [-1, 1]) add3(g, W, .18, .03, 0, h - .2, sz * (D / 2 - .03), wood); add3(g, .03, .18, D * .6, W / 2 - .03, h - .2, -D * .2, wood);
+    for (let y = .35; y < h; y += .28) add3(g, .03, .03, .4, W / 2 + .02, y, D / 2 - .3, wood); },
+  crib: (g, it) => { const m = M(it.color ?? '#f4f4f2'), h = itemH(it, .9); add3(g, it.w - .04, .1, it.d - .04, 0, .3, 0, m); add3(g, it.w - .08, .1, it.d - .08, 0, .4, 0, M('#ffffff'));
+    for (const sz of [-1, 1]) { add3(g, it.w, .04, .04, 0, h - .04, sz * (it.d / 2 - .02), m); for (let x = -it.w / 2 + .03; x <= it.w / 2 - .03; x += .07) add3(g, .02, h - .3, .02, x, .3, sz * (it.d / 2 - .02), m); }
+    for (const sx of [-1, 1]) { add3(g, .04, .04, it.d, sx * (it.w / 2 - .02), h - .04, 0, m); for (let z = -it.d / 2 + .03; z <= it.d / 2 - .03; z += .07) add3(g, .02, h - .3, .02, sx * (it.w / 2 - .02), .3, z, m); add3(g, .05, h, .05, sx * (it.w / 2 - .025), 0, -it.d / 2 + .025, m); add3(g, .05, h, .05, sx * (it.w / 2 - .025), 0, it.d / 2 - .025, m); } },
+  dresser: (g, it) => { const m = M(it.color ?? '#f4f4f2'), h = itemH(it, .85); add3(g, it.w, h - .1, it.d, 0, .1, 0, m); legs4(g, it.w, it.d, .1, M('#c19a6b'), .06, .04); for (let i = 1; i < 4; i++) add3(g, it.w - .02, .006, .004, 0, .1 + i * (h - .1) / 4, it.d / 2 + .002, M('#00000040')); for (let i = 0; i < 4; i++) add3(g, .12, .015, .015, 0, .1 + (i + .5) * (h - .1) / 4, it.d / 2 + .01, M('#b5a26a', { metalness: .7, roughness: .3 })); },
+  dressing: (g, it, Hc) => { const m = M(it.color ?? '#d8b98a'), h = Math.min(itemH(it, 2.2), Hc), n = Math.max(2, Math.round(it.w / .8)), t = .025;
+    for (let i = 0; i <= n; i++) add3(g, t, h, it.d, -it.w / 2 + t / 2 + i * (it.w - t) / n, 0, 0, m);
+    add3(g, it.w, t, it.d, 0, h - t, 0, m); add3(g, it.w, t, it.d, 0, .3, 0, m); add3(g, it.w, t, it.d, 0, 0, 0, m);
+    for (let i = 0; i < n; i++) { const cx = -it.w / 2 + (i + .5) * it.w / n, rod = new THREE.Mesh(new THREE.CylinderGeometry(.012, .012, it.w / n - .04, 10), M('#c9ced3', { metalness: .8, roughness: .3 })); rod.rotation.z = Math.PI / 2; rod.position.set(cx, h - .3, 0); g.add(rod);
+      for (let k = 0; k < 5; k++) add3(g, .02, .8, .42, cx - it.w / n / 2 + .08 + k * (it.w / n - .16) / 4, h - 1.12, 0, M(['#6d7b8c', '#efe9df', '#1f2328', '#c9952f', '#8fa7c4'][(i + k) % 5])); } },
+  vanityTable: (g, it) => { B3.table(g, { ...it, chairs: false, h: itemH(it, .76) }); add3(g, it.w * .6, .7, .02, 0, itemH(it, .76) + .02, -it.d / 2 + .02, MIRROR()); },
+  officeChair: (g, it) => { const m = M(it.color ?? '#1f2328', { roughness: .8 }); for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; add3(g, .03, .03, .3, Math.sin(a) * .14, .04, Math.cos(a) * .14, M('#2b2b2e')).rotation.y = a; } cyl3(g, .025, .025, .4, 0, .05, 0, M('#888', { metalness: .8 }), 10); add3(g, .48, .08, .46, 0, .45, 0, m); add3(g, .44, .58, .06, 0, .55, -.22, m); },
+  deskCorner: (g, it) => { const m = M(it.color ?? '#f4f4f2'), h = itemH(it, .75), dw = Math.min(.7, it.d * .55); add3(g, it.w, .03, dw, 0, h - .03, -it.d / 2 + dw / 2, m); add3(g, dw, .03, it.d - dw, -it.w / 2 + dw / 2, h - .03, dw / 2, m);
+    const leg = M('#1f2328', { metalness: .4 }); for (const [x, z] of [[it.w / 2 - .04, -it.d / 2 + .04], [it.w / 2 - .04, -it.d / 2 + dw - .04], [-it.w / 2 + .04, it.d / 2 - .04], [-it.w / 2 + dw - .04, it.d / 2 - .04], [-it.w / 2 + .04, -it.d / 2 + .04]]) add3(g, .04, h - .03, .04, x, 0, z, leg); },
+  filing: (g, it) => { const h = itemH(it, .62); add3(g, it.w, h - .05, it.d, 0, .05, 0, M(it.color ?? '#cfd0cd')); for (let i = 1; i < 3; i++) add3(g, it.w - .02, .005, .004, 0, .05 + i * (h - .05) / 3, it.d / 2 + .002, M('#00000040')); },
+  fridgeUS: (g, it, Hc) => { const h = Math.min(itemH(it, 1.78), Hc), m = M(it.color ?? '#c9ced3', { metalness: .6, roughness: .3 }); add3(g, it.w, h, it.d, 0, 0, 0, m); add3(g, .006, h - .04, .004, 0, .02, it.d / 2 + .002, M('#00000060')); for (const s2 of [-1, 1]) add3(g, .02, .6, .03, s2 * .04, h * .45, it.d / 2 + .02, M('#888', { metalness: .8 })); },
+  tallUnit: (g, it, Hc) => { const h = Math.min(itemH(it, 2.1), Hc); add3(g, it.w, h, it.d, 0, 0, 0, M(it.color ?? '#f3f1ec')); add3(g, it.w - .02, .005, .004, 0, h * .55, it.d / 2 + .002, M('#00000030')); add3(g, .015, .3, .02, it.w / 2 - .05, h * .45, it.d / 2 + .012, M('#888', { metalness: .8 })); },
+  microwave: (g, it) => { const e = it.elev ?? .9, h = itemH(it, .3); add3(g, it.w, h, it.d, 0, e, 0, M(it.color ?? '#2a2b2d', { roughness: .4 })); add3(g, it.w * .65, h * .7, .005, -it.w * .12, e + h * .15, it.d / 2 + .002, M('#0e0f11', { roughness: .1 })); },
+  wineCooler: (g, it) => { const h = itemH(it, 1.45); add3(g, it.w, h, it.d, 0, 0, 0, M(it.color ?? '#1d1d1f')); add3(g, it.w - .06, h - .08, .005, 0, .05, it.d / 2 + .002, new THREE.MeshStandardMaterial({ color: '#3a2626', transparent: true, opacity: .75, roughness: .05 })); for (let y = .15; y < h - .1; y += .12) add3(g, it.w - .1, .01, it.d * .8, 0, y, 0, M('#7a3b3b')); },
+  barStool: (g, it) => { const h = itemH(it, .75), m = M(it.color ?? '#1f2328', { metalness: .5, roughness: .4 }), r = Math.min(it.w, it.d) / 2; cyl3(g, r * .8, r * .8, .05, 0, h - .05, 0, M('#c19a6b'), 24); cyl3(g, .025, .025, h - .05, 0, 0, 0, m, 10); cyl3(g, r * .7, r * .7, .02, 0, 0, 0, m, 24); const ring = new THREE.Mesh(new THREE.TorusGeometry(r * .55, .01, 6, 24), m); ring.rotation.x = Math.PI / 2; ring.position.y = h * .35; g.add(ring); },
+  bar: (g, it) => { const h = itemH(it, 1.05); add3(g, it.w, h - .04, it.d * .8, 0, 0, -it.d * .1, M(it.color ?? '#f3f1ec')); add3(g, it.w + .04, .04, it.d, 0, h - .04, 0, M('#7b6a58')); },
+  doubleVanity: (g, it, Hc) => { const h = itemH(it, .85); add3(g, it.w, Math.max(.1, h - .35), it.d, 0, .3, 0, M(it.color ?? '#c19a6b')); add3(g, it.w, .05, it.d, 0, h - .05, 0, M('#fbfbfb'));
+    for (const s2 of [-1, 1]) { add3(g, it.w * .3, .012, it.d * .55, s2 * it.w / 4, h - .004, it.d * .05, M('#d5dde2')); if (Hc > 1.9) add3(g, it.w * .38, .7, .02, s2 * it.w / 4, h + .3, -it.d / 2 + .012, MIRROR()); } },
+  bathFree: (g, it) => { const W = M('#fbfbfb', { roughness: .2 }), sh = new THREE.Shape(), a = it.w / 2, b = it.d / 2; sh.absellipse(0, 0, a, b, 0, Math.PI * 2);
+    const geo = new THREE.ExtrudeGeometry(sh, { depth: .58, bevelEnabled: false, curveSegments: 40 }); geo.rotateX(-Math.PI / 2); const m = new THREE.Mesh(geo, W); g.add(m);
+    const w2 = new THREE.Mesh(new THREE.CircleGeometry(1, 40), M('#bcd7e6', { roughness: .1 })); w2.scale.set(a - .06, b - .06, 1); w2.rotation.x = -Math.PI / 2; w2.position.y = .585; g.add(w2);
+    cyl3(g, .015, .015, .9, a + .15, 0, 0, M('#c9ced4', { metalness: .9, roughness: .2 }), 10); },
+  walkIn: (g, it, Hc) => { add3(g, it.w, .01, it.d, 0, 0, 0, M('#7b7d7f', { roughness: .6 })); add3(g, it.w * .6, .005, .03, it.w * .1, .01, -it.d / 2 + .1, M('#c9ced4', { metalness: .9 }));
+    const gl = new THREE.MeshStandardMaterial({ color: '#bfe3f5', transparent: true, opacity: .28, roughness: .05, depthWrite: false }); add3(g, .01, Math.min(2, Hc), it.d * .7, it.w / 2 - .005, 0, -it.d * .15, gl); add3(g, .02, .02, it.d * .7, it.w / 2 - .005, Math.min(2, Hc), -it.d * .15, M('#1f2328'));
+    if (Hc > 2.1) { const ch = M('#c9ced4', { metalness: .8, roughness: .25 }); cyl3(g, .12, .12, .01, -it.w * .15, 2.1, -it.d / 2 + .25, ch, 24); add3(g, .02, .02, .25, -it.w * .15, 2.11, -it.d / 2 + .12, ch); } },
+  bathColumn: (g, it, Hc) => { const h = Math.min(itemH(it, 1.7), Hc); add3(g, it.w, h - .2, it.d, 0, .2, 0, M(it.color ?? '#f4f4f2')); add3(g, it.w - .02, .005, .004, 0, .2 + (h - .2) * .5, it.d / 2 + .002, M('#00000030')); },
+  handBasin: (g, it) => { const h = itemH(it, .85); add3(g, it.w, .12, it.d, 0, h - .12, 0, M('#fbfbfb', { roughness: .2 })); add3(g, it.w * .75, .01, it.d * .65, 0, h - .005, .01, M('#d5dde2')); cyl3(g, .012, .012, .12, 0, h, -it.d / 2 + .04, M('#c9ced4', { metalness: .9, roughness: .2 }), 8); },
+  coatRack: (g, it) => { const h = itemH(it, 1.8), m = M(it.color ?? '#1f2328', { metalness: .4, roughness: .5 }); cyl3(g, .015, .015, h, 0, 0, 0, m, 10); for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; add3(g, .02, .02, .28, Math.sin(a) * .1, .02, Math.cos(a) * .1, m).rotation.y = a; add3(g, .015, .015, .14, Math.sin(a) * .06, h - .12, Math.cos(a) * .06, m).rotation.y = a; } },
+  shoeCabinet: (g, it) => { const h = itemH(it, 1); add3(g, it.w, h, it.d, 0, 0, 0, M(it.color ?? '#f4f4f2')); for (let i = 1; i < 3; i++) add3(g, it.w - .02, .005, .004, 0, i * h / 3, it.d / 2 + .002, M('#00000030')); },
+  storageUnit: (g, it, Hc) => { const h = Math.min(itemH(it, 1.47), Hc), m = M(it.color ?? '#f4f4f2'), n = Math.max(1, Math.round(it.w / .37)), k = Math.max(1, Math.round(h / .37)), t = .025;
+    for (let i = 0; i <= n; i++) add3(g, t, h, it.d, -it.w / 2 + t / 2 + i * (it.w - t) / n, 0, 0, m); for (let j = 0; j <= k; j++) add3(g, it.w, t, it.d, 0, j * (h - t) / k, 0, m);
+    for (let i = 0; i < n; i++) for (let j = 0; j < k; j++) if ((i + j) % 3 === 0) add3(g, (it.w - t) / n - .06, (h - t) / k - .06, it.d * .8, -it.w / 2 + (i + .5) * (it.w - t) / n + t / 2, j * (h - t) / k + .04, 0, M(['#d9cfbf', '#9caf88', '#8d9096'][(i + j) % 3], { roughness: 1 })); },
+  airCon: (g, it) => { const e = it.elev ?? 2, h = itemH(it, .3); add3(g, it.w, h, it.d, 0, e, 0, M(it.color ?? '#f4f4f2', { roughness: .4 })); add3(g, it.w * .9, .01, .02, 0, e + .04, it.d / 2 - .01, M('#9aa1ab')); },
+  waterHeater: (g, it, Hc) => { const h = Math.min(itemH(it, 1.5), Hc), r = Math.min(it.w, it.d) / 2; cyl3(g, r, r, h, 0, 0, 0, M(it.color ?? '#f4f4f2', { roughness: .4 }), 28); cyl3(g, r * .3, r * .3, .01, 0, h, 0, M('#9aa1ab'), 16); },
+  stairs: (g, it, Hc) => { const m = M(it.color ?? '#c19a6b'), H2 = Math.min(S.H, Hc), n = Math.max(2, Math.round(S.H / .175)), rise = S.H / n, run = it.d / n;
+    for (let i = 0; i < n; i++) { const y = (i + 1) * rise; if (y > H2 + 1e-6) break; add3(g, it.w, .04, run + .03, 0, y - .04, it.d / 2 - (i + .5) * run, m); add3(g, it.w, rise - .04, .02, 0, y - rise, it.d / 2 - i * run - .01, M('#f3f1ec')); }
+    const steel = M('#1f2328', { metalness: .4, roughness: .5 }); for (const s2 of [-1, 1]) { const len = Math.hypot(it.d, S.H), lim = new THREE.Mesh(new THREE.BoxGeometry(.04, .04, len), steel); lim.position.set(s2 * (it.w / 2 + .01), S.H / 2, 0); lim.rotation.x = Math.atan2(S.H, it.d); if (S.H <= H2) g.add(lim); } },
+  column: (g, it, Hc) => { add3(g, it.w, Hc, it.d, 0, 0, 0, M(it.color ?? '#efefea', { roughness: .9 })); },
+  lounger: (g, it) => { const m = M(it.color ?? '#e6dccb'); add3(g, it.w, .25, it.d * .65, 0, 0, it.d * .175, m); const back = new THREE.Group(); back.position.set(0, .25, -it.d * .15); back.rotation.x = -.7; add3(back, it.w, .06, it.d * .35, 0, 0, -it.d * .175, m); g.add(back); add3(g, it.w - .06, .06, it.d * .62, 0, .25, it.d * .18, M('#f1f0ea')); },
+  planter: (g, it) => { const h = itemH(it, .45); add3(g, it.w, h, it.d, 0, 0, 0, M(it.color ?? '#55595f', { roughness: .8 })); add3(g, it.w - .04, .02, it.d - .04, 0, h - .03, 0, M('#4a3426')); for (let x = -it.w / 2 + .15; x < it.w / 2 - .1; x += .25) foliage(g, x, h + .12, 0, .14, 4, Math.round(x * 100) + 50); },
+  outdoorSet: (g, it) => B3.table(g, { ...it, color: it.color ?? '#2f3234' }),
 });
 
 // Portes : battante, double, coulissante en applique, à galandage, vitrée
@@ -2431,11 +2740,13 @@ function build3D() {
       const over = new THREE.Mesh(g.clone(), new THREE.MeshBasicMaterial({ color: '#7aa2e8', transparent: true, opacity: .22, depthWrite: false }));
       over.position.y = t.ceiling + .005; over.userData.pick = mesh.userData.pick; root.add(over);
     }
-    if (opt.finish && t?.paintColor) {
-      const pm = M(t.paintColor, { roughness: .95 }), rh = roomH(t);
+    if (opt.finish && (t?.paintColor || t?.wallFinish)) {
+      const pm = wallFinishMat(t), rh = roomH(t);
       for (const run of boundaryRuns(r.id)) for (const sg of runTiles(run, r.id, rh, rh, rh)) {
         const y1 = Math.min(sg.y1, Hc); if (y1 <= sg.y0) continue;
-        const p = new THREE.Mesh(new THREE.PlaneGeometry(sg.e - sg.s, y1 - sg.y0), pm), m = (sg.s + sg.e) / 2, ym = (sg.y0 + y1) / 2, eps = .0015;
+        const pg = new THREE.PlaneGeometry(sg.e - sg.s, y1 - sg.y0), uv = pg.attributes.uv;
+        for (let i = 0; i < uv.count; i++) uv.setXY(i, sg.s + uv.getX(i) * (sg.e - sg.s), sg.y0 + uv.getY(i) * (y1 - sg.y0));
+        const p = new THREE.Mesh(pg, pm), m = (sg.s + sg.e) / 2, ym = (sg.y0 + y1) / 2, eps = .0015;
         if (run.o === 'h') { p.position.set(m, ym, run.c + run.nrm * eps); if (run.nrm < 0) p.rotation.y = Math.PI; }
         else { p.position.set(run.c + run.nrm * eps, ym, m); p.rotation.y = run.nrm > 0 ? Math.PI / 2 : -Math.PI / 2; }
         p.receiveShadow = true; root.add(p);
@@ -2667,6 +2978,7 @@ function openVersions() {
     <table><tbody>${rows || '<tr><td class="muted">Aucune version pour l’instant.</td></tr>'}</tbody></table>`);
 }
 document.getElementById('mBody').addEventListener('click', e => {
+  if (e.target.closest('[data-act=startTour]')) { closeModal(); startTour(); return; }
   const b = e.target.closest('[data-vact]'); if (!b) return;
   const list = backups(), i = +b.dataset.i, it = list[i];
   if (b.dataset.vact === 'snap') { backup(document.getElementById('snapName').value.trim() || 'Point de sauvegarde', false); toast('📌 Point de sauvegarde créé'); return openVersions(); }
@@ -2722,6 +3034,9 @@ function openSettings() {
       ${selectF('Pas de déplacement à la souris', 'prefs', 'snap', prefs.snap, [['0.001', '1 mm'], ['0.005', '5 mm'], ['0.01', '1 cm'], ['0.05', '5 cm'], ['0.1', '10 cm']])}
     </div>
     <p class="muted">Clavier : flèches = 1 cm, <kbd>Maj</kbd> + flèches = 10 cm, <kbd>Alt</kbd> + flèches = 1 mm. Clique sur n’importe quelle cote soulignée pour taper sa valeur exacte.</p>
+    <h4>Aide</h4>
+    <label class="chk"><input type="checkbox" data-target="prefs" data-key="tips" data-unit="bool"${prefs.tips !== false ? ' checked' : ''}><span>Afficher les astuces et conseils dans les panneaux (recommandé pour débuter)</span></label>
+    <div class="row" style="margin-top:4px"><button data-act="startTour">🎓 Revoir le guide de démarrage</button></div>
     <h4>Couleurs par défaut</h4>
     <div class="grid2">
       ${field('Murs (peinture)', 'settings', 'wallColor', 'color', st.wallColor)}
@@ -2755,8 +3070,38 @@ function openHelp() {
       <tr><td>Molette · glisser le fond</td><td>Zoomer · se déplacer dans le plan</td></tr>
       <tr><td>Visite 3D</td><td>ZQSD / flèches, <kbd>Maj</kbd> pour courir, glisser pour regarder</td></tr>
     </tbody></table>
-    <p class="muted">Tout est enregistré automatiquement dans ce navigateur à chaque modification. Pense à garder aussi un fichier (<kbd>Ctrl+S</kbd>) et à créer des points de sauvegarde avant les grosses modifications.</p>`);
+    <p class="muted">Tout est enregistré automatiquement dans ce navigateur à chaque modification. Pense à garder aussi un fichier (<kbd>Ctrl+S</kbd>) et à créer des points de sauvegarde avant les grosses modifications.</p>
+    <div class="row"><button data-act="startTour" class="primary">🎓 Revoir le guide de démarrage</button></div>
+    <h4>Conseils de base</h4>
+    <ul class="muted" style="padding-left:18px;margin:0">${ML.TIPS.general.map(t => `<li style="margin:3px 0">${t}</li>`).join('')}</ul>
+    <h4>Glossaire</h4>
+    <dl class="gloss">${ML.GLOSSARY.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>`);
 }
+// --- guide de démarrage (affiché à la première ouverture, puis depuis l'aide)
+const TOUR = [
+  ['👋', 'Bienvenue dans Moovo 3D', 'Tu vas pouvoir dessiner ton logement au centimètre près, le voir en 3D, choisir les couleurs et les matériaux, puis obtenir un budget et un devis. Ce guide prend 1 minute.'],
+  ['📐', 'Le plan', 'À gauche, le plan vu de dessus. <b>Glisse un mur</b> pour le déplacer : les murs accrochés suivent. <b>Clique sur une cote soulignée</b> pour taper la valeur exacte. Molette = zoom, glisser le fond = se déplacer.'],
+  ['🧱', 'Murs et ouvertures', 'Outil <b>Mur</b> (touche M) : clique le point de départ puis le point d’arrivée. Outils <b>Porte</b>, <b>Fenêtre</b>, <b>Baie</b> : clique simplement sur un mur pour poser l’ouverture.'],
+  ['🛋️', 'Meubles et équipements', 'Bouton <b>＋ Ajouter</b> (touche A) : plus de 100 objets avec recherche (canapé, lit, cuisine, salle de bain, prises…). Choisis une <b>taille standard</b> dans le panneau, et touche <b>R</b> pour pivoter.'],
+  ['🎨', 'Couleurs et matériaux', 'Clique <b>dans une pièce</b> : choisis une <b>ambiance</b> en un clic (scandinave, industriel, bohème…), puis affine le revêtement des murs (peinture, papier peint, brique, lambris…), le sol et les couleurs avec le <b>nuancier</b> (références RAL).'],
+  ['🧊', 'La 3D', 'La vue 3D se met à jour en direct. Bouton <b>Visite</b> pour te promener à hauteur des yeux (ZQSD ou flèches), menu <b>Affichage</b> pour couper les murs, allumer les lumières ou isoler une pièce.'],
+  ['💶', 'Budget et devis', 'Onglet <b>Travaux &amp; budget</b> : coche les travaux par pièce, ajuste les prix, et récupère la <b>liste des matériaux à acheter</b>. Menu Projet → <b>Générer le devis</b> pour un document imprimable.'],
+  ['💡', 'Les astuces', 'Les encadrés jaunes donnent des conseils de pro selon ce que tu sélectionnes. Tu peux les masquer dans ⚙ Réglages, et retrouver ce guide et un glossaire dans l’aide (touche ?). Bon projet !'],
+];
+let tourI = 0;
+function renderTour() {
+  const [ic, t, txt] = TOUR[tourI];
+  document.getElementById('tourBody').innerHTML = `<div class="tico">${ic}</div><div class="tstep">Étape ${tourI + 1} sur ${TOUR.length}</div><h2>${t}</h2><p>${txt}</p>`;
+  document.getElementById('tourDots').innerHTML = TOUR.map((_, i) => `<i class="${i === tourI ? 'on' : ''}"></i>`).join('');
+  document.getElementById('tourPrev').disabled = tourI === 0;
+  document.getElementById('tourNext').textContent = tourI === TOUR.length - 1 ? 'C’est parti !' : 'Suivant →';
+}
+function startTour() { tourI = 0; renderTour(); document.getElementById('tour').hidden = false; }
+function endTour() { document.getElementById('tour').hidden = true; prefs.toured = true; savePrefs(); }
+document.getElementById('tourPrev').onclick = () => { tourI = Math.max(0, tourI - 1); renderTour(); };
+document.getElementById('tourNext').onclick = () => { if (tourI >= TOUR.length - 1) endTour(); else { tourI++; renderTour(); } };
+document.getElementById('tourSkip').onclick = endTour;
+document.getElementById('tour').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Escape') endTour(); });
 // --- menus
 const menus = [['bProj', 'projMenu'], ['bCatalog', 'catalog'], ['bV3opt', 'v3menu']];
 function closeMenus(except) { for (const [, m] of menus) if (m !== except) document.getElementById(m).classList.remove('open'); }
@@ -2840,6 +3185,7 @@ backup('Ouverture du projet');
 setTool('select');
 renderAll();
 requestAnimationFrame(() => { fit(); render2D(); resize3D(); setView('persp'); loop(); });
+if (!prefs.toured) setTimeout(startTour, 400);
 </script>
 </body>
 </html>

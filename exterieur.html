@@ -186,6 +186,7 @@
 <div id="modal" class="modal" hidden><div class="mbox"><div class="mhead"><b id="mTitle"></b><button id="mClose" class="ghost">✕</button></div><div id="mBody"></div></div></div>
 
 <script src="moovo-core.js"></script>
+<script src="moovo-lib.js"></script>
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -815,7 +816,7 @@ const panel = document.getElementById('panel');
 const secOpts = cur => ['bois', 'acier', 'alu', 'acc'].map(f => `<optgroup label="${{ bois: 'Bois', acier: 'Acier', alu: 'Aluminium', acc: 'Accessoires' }[f]}">${Object.entries(SEC).filter(([, s]) => s.fam === f).map(([k, s]) => `<option value="${k}"${k === cur ? ' selected' : ''}>${s.l}</option>`).join('')}</optgroup>`).join('');
 const matOpts = (cur, fam) => Object.entries(MAT).filter(([, m]) => !fam || m.fam === fam || (fam === 'acier' && m.fam === 'alu')).map(([k, m]) => `<option value="${k}"${k === cur ? ' selected' : ''}>${m.l}</option>`).join('');
 const panOpts = (cur, none) => (none ? `<option value="none"${cur === 'none' ? ' selected' : ''}>Aucun(e)</option>` : '') + Object.entries(PANEL).map(([k, p]) => `<option value="${k}"${k === cur ? ' selected' : ''}>${p.l}</option>`).join('');
-const fld = (label, path, val, type = 'text', cls = '') => `<label class="f ${cls}"><span>${label}</span><input data-p="${path}" type="${type}" ${type === 'number' ? 'step="any"' : ''} value="${esc(val)}"></label>`;
+const fld = (label, path, val, type = 'text', cls = '') => type === 'color' ? `<div class="f ${cls}"><span>${label}</span>${window.MoovoLib.pickerHTML(val, `data-p="${path}"`, path.startsWith('site') ? 'paint' : 'furn')}</div>` : `<label class="f ${cls}"><span>${label}</span><input data-p="${path}" type="${type}" ${type === 'number' ? 'step="any"' : ''} value="${esc(val)}"></label>`;
 const lenF = (label, path, v, cls = '') => fld(label + ` (${UNIT()})`, path, prefs.unit === 'mm' ? Math.round(v * 1000) : Math.round(v * 1000) / 10, 'number', cls) .replace('data-p=', 'data-len="1" data-p=');
 const selF = (label, path, opts, cls = '') => `<label class="f ${cls}"><span>${label}</span><select data-p="${path}">${opts}</select></label>`;
 function renderPanel() {

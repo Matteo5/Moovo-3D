@@ -105,6 +105,26 @@
   .f input[type=color]{padding:2px;height:34px}
   .chk{display:flex;gap:8px;align-items:flex-start;margin:7px 0;font-size:13px;cursor:pointer}
   .row{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+  .cmdbtn{color:var(--muted)} .cmdbtn kbd{margin-left:4px}
+  .ctx{position:fixed;z-index:120;min-width:220px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:6px}
+  .ctx[hidden]{display:none}
+  .ctx h6{margin:4px 8px 6px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .ctx button{display:flex;justify-content:space-between;gap:16px;width:100%;text-align:left;border:0;background:transparent;padding:7px 10px;border-radius:7px;font-size:13px}
+  .ctx button:hover{background:#f1f4f9} .ctx button.danger:hover{background:#fdecea}
+  .ctx hr{margin:4px 0}
+  .ctx .sub{display:grid;grid-template-columns:1fr 1fr;gap:2px}
+  .dragghost{position:fixed;z-index:130;pointer-events:none;background:#1b1f27;color:#fff;font-size:12.5px;padding:5px 10px;border-radius:999px;transform:translate(12px,12px);box-shadow:var(--shadow)}
+  .dragghost[hidden]{display:none}
+  .cmdk{position:fixed;inset:0;z-index:140;background:#0f172a55;display:flex;justify-content:center;align-items:flex-start;padding:12vh 16px}
+  .cmdk[hidden]{display:none}
+  .cmdk .cbox{width:min(620px,100%);background:#fff;border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+  .cmdk input{width:100%;border:0;border-bottom:1px solid var(--line);padding:14px 16px;font:inherit;font-size:16px;outline:none}
+  #cmdList{max-height:50vh;overflow:auto;padding:6px}
+  #cmdList button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:transparent;padding:8px 10px;border-radius:8px;font-size:14px}
+  #cmdList button.on{background:var(--accent-weak)}
+  #cmdList button small{margin-left:auto;color:var(--muted);font-size:12px}
+  #cmdList .ic{width:22px;text-align:center}
+  .cmdk .cfoot{padding:7px 14px;font-size:12px;color:var(--muted);border-top:1px solid var(--line);background:var(--panel2)}
   .tipbox{margin-top:10px;padding:8px 10px;background:#fff8e6;border:1px solid #f6e3b0;border-radius:8px;font-size:12.5px;color:#5c4400;line-height:1.45}
   .tipbox b{color:#3d2e00;margin-right:2px}
   .styles{display:grid;grid-template-columns:1fr 1fr;gap:6px}
@@ -140,6 +160,17 @@
   td.c,th.c{text-align:center}
   td input[type=number]{width:62px;font:inherit;font-size:12.5px;border:1px solid var(--line);border-radius:6px;padding:3px 5px;text-align:right}
   tfoot td{font-weight:600;border-bottom:0}
+  tr.hcur td{background:var(--accent-weak);font-weight:600} tr.hfut td{color:#a0a7b4}
+  .cmp{position:fixed;inset:0;z-index:145;background:#0f172ad9;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;gap:12px}
+  .cmp[hidden]{display:none}
+  .cmp .cwrap{position:relative;max-width:min(1200px,96vw);max-height:78vh;aspect-ratio:16/10;width:100%;border-radius:12px;overflow:hidden;box-shadow:0 20px 60px #0008;user-select:none;touch-action:none;cursor:ew-resize}
+  .cmp img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none}
+  .cmp .cline{position:absolute;top:0;bottom:0;width:3px;background:#fff;box-shadow:0 0 8px #0008;pointer-events:none}
+  .cmp .cline::after{content:'⇆';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;color:#1b1f27;border-radius:999px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-size:16px}
+  .cmp .ctag{position:absolute;top:12px;padding:4px 10px;border-radius:999px;background:#000a;color:#fff;font-size:13px;font-weight:600}
+  .cmp .cbar{display:flex;gap:8px;align-items:center;color:#fff;font-size:13px}
+  #tourCap{position:absolute;left:16px;bottom:16px;z-index:4;background:#1b1f27e0;color:#fff;padding:10px 14px;border-radius:12px;display:none;gap:12px;align-items:center}
+  #tourCap b{font-size:16px;display:block} #tourCap span{font-size:12px;opacity:.8}
   tr.clickable{cursor:pointer} tr.clickable:hover td{background:#f6f8fb}
   kbd{font:11px ui-monospace,monospace;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 4px;background:#fff;color:var(--muted)}
   /* catalogue */
@@ -218,9 +249,10 @@
       <button id="bReset" class="danger">Repartir du plan d’origine…</button>
     </div>
   </div>
-  <div class="seg"><button id="bUndo" class="ghost" title="Annuler (Ctrl+Z)">↶</button><button id="bRedo" class="ghost" title="Rétablir (Ctrl+Y)">↷</button></div>
+  <div class="seg"><button id="bUndo" class="ghost" title="Annuler (Ctrl+Z)">↶</button><button id="bRedo" class="ghost" title="Rétablir (Ctrl+Y)">↷</button><button id="bHist" class="ghost" title="Historique des modifications">🕘</button></div>
   <div class="spacer"></div>
   <div class="seg" id="layoutSeg"><button data-layout="plan">Plan</button><button data-layout="split" class="on">Plan + 3D</button><button data-layout="3d">3D</button></div>
+  <button id="bCmd" class="ghost cmdbtn" title="Tout trouver et tout faire (Ctrl+K)">🔍 Rechercher… <kbd>Ctrl K</kbd></button>
   <button id="bSettings" class="ghost" title="Réglages">⚙ Réglages</button>
   <button id="bHelp" class="ghost" title="Aide et raccourcis (?)">?</button>
 </header>
@@ -266,7 +298,9 @@
         <div class="seg"><button data-v="persp" class="on">3D</button><button data-v="top">Dessus</button><button data-v="walk">Visite</button></div>
         <div class="seg">
           <button id="bFrame" title="Cadrer la sélection (ou tout)">Cadrer</button>
-          <button id="bShot" title="Capture PNG">📷</button>
+          <button id="bShot" title="Belle capture (grand format)">📷</button>
+          <button id="bTour3" title="Visite automatique de pièce en pièce">🎬</button>
+          <button id="bCmp" title="Comparer avant / après">⇆</button>
           <div class="menuwrap">
             <button id="bV3opt">Affichage ▾</button>
             <div class="menu right v3menu" id="v3menu">
@@ -304,6 +338,7 @@
           <button id="bFull" title="Plein écran">⤢</button>
         </div>
       </div>
+      <div id="tourCap"><div><b id="tourRoom"></b><span id="tourInfo"></span></div><button id="tourStop">⏹ Arrêter</button></div>
       <div id="walkHint">Glisser pour regarder · ZQSD / flèches pour avancer · Maj pour courir · Échap pour sortir</div>
     </div>
     <div id="vsplit" class="splitter h" title="Glisser pour redimensionner"></div>
@@ -312,6 +347,11 @@
   </aside>
 </main>
 <div id="toast"></div>
+<div id="ctx" class="ctx" hidden></div>
+<div id="cmp" class="cmp" hidden><div class="cwrap" id="cmpWrap"><img id="cmpAfter" alt="Après"><img id="cmpBefore" alt="Avant"><div class="cline" id="cmpLine"></div><span class="ctag" style="left:12px">Avant</span><span class="ctag" style="right:12px">Après</span></div>
+  <div class="cbar"><span>Glisse sur l’image pour comparer l’existant et ton projet.</span><button id="cmpDl">⬇ Télécharger</button><button id="cmpClose" class="primary">Fermer</button></div></div>
+<div id="dragGhost" class="dragghost" hidden></div>
+<div id="cmdk" class="cmdk" hidden><div class="cbox"><input id="cmdIn" placeholder="Un objet, un outil, une pièce… ou « peindre la chambre en vert sauge »" autocomplete="off" spellcheck="false"><div id="cmdList"></div><div class="cfoot">↑ ↓ pour choisir · Entrée pour lancer · Échap pour fermer</div></div></div>
 <div id="tour" class="tour" hidden><div class="tbox" role="dialog" aria-modal="true"><div id="tourBody"></div><div class="tdots" id="tourDots"></div><div class="tnav"><button id="tourSkip" class="ghost">Passer le guide</button><div class="seg"><button id="tourPrev">← Précédent</button><button id="tourNext" class="primary">Suivant →</button></div></div></div></div>
 <div id="modal" class="modal" hidden><div class="mbox"><div class="mhead"><b id="mTitle"></b><button id="mClose" class="ghost">✕</button></div><div id="mBody"></div></div></div>
 
@@ -734,16 +774,52 @@ function cleanup() {
   S.openings = S.openings.filter(o => ids.has(o.wall));
   S.openings.forEach(clampOpening);
 }
+// Historique lisible : chaque étape porte une description et une heure
+let pastLbl = [], futureLbl = [];
+function describeChange(aStr, b) {
+  let a; try { a = JSON.parse(aStr); } catch { return 'Modification'; }
+  const J = o => JSON.stringify(o, (k, v) => k.startsWith('_') ? undefined : v);   // les champs « _ » sont des calculs internes
+  const byId = l => new Map((l ?? []).map(x => [x.id, x])), diff = (A2, B2) => { const ma = byId(A2), mb = byId(B2); return { add: B2.filter(x => !ma.has(x.id)), del: A2.filter(x => !mb.has(x.id)), mod: B2.filter(x => ma.has(x.id) && J(ma.get(x.id)) !== J(x)), ma }; };
+  const rs = diff(a.rooms, b.rooms), sty = rs.mod.find(x => x.style && x.style !== rs.ma.get(x.id).style);
+  if (sty) return `${sty.name} : ambiance ${ML.STYLES[sty.style]?.label ?? ''}`;
+  const it = diff(a.items, b.items);
+  if (it.add.length) return it.add.length > 2 ? `${it.add.length} objets ajoutés` : `${it.add.map(x => x.name).join(', ')} ajouté${it.add.length > 1 ? 's' : ''}`;
+  if (it.del.length) return it.del.length > 2 ? `${it.del.length} objets supprimés` : `${it.del.map(x => x.name).join(', ')} supprimé${it.del.length > 1 ? 's' : ''}`;
+  if (it.mod.length) { const x = it.mod[0], o = it.ma.get(x.id); return `${x.name} ${x.x !== o.x || x.y !== o.y ? 'déplacé' : x.rot !== o.rot ? 'pivoté' : x.color !== o.color ? 'recoloré' : 'modifié'}`; }
+  const wl = diff(a.walls, b.walls);
+  if (wl.add.length) return wl.add.length > 2 ? `${wl.add.length} murs créés` : 'Mur ajouté';
+  if (wl.del.length) return wl.del.length > 1 ? `${wl.del.length} murs supprimés` : 'Mur supprimé';
+  if (wl.mod.length) { const x = wl.mod[0], o = wl.ma.get(x.id); return JSON.stringify(x.accent) !== JSON.stringify(o.accent) ? 'Mur d’accent modifié' : JSON.stringify([x.a, x.b]) !== JSON.stringify([o.a, o.b]) ? `Mur${wl.mod.length > 1 ? 's' : ''} déplacé${wl.mod.length > 1 ? 's' : ''}` : 'Mur modifié'; }
+  const op = diff(a.openings, b.openings), opl = o => (o.label ?? OPS[o.type]?.label ?? 'Ouverture');
+  if (op.add.length) return `${opl(op.add[0])} ajoutée`; if (op.del.length) return `${opl(op.del[0])} supprimée`; if (op.mod.length) return `${opl(op.mod[0])} modifiée`;
+  const rm = diff(a.rooms, b.rooms);
+  if (rm.add.length) return `Pièce « ${rm.add[0].name} » nommée`; if (rm.del.length) return 'Nom de pièce retiré';
+  if (rm.mod.length) { const x = rm.mod[0], o = rm.ma.get(x.id); return x.style !== o.style && x.style ? `${x.name} : ambiance ${ML.STYLES[x.style]?.label ?? ''}` : x.name !== o.name ? `Pièce renommée « ${x.name} »` : JSON.stringify(x.works) !== JSON.stringify(o.works) ? `${x.name} : travaux` : `${x.name} : couleurs et revêtements`; }
+  if (JSON.stringify(a.dims) !== JSON.stringify(b.dims)) return 'Cotes';
+  if (JSON.stringify(a.bgMeta) !== JSON.stringify(b.bgMeta)) return 'Plan de fond';
+  if (JSON.stringify(a.prices) !== JSON.stringify(b.prices)) return 'Prix modifiés';
+  if (a.name !== b.name) return `Projet renommé « ${b.name} »`;
+  return 'Réglages';
+}
 function commit() {
   cleanup();
   const now = JSON.stringify(S);
-  if (now !== lastSaved) { past.push(lastSaved); if (past.length > 200) past.shift(); future = []; lastSaved = now; save(); maybeAutoBackup(); }
+  if (now !== lastSaved) { pastLbl.push({ l: describeChange(lastSaved, S), t: Date.now() }); past.push(lastSaved); if (past.length > 200) { past.shift(); pastLbl.shift(); } future = []; futureLbl = []; lastSaved = now; save(); maybeAutoBackup(); if (!document.getElementById('modal').hidden && modalKind === 'history') openHistory(); }
   if (sel && !resolveSel()) sel = null;
   renderAll();
 }
 function restore(str) { S = migrate(JSON.parse(str)); lastSaved = str; save(); if (sel && !resolveSel()) sel = null; renderAll(); }
-function undo() { if (past.length) { future.push(lastSaved); restore(past.pop()); } }
-function redo() { if (future.length) { past.push(lastSaved); restore(future.pop()); } }
+function undo() { if (past.length) { future.push(lastSaved); futureLbl.push(pastLbl.pop()); restore(past.pop()); } }
+function redo() { if (future.length) { past.push(lastSaved); pastLbl.push(futureLbl.pop()); restore(future.pop()); } }
+// aller directement à une étape de l'historique (n = nombre d'étapes appliquées)
+function goToStep(n) { while (past.length > n) undo(); while (past.length < n && future.length) redo(); if (modalKind === 'history') openHistory(); }
+function openHistory() {
+  const hm = t => new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }), cur = past.length;
+  const all = [...pastLbl, ...[...futureLbl].reverse()];
+  const rows = all.map((x, i) => `<tr class="clickable ${i + 1 === cur ? 'hcur' : i + 1 > cur ? 'hfut' : ''}" data-step="${i + 1}"><td>${i + 1 === cur ? '▶ ' : ''}${esc(x?.l ?? 'Modification')}</td><td class="n muted">${x ? hm(x.t) : ''}</td></tr>`).reverse().join('');
+  openModal('history', 'Historique des modifications', `<p class="muted" style="margin-top:0">Clique une ligne pour revenir à ce moment-là. Les étapes grisées sont « en avant » : un clic les rétablit. Une nouvelle modification efface ces étapes grisées, comme dans la vraie vie.</p>
+    <table><tbody>${rows}<tr class="clickable ${cur === 0 ? 'hcur' : ''}" data-step="0"><td>${cur === 0 ? '▶ ' : ''}Ouverture du projet</td><td></td></tr></tbody></table>`);
+}
 
 // =====================================================================
 //  Géométrie
@@ -1728,6 +1804,8 @@ addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
   if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); redo(); return; }
+  if (k === 'escape' && !document.getElementById('cmp').hidden) { document.getElementById('cmp').hidden = true; return; }
+  if (tourA) { if (k === 'escape') stopTour(); return; }
   if (viewMode === 'walk') { if (k === 'escape') setView('persp'); return; }
   if (tool === 'kit' && k === 'r') { kitRot = (kitRot + 1) % 4; schedule(false); return; }
   if (k === 'escape') { if (draw) draw = null; else if (dimDraw) dimDraw = null; else if (tool !== 'select') setTool('select'); else setSel(null); meas = null; schedule(false); return; }
@@ -2913,7 +2991,7 @@ function build3D() {
       }
     }
     const div = document.createElement('div'); div.className = 'lbl3'; div.innerHTML = `${esc(roomName(r))}<span>${fm(r.area, 1)} m²</span>`;
-    const lab = new CSS2DObject(div); lab.position.set(t ? t.x : r.cx, .3, t ? t.y : r.cy); lab.visible = opt.lbl && viewMode !== 'walk'; labels.add(lab);
+    const lab = new CSS2DObject(div); lab.position.set(t ? t.x : r.cx, .3, t ? t.y : r.cy); lab.visible = opt.lbl && viewMode !== 'walk' && viewMode !== 'tour'; labels.add(lab);
   }
   const tm = opt.real ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping;
   if (renderer.toneMapping !== tm) { renderer.toneMapping = tm; _m.forEach(m => { m.needsUpdate = true; }); _wf.forEach(m => { m.needsUpdate = true; }); }
@@ -2969,10 +3047,87 @@ function setView(v) {
   }
   dirty3D = true;
 }
-document.querySelectorAll('[data-v]').forEach(b => b.onclick = () => setView(b.dataset.v));
+document.querySelectorAll('[data-v]').forEach(b => b.onclick = () => { stopTour(); setView(b.dataset.v); });
+// --- image 3D hors écran à la taille voulue (captures, avant/après)
+function renderImage(W, H) {
+  if (dirty3D) { build3D(); dirty3D = false; }
+  const sz = renderer.getSize(new THREE.Vector2()), pr = renderer.getPixelRatio();
+  renderer.setPixelRatio(1); renderer.setSize(W, H, false); cam.aspect = W / H; cam.updateProjectionMatrix();
+  renderer.render(scene, cam); const url = renderer.domElement.toDataURL('image/png');
+  renderer.setPixelRatio(pr); renderer.setSize(sz.x, sz.y); cam.aspect = sz.x / sz.y; cam.updateProjectionMatrix();
+  return url;
+}
+const ensure3D = () => { if (prefs.layout === 'plan') setLayout('split'); };
+// --- belle capture : rendu réaliste, ombres, sans sélection, grand format, signée
+function beautyShot() {
+  ensure3D(); stopTour();
+  const keepO = { real: opt.real, shadow: opt.shadow }, sel0 = sel; opt.real = true; opt.shadow = true; sel = null; dirty3D = true;
+  const url = renderImage(2400, 1500);
+  Object.assign(opt, keepO); sel = sel0; dirty3D = true;
+  const im = new Image();
+  im.onload = () => {
+    const c = document.createElement('canvas'); c.width = 2400; c.height = 1500; const g = c.getContext('2d'); g.drawImage(im, 0, 0);
+    const gr = g.createLinearGradient(0, 1300, 0, 1500); gr.addColorStop(0, '#0000'); gr.addColorStop(1, '#0008'); g.fillStyle = gr; g.fillRect(0, 1300, 2400, 200);
+    g.fillStyle = '#fff'; g.font = '600 46px system-ui,sans-serif'; g.fillText(S.name, 56, 1430); g.font = '28px system-ui,sans-serif'; g.globalAlpha = .8; g.fillText('Conçu avec Moovo 3D', 56, 1470);
+    c.toBlob(b => download(b, slug(S.name) + '-rendu.png')); toast('📷 Belle capture enregistrée. Encadrement non fourni.');
+  };
+  im.src = url;
+}
+// --- avant / après : l'état existant (plan d'origine, sans déco) et le projet, vus du même point de vue
+let cmpBefore = null;
+function openCompare() {
+  ensure3D(); stopTour();
+  const keep = JSON.stringify(S), sel0 = sel, base = BASE(); sel = null;
+  S.walls = clone(base.walls).map(w => { delete w.accent; return w; }); S.openings = clone(base.openings); S.items = [];
+  for (const t of S.rooms) for (const k of ['paintColor', 'wallFinish', 'floorTint', 'ceilColor', 'style', 'tileColor', 'sheen']) t[k] = null;
+  for (const t of S.rooms) t.floor = 'concrete';
+  analyze(); dirty3D = true; const before = renderImage(1600, 1000);
+  S = JSON.parse(keep); sel = sel0; analyze(); dirty3D = true; const after = renderImage(1600, 1000);
+  cmpBefore = before; document.getElementById('cmpBefore').src = before; document.getElementById('cmpAfter').src = after;
+  document.getElementById('cmp').hidden = false; setCmp(.5); renderAll();
+}
+function setCmp(f) { f = clamp(f, 0, 1); document.getElementById('cmpBefore').style.clipPath = `inset(0 ${(1 - f) * 100}% 0 0)`; document.getElementById('cmpLine').style.left = `calc(${f * 100}% - 1.5px)`; }
+{ const wr = document.getElementById('cmpWrap'); let dn = false; const mv = e => { const r = wr.getBoundingClientRect(); setCmp((e.clientX - r.left) / r.width); };
+  wr.addEventListener('pointerdown', e => { dn = true; wr.setPointerCapture(e.pointerId); mv(e); }); wr.addEventListener('pointermove', e => { if (dn) mv(e); }); wr.addEventListener('pointerup', () => { dn = false; }); }
+document.getElementById('cmpClose').onclick = () => { document.getElementById('cmp').hidden = true; };
+document.getElementById('cmpDl').onclick = () => {
+  const a = new Image(), b = new Image(); let n = 0; const go = () => { if (++n < 2) return; const c = document.createElement('canvas'); c.width = 3200; c.height = 1000; const g = c.getContext('2d'); g.drawImage(b, 0, 0); g.drawImage(a, 1600, 0);
+    g.fillStyle = '#000a'; g.fillRect(20, 20, 140, 50); g.fillRect(1620, 20, 140, 50); g.fillStyle = '#fff'; g.font = '600 30px system-ui,sans-serif'; g.fillText('Avant', 40, 56); g.fillText('Après', 1640, 56); c.toBlob(bl => download(bl, slug(S.name) + '-avant-apres.png')); };
+  a.onload = b.onload = go; a.src = document.getElementById('cmpAfter').src; b.src = cmpBefore;
+};
+// --- visite automatique : la caméra passe de pièce en pièce, à hauteur des yeux
+let tourA = null;
+function autoTour() {
+  ensure3D();
+  const rooms = A.rooms.filter(r => r.tags[0] && r.area > 2 && r.rects.length);
+  if (!rooms.length) { toast('Nomme au moins une pièce pour lancer la visite.'); return; }
+  const shots = rooms.map(r => {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; for (const q of r.rects) { x0 = Math.min(x0, q.x0); y0 = Math.min(y0, q.y0); x1 = Math.max(x1, q.x1); y1 = Math.max(y1, q.y1); }
+    const cands = [[x0 + .45, y0 + .45], [x1 - .45, y1 - .45], [x0 + .45, y1 - .45], [x1 - .45, y0 + .45], [(x0 + x1) / 2, (y0 + y1) / 2]];
+    const p = cands.find(c => A.regionAt(c[0], c[1]) === r) ?? [r.cx, r.cy], tx = (x0 + x1) / 2, ty = (y0 + y1) / 2;
+    return { r, p, yaw: Math.atan2(-(tx - p[0]), -(ty - p[1])) };
+  });
+  if (viewMode !== 'persp') setView('persp');
+  ctl.enabled = false; viewMode = 'tour'; cam.fov = 72; cam.updateProjectionMatrix(); dirty3D = true;
+  tourA = { shots, i: 0, t: 0, from: { x: cam.position.x, y: cam.position.y, z: cam.position.z, yaw: shots[0].yaw } };
+  document.getElementById('tourCap').style.display = 'flex'; showTourCap();
+}
+function showTourCap() { const s0 = tourA.shots[tourA.i], t = s0.r.tags[0]; document.getElementById('tourRoom').textContent = t.name; document.getElementById('tourInfo').textContent = `${fm(s0.r.area, 1)} m² · pièce ${tourA.i + 1} sur ${tourA.shots.length}`; }
+function stopTour() { if (!tourA) return; tourA = null; document.getElementById('tourCap').style.display = 'none'; ctl.enabled = true; viewMode = 'persp'; setView('persp'); }
+function tourStep(dt) {
+  const T = tourA, s0 = T.shots[T.i], move = 1.6, stay = 4.2; T.t += dt;
+  const k = Math.min(1, T.t / move), e = k < .5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2;
+  cam.position.set(T.from.x + (s0.p[0] - T.from.x) * e, T.from.y + (opt.eye - T.from.y) * e, T.from.z + (s0.p[1] - T.from.z) * e);
+  const sweep = T.t > move ? Math.sin((T.t - move) / stay * Math.PI) * .55 : 0;
+  cam.rotation.set(-.08, T.from.yaw + (s0.yaw - T.from.yaw) * e + sweep, 0, 'YXZ');
+  if (T.t > move + stay) { if (T.i + 1 >= T.shots.length) { toast('🎬 Fin de la visite. Le guide accepte les pourboires, mais seulement en compliments.'); stopTour(); return; } T.from = { x: cam.position.x, y: cam.position.y, z: cam.position.z, yaw: cam.rotation.y }; T.i++; T.t = 0; showTourCap(); }
+}
+document.getElementById('tourStop').onclick = stopTour;
 document.getElementById('bFull').onclick = () => { v3.classList.toggle('full'); };
 document.getElementById('bFrame').onclick = frameSelection;
-document.getElementById('bShot').onclick = shot3D;
+document.getElementById('bShot').onclick = () => beautyShot();
+document.getElementById('bTour3').onclick = () => tourA ? stopTour() : autoTour();
+document.getElementById('bCmp').onclick = () => openCompare();
 syncOptUI();
 function resize3D() { const r = v3.getBoundingClientRect(); if (!r.width || !r.height) return; renderer.setSize(r.width, r.height); labelR.setSize(r.width, r.height); cam.aspect = r.width / r.height; cam.updateProjectionMatrix(); }
 new ResizeObserver(resize3D).observe(v3);
@@ -3016,11 +3171,14 @@ function loop() {
     else { if (free(mx, 0)) cam.position.x += mx; if (free(0, mz)) cam.position.z += mz; }
     cam.position.y = opt.eye;
     cam.rotation.set(pitch, yaw, 0, 'YXZ');
-  } else ctl.update();
+  } else if (tourA) tourStep(dt);
+  else ctl.update();
   renderer.render(scene, cam); labelR.render(scene, cam);
   requestAnimationFrame(loop);
 }
 document.getElementById('bUndo').onclick = undo;
+document.getElementById('bHist').onclick = openHistory;
+document.getElementById('mBody').addEventListener('click', e => { const tr = e.target.closest('tr[data-step]'); if (tr && modalKind === 'history') goToStep(+tr.dataset.step); });
 document.getElementById('bRedo').onclick = redo;
 document.getElementById('bExport').onclick = () => {
   const a = document.createElement('a');
@@ -3379,6 +3537,127 @@ function runDetect() {
   };
   im.src = bgImg;
 }
+// =====================================================================
+//  Menu contextuel (clic droit, appui long sur écran tactile)
+// =====================================================================
+const ctxEl = document.getElementById('ctx');
+function closeCtx() { ctxEl.hidden = true; }
+function openCtx(cx, cy, el, p) {
+  const kind = el?.dataset.kind, id = el?.dataset.id;
+  let html = '';
+  const B = (a, label, extra = '') => `<button data-c="${a}" ${extra}>${label}</button>`;
+  if (kind === 'item' || kind === 'handle') {
+    const it = S.items.find(x => x.id === id); if (!it) return;
+    setSel({ kind: 'item', id });
+    html = `<h6>${esc(it.name)}</h6>${B('rotate', '↻ Pivoter <kbd>R</kbd>')}${B('dup', '⧉ Dupliquer <kbd>Ctrl D</kbd>')}${B('copy', '📋 Copier <kbd>Ctrl C</kbd>')}${B('color', '🎨 Changer la couleur…')}
+      ${SIZES[it.type] ? `<hr><h6>Taille standard</h6><div class="sub">${SIZES[it.type].map(([w2, d2, l]) => B('size', l, `data-w="${w2}" data-d="${d2}"`)).join('')}</div>` : ''}<hr>${B('del', '🗑 Supprimer <kbd>Suppr</kbd>', 'class="danger"')}`;
+  } else if (kind === 'opening') {
+    const o = S.openings.find(x => x.id === id); if (!o) return;
+    setSel({ kind: 'opening', id });
+    html = `<h6>${esc(o.label ?? OPS[o.type].label)}</h6>${o.type === 'door' ? B('cycleDoor', '↻ Changer le sens d’ouverture') : ''}${B('dup', '⧉ Dupliquer')}${o.type === 'door' || o.type === 'window' || o.type === 'baie' ? B('color', '🎨 Couleur…') : ''}<hr>${B('del', '🗑 Supprimer', 'class="danger"')}`;
+  } else if (kind === 'wall' || kind === 'wend' || kind === 'apex') {
+    const w = wallById(id); if (!w) return;
+    const f = frame(w), rel = [p[0] - w.a[0], p[1] - w.a[1]]; setSel({ kind: 'wall', id, at: clamp(dot(rel, f.u), 0, f.L) });
+    html = `<h6>${w.kind === 'ext' ? 'Mur extérieur / porteur' : 'Cloison'}</h6>${B('door', '🚪 Poser une porte ici')}${B('window', '🪟 Poser une fenêtre ici')}${B('split', '✂ Couper le mur ici')}${B('accent', '🎨 Mur d’accent…')}<hr>${B('del', '🗑 Supprimer le mur', 'class="danger"')}`;
+  } else if (kind === 'room') {
+    setSel({ kind: 'room', x: p[0], y: p[1] }); const r = A.regionAt(p[0], p[1]);
+    html = `<h6>${r ? esc(roomName(r)) : 'Pièce'}</h6>${B('addHere', '＋ Ajouter un objet ici')}${clip ? B('paste', '📋 Coller ici') : ''}
+      ${r?.tags[0] ? `<hr><h6>Ambiance</h6><div class="sub">${Object.entries(ML.STYLES).map(([k, v]) => B('style', v.label, `data-style="${k}"`)).join('')}</div>` : ''}`;
+  } else {
+    html = `${B('addHere', '＋ Ajouter un objet ici')}${clip ? B('paste', '📋 Coller ici') : ''}${B('fit', '⤢ Tout voir <kbd>0</kbd>')}${B('bg', '🖼 Plan de fond…')}`;
+  }
+  ctxEl.innerHTML = html; ctxEl.hidden = false; ctxEl.dataset.x = p[0]; ctxEl.dataset.y = p[1];
+  const r = ctxEl.getBoundingClientRect();
+  ctxEl.style.left = Math.min(cx, innerWidth - r.width - 8) + 'px'; ctxEl.style.top = Math.min(cy, innerHeight - r.height - 8) + 'px';
+}
+ctxEl.addEventListener('click', e => {
+  const b = e.target.closest('[data-c]'); if (!b) return;
+  const c = b.dataset.c, p = [+ctxEl.dataset.x, +ctxEl.dataset.y]; closeCtx();
+  if (['rotate', 'dup', 'del', 'cycleDoor', 'split'].includes(c)) act(c);
+  else if (c === 'copy') { clip = JSON.stringify(resolveSel()); toast('Objet copié · Ctrl+V pour le coller (sans frais de livraison)'); }
+  else if (c === 'paste' && clip) { const it = { ...JSON.parse(clip), id: uid() }; const f = fp(it); it.x = r2(p[0] - f.w / 2); it.y = r2(p[1] - f.h / 2); S.items.push(it); sel = { kind: 'item', id: it.id }; commit(); }
+  else if (c === 'size') { const it = resolveSel(); if (it) { const f0 = fp(it), cx = f0.x + f0.w / 2, cy = f0.y + f0.h / 2; it.w = +b.dataset.w; it.d = +b.dataset.d; const f1 = fp(it); it.x = r2(cx - f1.w / 2); it.y = r2(cy - f1.h / 2); commit(); } }
+  else if (c === 'color' || c === 'accent') { tab = 'sel'; renderPanel(); setTimeout(() => { const t = c === 'accent' ? panel.querySelector('select[data-key^="accent."]') : panel.querySelector('.cpick'); t?.scrollIntoView({ block: 'center' }); if (c === 'color') t?.click(); else t?.focus(); }, 30); }
+  else if (c === 'door' || c === 'window') { setTool(c); clickTool(p, null, null); setTool('select'); }
+  else if (c === 'style') { const r = resolveSel(); if (r && r !== true && r.tags?.[0]) { applyStyle(r, b.dataset.style); commit(); toast(`Ambiance « ${ML.STYLES[b.dataset.style].label} » appliquée. ${ML.STYLES[b.dataset.style].wink ?? ''}`, 3800); } }
+  else if (c === 'addHere') { view.cx = p[0]; view.cy = p[1]; document.getElementById('bCatalog').click(); }
+  else if (c === 'fit') { fit(); schedule(false); }
+  else if (c === 'bg') openBg();
+});
+document.addEventListener('pointerdown', e => { if (!ctxEl.hidden && !e.target.closest('#ctx')) closeCtx(); });
+svg.addEventListener('contextmenu', e => { e.preventDefault(); if (tool !== 'select') return; openCtx(e.clientX, e.clientY, e.target.closest('[data-kind]'), toPlan(e)); });
+// appui long (tactile) = clic droit
+let lpT = null;
+svg.addEventListener('pointerdown', e => { if (e.pointerType !== 'touch' || tool !== 'select') return; const x = e.clientX, y = e.clientY, el = e.target.closest('[data-kind]'), p = toPlan(e); clearTimeout(lpT); lpT = setTimeout(() => { if (down && !down.moved) { drag = pan = null; down = null; openCtx(x, y, el, p); } }, 550); });
+svg.addEventListener('pointerup', () => clearTimeout(lpT)); svg.addEventListener('pointercancel', () => clearTimeout(lpT));
+// =====================================================================
+//  Glisser un objet (ou un ensemble) du catalogue directement sur le plan
+// =====================================================================
+let catDrag = null, catDragged = false;
+const ghostEl = document.getElementById('dragGhost');
+document.getElementById('catList').addEventListener('pointerdown', e => {
+  const b = e.target.closest('[data-add],[data-kit]'); if (!b || e.button !== 0) return;
+  catDrag = { type: b.dataset.add, kit: b.dataset.kit, x: e.clientX, y: e.clientY, on: false }; catDragged = false;
+});
+addEventListener('pointermove', e => {
+  if (!catDrag) return;
+  if (!catDrag.on && Math.hypot(e.clientX - catDrag.x, e.clientY - catDrag.y) > 8) { catDrag.on = true; closeMenus(); ghostEl.textContent = catDrag.kit ? '✨ ' + KITS[catDrag.kit].label : CAT[catDrag.type].label; ghostEl.hidden = false; }
+  if (catDrag.on) { ghostEl.style.left = e.clientX + 'px'; ghostEl.style.top = e.clientY + 'px'; }
+});
+addEventListener('pointerup', e => {
+  if (!catDrag) return; const d = catDrag; catDrag = null; ghostEl.hidden = true;
+  if (!d.on) return; catDragged = true;
+  const r = svg.getBoundingClientRect(); if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) return;
+  const p = toPlan(e);
+  if (d.kit) { kitPlacing = d.kit; kitRot = 0; placeKit(p); return; }
+  const c = CAT[d.type];
+  if (MOUNT.has(d.type) || c.group) { placeItem(d.type, p); return; }
+  const it = I_(d.type, c.label, 0, 0, c.w, c.d, { price: c.price }); it.x = snapV(p[0] - c.w / 2); it.y = snapV(p[1] - c.d / 2);
+  S.items.push(it); setTool('select'); sel = { kind: 'item', id: it.id }; tab = 'sel'; commit();
+});
+document.getElementById('catList').addEventListener('click', e => { if (catDragged) { e.stopImmediatePropagation(); catDragged = false; } }, true);
+// =====================================================================
+//  Recherche universelle (Ctrl+K) : outils, objets, pièces, actions… et phrases simples
+// =====================================================================
+const norm = t => String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’']/g, ' ');
+function commands(q) {
+  const out = [], Q = norm(q).trim(), words = Q.split(/\s+/).filter(w => w.length > 1 && !['le', 'la', 'les', 'en', 'de', 'du', 'des', 'un', 'une', 'a', 'au'].includes(w));
+  const add = (ic, label, hint, run, extra = '') => { const h = norm(label + ' ' + hint + ' ' + extra); if (!words.length || words.every(w => h.includes(w))) out.push({ ic, label, hint, run }); };
+  // phrase : « peindre <pièce> en <couleur> »
+  if (/peindre|peins|couleur|repeindre/.test(Q)) {
+    const score = n => norm(n).split(' ').filter(t => t.length > 2 && Q.includes(t)).length;
+    const colors = [...Object.values(ML.PALETTES).flatMap(p => p.colors)].filter(([, n]) => score(n) > 0).sort((x, y) => score(y[1]) - score(x[1]));
+    for (const r of A.rooms) { const t = r.tags[0]; if (!t || !Q.includes(norm(t.name).split(' ')[0])) continue;
+      for (const [hex, n, ref] of colors.slice(0, 4)) out.push({ ic: '🎨', label: `Peindre ${t.name} en ${n}`, hint: ref || 'peinture', run: () => { t.paintColor = hex; t.wallFinish = null; t.style = null; commit(); setSel({ kind: 'room', x: t.x, y: t.y }); toast(`${t.name} repeinte en ${n}. Sans odeur, sans bâche, sans courbatures.`); } }); }
+  }
+  for (const [t, ic, l] of [['select', '↖', 'Sélection'], ['wall', '▭', 'Dessiner un mur'], ['door', '🚪', 'Poser une porte'], ['window', '🪟', 'Poser une fenêtre'], ['baie', '🪟', 'Poser une baie vitrée'], ['opening', '⬚', 'Percer un passage'], ['placard', '🗄', 'Poser un placard'], ['dim', '↔', 'Coter'], ['measure', '📏', 'Mesurer']]) add(ic, l, 'outil', () => setTool(t));
+  for (const r of A.rooms) { const t = r.tags[0]; if (t) add('📍', `Aller à : ${t.name}`, `${fm(r.area, 1)} m²`, () => { view.cx = t.x; view.cy = t.y; setSel({ kind: 'room', x: t.x, y: t.y }); }, 'piece'); }
+  for (const [k, v] of Object.entries(KITS)) add('✨', `Poser : ${v.label}`, 'ensemble', () => startKit(k), v.desc);
+  for (const [k, c] of Object.entries(CAT)) add('＋', `Ajouter : ${c.label}`, CAT_GROUP(k), () => startAdd(k), 'objet meuble');
+  for (const [k, v] of Object.entries(ML.STYLES)) add('🎨', `Ambiance ${v.label} dans toutes les pièces`, 'ambiance', () => { for (const r of A.rooms) if (r.tags[0]) applyStyle(r, k); commit(); toast(`Ambiance « ${v.label} » partout. ${v.wink ?? ''}`, 4000); }, v.desc);
+  for (const [ic, l, h, run] of [['📄', 'Générer le devis', 'budget', openDevis], ['💶', 'Voir le budget des travaux', 'budget', () => { tab = 'works'; renderPanel(); }], ['🖼', 'Importer un plan de fond', 'image detection murs', openBg],
+    ['↶', 'Annuler', 'Ctrl+Z', undo], ['↷', 'Rétablir', 'Ctrl+Y', redo], ['🕘', 'Historique des modifications', 'versions annuler', openHistory], ['💾', 'Enregistrer dans un fichier', 'Ctrl+S', () => saveFile(false)],
+    ['🔗', 'Partager par lien', 'partage', shareProject], ['🧊', 'Vue 3D seule', 'affichage', () => setLayout('3d')], ['🗺', 'Plan seul', 'affichage', () => setLayout('plan')], ['◫', 'Plan + 3D', 'affichage', () => setLayout('split')],
+    ['🚶', 'Visite 3D', 'promenade', () => { if (prefs.layout === 'plan') setLayout('split'); setView('walk'); }], ['🎬', 'Visite automatique', 'film tour pieces', autoTour], ['⇆', 'Comparer avant / après', 'existant projet', openCompare],
+    ['📷', 'Belle capture 3D', 'photo image', beautyShot], ['🖨', 'Exporter le plan coté (PNG)', 'export', () => exportPlan('png')], ['⚙', 'Réglages', 'options', openSettings], ['🎓', 'Guide de démarrage', 'tutoriel aide', startTour], ['?', 'Aide et glossaire', 'raccourcis', openHelp]]) add(ic, l, h, run);
+  return out.slice(0, 60);
+}
+let cmdSel = 0, cmdList = [];
+const cmdEl = document.getElementById('cmdk'), cmdIn = document.getElementById('cmdIn');
+function renderCmd() {
+  cmdList = commands(cmdIn.value); cmdSel = Math.min(cmdSel, Math.max(0, cmdList.length - 1));
+  document.getElementById('cmdList').innerHTML = cmdList.map((c, i) => `<button data-i="${i}" class="${i === cmdSel ? 'on' : ''}"><span class="ic">${c.ic}</span>${esc(c.label)}<small>${esc(c.hint)}</small></button>`).join('') || '<p class="muted" style="padding:8px 10px">Rien trouvé. Essaie « canapé », « porte », « séjour » ou « peindre la chambre en bleu ».</p>';
+  document.querySelector('#cmdList .on')?.scrollIntoView({ block: 'nearest' });
+}
+function openCmd() { closeMenus(); closeCtx(); cmdEl.hidden = false; cmdIn.value = ''; cmdSel = 0; renderCmd(); cmdIn.focus(); }
+function closeCmd() { cmdEl.hidden = true; }
+function runCmd(i) { const c = cmdList[i]; closeCmd(); if (c) c.run(); }
+cmdIn.addEventListener('input', () => { cmdSel = 0; renderCmd(); });
+cmdIn.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'ArrowDown') { cmdSel = Math.min(cmdSel + 1, cmdList.length - 1); renderCmd(); e.preventDefault(); } else if (e.key === 'ArrowUp') { cmdSel = Math.max(cmdSel - 1, 0); renderCmd(); e.preventDefault(); } else if (e.key === 'Enter') runCmd(cmdSel); else if (e.key === 'Escape') closeCmd(); });
+document.getElementById('cmdList').addEventListener('click', e => { const b = e.target.closest('[data-i]'); if (b) runCmd(+b.dataset.i); });
+cmdEl.addEventListener('pointerdown', e => { if (e.target === cmdEl) closeCmd(); });
+document.getElementById('bCmd').onclick = openCmd;
+addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); e.stopPropagation(); cmdEl.hidden ? openCmd() : closeCmd(); } }, true);
 // --- guide de démarrage (affiché à la première ouverture, puis depuis l'aide)
 const TOUR = [
   ['👋', 'Bienvenue dans Moovo 3D', 'Tu vas dessiner ton logement au centimètre près, le visiter en 3D, choisir couleurs et matériaux, puis obtenir un budget et un devis. Le tout sans poussière, sans bruit et sans voisin qui frappe au plafond. Ce guide prend une minute : moins qu’un débat sur la couleur du canapé.'],

@@ -949,6 +949,37 @@ function boundaryRuns(rid) {
   }
   return runs;
 }
+// Découpe un bord de pièce selon les murs qui le portent : [{s, e, w, side}] (w = null si aucun mur droit trouvé)
+function runParts(run) {
+  const hits = [];
+  for (const w of S.walls) {
+    if (isArc(w)) continue;
+    const f = frame(w); if (run.o === 'h' ? !isH(f) : !isV(f)) continue;
+    const line = run.o === 'h' ? w.a[1] : w.a[0];
+    if (Math.abs(Math.abs(run.c - line) - w.t / 2) > .012) continue;
+    const k = run.o === 'h' ? 0 : 1, lo = Math.max(run.s, Math.min(w.a[k], w.b[k]) - w.t / 2), hi = Math.min(run.e, Math.max(w.a[k], w.b[k]) + w.t / 2);
+    if (hi - lo < .005) continue;
+    const side = Math.sign((run.o === 'h' ? (run.c - line) * f.n[1] : (run.c - line) * f.n[0])) || 1;
+    hits.push({ s: lo, e: hi, w, side });
+  }
+  hits.sort((a, b) => a.s - b.s);
+  const out = []; let cur = run.s;
+  for (const h of hits) { if (h.e <= cur + 1e-4) continue; const s0 = Math.max(cur, h.s); if (s0 > cur + 1e-4) out.push({ s: cur, e: s0, w: null }); out.push({ s: s0, e: h.e, w: h.w, side: h.side }); cur = h.e; }
+  if (run.e > cur + 1e-4) out.push({ s: cur, e: run.e, w: null });
+  return out;
+}
+// un accent ne s'applique qu'à la pièce pour laquelle il a été choisi (un mur peut longer plusieurs pièces)
+const accentOf = (w, side, tagId) => { const a = w?.accent?.[side]; return a && (!a.tag || !tagId || a.tag === tagId) ? a : null; };
+// Surfaces des murs d'accent d'une pièce : [{w, side, acc, area}]
+function accentAreas(rid, H) {
+  const out = [], tagId = A.regs[rid]?.tags[0]?.id;
+  for (const run of boundaryRuns(rid)) for (const pt of runParts(run)) {
+    const acc = accentOf(pt.w, pt.side, tagId); if (!acc) continue;
+    const area = runTiles({ ...run, s: pt.s, e: pt.e }, rid, H, H, H).reduce((a, g) => a + (g.e - g.s) * (g.y1 - g.y0), 0);
+    const ex = out.find(x => x.w === pt.w && x.side === pt.side); if (ex) ex.area += area; else out.push({ w: pt.w, side: pt.side, acc, area });
+  }
+  return out;
+}
 // Faïence le long d'un bord : rectangles {s,e,y0,y1}
 const roomH = tag => tag?.ceiling ? Math.min(tag.ceiling, S.H) : S.H;
 function runTiles(run, rid, H = S.H, tileH = S.settings.tileH, wetH = S.settings.wetH) {
@@ -1037,11 +1068,17 @@ function works() {
     if (t.works.floor) out.lines.push({ label: `Sol ${nm} (${FLOORS[t.floor]?.label ?? t.floor})`, qty: `${fm(st.area)} m²`, key: 'floor.' + t.floor, unit: '€/m²', total: st.area * (P.floor[t.floor] ?? 0), sec: 'Revêtements de sol', qn: st.area, un: 'm²', pu: P.floor[t.floor] ?? 0 });
     if (t.works.tile) out.lines.push({ label: `Faïence ${nm}`, qty: `${fm(st.tile)} m² (+10 % de chute à l’achat)`, key: 'tile', unit: '€/m²', total: st.tile * 1.1 * P.tile, sec: 'Faïence', qn: st.tile * 1.1, un: 'm²', pu: P.tile });
     if (t.ceiling) out.lines.push({ label: `Faux plafond ${nm} à ${cmTxt(st.H)} ${UNIT()}`, qty: `${fm(st.area)} m² (placo sur ossature)`, key: 'ceiling', unit: '€/m²', total: st.area * (P.ceiling ?? 45), sec: 'Plafonds', qn: st.area, un: 'm²', pu: P.ceiling ?? 45 });
+    const accs = t.works.paint ? accentAreas(r.id, st.H) : [], accA = accs.reduce((a, x) => a + x.area, 0);
+    for (const x of accs) {
+      const fin = x.acc.wallFinish;
+      if (fin && ML.WALL_FINISHES[fin]) { const pu = P.wallFinish?.[fin] ?? ML.WALL_FINISHES[fin].price; out.lines.push({ label: `Mur d’accent ${nm} : ${ML.WALL_FINISHES[fin].label}`, qty: `${fm(x.area)} m² (+10 % de chute)`, key: 'wallFinish.' + fin, unit: '€/m²', total: x.area * 1.1 * pu, sec: 'Revêtements muraux', qn: x.area * 1.1, un: 'm²', pu }); }
+      else out.lines.push({ label: `Mur d’accent ${nm} : peinture ${ML.colorName(x.acc.paintColor)}`, qty: `${fm(x.area)} m²`, key: 'paint', unit: '€/m²', total: x.area * P.paint, sec: 'Peinture', qn: x.area, un: 'm²', pu: P.paint });
+    }
     if (t.works.paint && t.wallFinish && ML.WALL_FINISHES[t.wallFinish]) {
-      const fin = t.wallFinish, wa = Math.max(0, st.paint - st.area), pu = P.wallFinish?.[fin] ?? ML.WALL_FINISHES[fin].price;
+      const fin = t.wallFinish, wa = Math.max(0, st.paint - st.area - accA), pu = P.wallFinish?.[fin] ?? ML.WALL_FINISHES[fin].price;
       out.lines.push({ label: `${ML.WALL_FINISHES[fin].label} ${nm}`, qty: `${fm(wa)} m² de murs (+10 % de chute)`, key: 'wallFinish.' + fin, unit: '€/m²', total: wa * 1.1 * pu, sec: 'Revêtements muraux', qn: wa * 1.1, un: 'm²', pu });
       out.lines.push({ label: `Peinture plafond ${nm}`, qty: `${fm(st.area)} m²`, key: 'paint', unit: '€/m²', total: st.area * P.paint, sec: 'Peinture', qn: st.area, un: 'm²', pu: P.paint });
-    } else if (t.works.paint) out.lines.push({ label: `Peinture ${nm}${t.paintColor ? ` (${ML.colorName(t.paintColor)}, ${ML.SHEENS[t.sheen ?? 'velours'].label.toLowerCase()})` : ''}`, qty: `${fm(st.paint)} m² murs + plafond`, key: 'paint', unit: '€/m²', total: st.paint * P.paint, sec: 'Peinture', qn: st.paint, un: 'm²', pu: P.paint });
+    } else if (t.works.paint) { const q = Math.max(0, st.paint - accA); out.lines.push({ label: `Peinture ${nm}${t.paintColor ? ` (${ML.colorName(t.paintColor)}, ${ML.SHEENS[t.sheen ?? 'velours'].label.toLowerCase()})` : ''}`, qty: `${fm(q)} m² murs + plafond`, key: 'paint', unit: '€/m²', total: q * P.paint, sec: 'Peinture', qn: q, un: 'm²', pu: P.paint }); }
   }
   const cof = S.items.filter(it => it.type === 'coffrage');
   if (cof.length) {
@@ -1914,6 +1951,14 @@ function wallPanel(w) {
     ${(() => { const cs = cornersOf(w); return cs.length ? `<h4>Arrondir un angle</h4>
       <div class="grid2">${field('Rayon (cm)', 'wall', 'roundR', 'cm', roundR)}</div>
       <div class="row">${cs.map(c => `<button data-act="round" data-end="${c.end}" data-other="${c.o.id}" data-oend="${c.oend}">Arrondir l’angle avec ${esc(c.o.id)}</button>`).join('')}</div>` : ''; })()}
+    ${isArc(w) ? '' : `<h4>Mur d’accent</h4>
+    <p class="muted" style="margin:0 0 4px">Un revêtement ou une couleur différente sur cette face seulement (tête de lit, mur TV…). « Comme la pièce » = suit la pièce.</p>
+    ${sides.filter(x => x.r).map(x => { const acc = w.accent?.[x.sd]; return `<div class="grid2">
+      ${selectF(`Face côté ${esc(roomName(x.r))}`, 'wall', `accent.${x.sd}.wallFinish`, acc ? acc.wallFinish ?? 'paint' : '', [['', 'Comme la pièce'], ...Object.entries(ML.WALL_FINISHES).map(([k, v]) => [k, v.label])], acc ? '' : 'full')}
+      ${acc ? field('Couleur / teinte', 'wall', `accent.${x.sd}.paintColor`, 'color', acc.paintColor) : ''}
+    </div>`; }).join('')}
+    <p class="muted" style="margin:4px 0 0">Le mur longe plusieurs pièces ? L’accent ne s’applique qu’à la pièce indiquée.</p>
+    ${tipBox('Un seul mur d’accent par pièce, de préférence celui qu’on voit en entrant ou derrière la tête de lit. Deux, c’est un parti pris ; quatre, c’est une pièce d’une autre couleur.')}`}
     <h4>De part et d’autre</h4><ul class="muted" style="margin:0;padding-left:18px">${sideTxt}</ul>
     <p class="muted">Déplacer le mur (glisser, flèches, ou champ « Position ») étire aussi les murs qui s’y accrochent. Le point de coupe est celui où tu as cliqué.</p>
     <div class="row"><button data-act="split">Couper au point cliqué</button><button data-act="del" class="danger">Supprimer le mur</button></div>
@@ -2018,6 +2063,7 @@ function roomPanel(r) {
         ${(t.wallFinish ?? 'paint') === 'paint' ? selectF('Finition', 'tag', 'sheen', t.sheen ?? 'velours', Object.entries(ML.SHEENS).map(([k, v]) => [k, v.label])) : ''}
       </div>
       ${tipBox(ML.WALL_FINISHES[t.wallFinish ?? 'paint']?.tip, ML.WALL_FINISHES[t.wallFinish ?? 'paint']?.label)}
+      <p class="muted" style="margin:6px 0 0">Pour un <b>mur d’accent</b> (tête de lit, mur TV…), clique directement sur le mur.</p>
       <h4>Sol</h4>
       <div class="grid2">
         ${selectF('Revêtement de sol', 'tag', 'floor', t.floor, Object.entries(FLOORS).map(([k, v]) => [k, v.label]), 'full')}
@@ -2197,11 +2243,11 @@ function shoppingList(W) {
     if (t.works.tile) tile += st.tile;
     if (t.works.paint) {
       const ceil = t.ceilColor ?? S.settings.ceilColor; paints[ceil] = (paints[ceil] ?? 0) + st.area;
-      const wa = Math.max(0, st.paint - st.area);
+      const accs = accentAreas(r.id, st.H), wa = Math.max(0, st.paint - st.area - accs.reduce((a, x) => a + x.area, 0));
       if (t.wallFinish) finishes[t.wallFinish] = (finishes[t.wallFinish] ?? 0) + wa;
       else { const c = t.paintColor ?? S.settings.wallColor; paints[c] = (paints[c] ?? 0) + wa; }
+      for (const x of accs) { if (x.acc.wallFinish) finishes[x.acc.wallFinish] = (finishes[x.acc.wallFinish] ?? 0) + x.area; else paints[x.acc.paintColor] = (paints[x.acc.paintColor] ?? 0) + x.area; }
     }
-    void r;
   }
   const rows = [
     ...Object.entries(floors).map(([k, a]) => [`Sol : ${FLOORS[k]?.label ?? k}`, `${fm(a * 1.1, 1)} m²`, '+10 % de chute']),
@@ -2234,6 +2280,12 @@ function onFieldChange(e) {
     else if (key === 'sym') w.sym = v;
     else if (key === 'low') { w.h = v ? 1.10 : null; if (!v) w.glassAbove = false; }
     else if (key === 'h') w.h = r2(clamp(v, .1, S.H - .02));
+    else if (key.startsWith('accent.')) {
+      const [, sd, k] = key.split('.'); w.accent ??= {};
+      if (k === 'wallFinish' && !v) { delete w.accent[sd]; if (!Object.keys(w.accent).length) delete w.accent; }
+      else { const mp = at(w, f, f.L / 2, +sd * w.t / 2), rg = A.regionAt(mp[0] + f.n[0] * sd * .05, mp[1] + f.n[1] * sd * .05);
+        const acc = w.accent[sd] ??= { paintColor: '#1f5a63', sheen: 'velours', tag: rg?.tags[0]?.id ?? null }; if (k === 'wallFinish') { acc.wallFinish = v === 'paint' ? null : v; if (ML.WALL_DEFAULT_COLOR[v]) acc.paintColor = ML.WALL_DEFAULT_COLOR[v]; } else acc[k] = v; }
+    }
     else w[key] = v;
   } else if (target === 'opening') { obj[key] = v; clampOpening(obj); }
   else if (target === 'item') { obj[key] = v; if (key === 'w' || key === 'd') obj[key] = Math.max(.02, v); }
@@ -2740,16 +2792,19 @@ function build3D() {
       const over = new THREE.Mesh(g.clone(), new THREE.MeshBasicMaterial({ color: '#7aa2e8', transparent: true, opacity: .22, depthWrite: false }));
       over.position.y = t.ceiling + .005; over.userData.pick = mesh.userData.pick; root.add(over);
     }
-    if (opt.finish && (t?.paintColor || t?.wallFinish)) {
-      const pm = wallFinishMat(t), rh = roomH(t);
-      for (const run of boundaryRuns(r.id)) for (const sg of runTiles(run, r.id, rh, rh, rh)) {
+    if (opt.finish && t) {
+      const base = t.paintColor || t.wallFinish ? wallFinishMat(t) : null, rh = roomH(t);
+      for (const run of boundaryRuns(r.id)) for (const pt of runParts(run)) {
+        const acc = accentOf(pt.w, pt.side, t.id), pm = acc ? wallFinishMat(acc) : base; if (!pm) continue;
+        for (const sg of runTiles({ ...run, s: pt.s, e: pt.e }, r.id, rh, rh, rh)) {
         const y1 = Math.min(sg.y1, Hc); if (y1 <= sg.y0) continue;
         const pg = new THREE.PlaneGeometry(sg.e - sg.s, y1 - sg.y0), uv = pg.attributes.uv;
         for (let i = 0; i < uv.count; i++) uv.setXY(i, sg.s + uv.getX(i) * (sg.e - sg.s), sg.y0 + uv.getY(i) * (y1 - sg.y0));
         const p = new THREE.Mesh(pg, pm), m = (sg.s + sg.e) / 2, ym = (sg.y0 + y1) / 2, eps = .0015;
         if (run.o === 'h') { p.position.set(m, ym, run.c + run.nrm * eps); if (run.nrm < 0) p.rotation.y = Math.PI; }
         else { p.position.set(run.c + run.nrm * eps, ym, m); p.rotation.y = run.nrm > 0 ? Math.PI / 2 : -Math.PI / 2; }
-        p.receiveShadow = true; root.add(p);
+        p.receiveShadow = true; if (pt.w) p.userData.pick = { kind: 'wall', id: pt.w.id }; root.add(p);
+        }
       }
     }
     if (opt.finish && t?.works.tile) {

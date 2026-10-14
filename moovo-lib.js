@@ -529,6 +529,9 @@
   body.mshell .mbox{width:100%!important;max-height:none!important;height:100%;border-radius:0!important}
   body.mshell .v3bar{top:6px;left:6px;right:6px}
   body.mshell #selbar{max-width:calc(100% - 16px)}
+  body.mshell #panel td input[type=number]{width:62px!important;max-width:62px}
+  body.mshell #panel table{table-layout:auto;width:100%}
+  body.mshell #panel td.n{white-space:nowrap}
   @media (max-height:520px){
     body.mshell>header{padding-top:calc(3px + env(safe-area-inset-top))!important;padding-bottom:3px!important}
     body.mshell>header>button,body.mshell>header .seg button,body.mshell>header .menuwrap>button{min-height:32px!important;padding:3px 8px}

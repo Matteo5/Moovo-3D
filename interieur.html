@@ -2158,7 +2158,7 @@ function elecPanel() {
 function worksPanel() {
   const W = works(), P = S.prices, d = W.diff;
   const priceInput = l => l.key ? `<input type="number" step="any" data-target="price" data-key="${l.key}" data-unit="num" value="${l.key.startsWith('floor.') ? P.floor[l.key.slice(6)] ?? 0 : l.key.startsWith('wallFinish.') ? P.wallFinish?.[l.key.slice(11)] ?? 0 : P[l.key] ?? 0}"> ${l.unit}` : '';
-  const rows = W.lines.map(l => `<tr><td>${esc(l.label)}<div class="muted">${esc(l.qty)}</div></td><td class="n">${priceInput(l)}</td><td class="n">${eur(l.total)}</td></tr>`).join('') || `<tr><td colspan="3" class="muted">Aucun travaux pour l’instant : modifie le plan ou coche des travaux dans une pièce.</td></tr>`;
+  const rows = W.lines.map(l => `<tr><td>${esc(l.label)}<div class="muted">${esc(l.qty)}</div></td><td class="n">${priceInput(l)}</td><td class="n">${eur(l.total)}</td></tr>`).join('') || `<tr><td colspan="3" class="muted">Aucun travaux pour l’instant : ton banquier dort tranquille. Modifie le plan ou coche des travaux dans une pièce pour le réveiller.</td></tr>`;
   const roomRows = W.rooms.map(({ r, st }) => { const t = st.tag; return `<tr><td>${esc(roomName(r))}<div class="muted">${fm(st.area)} m²</div></td>
       <td class="c"><input type="checkbox" data-target="tagid" data-id="${t.id}" data-key="works.floor" data-unit="bool"${t.works.floor ? ' checked' : ''}></td>
       <td class="c"><input type="checkbox" data-target="tagid" data-id="${t.id}" data-key="works.tile" data-unit="bool"${t.works.tile ? ' checked' : ''}></td>
@@ -2268,7 +2268,7 @@ panel.addEventListener('click', e => {
     if (a === 'openHelp') return openHelp();
     if (a === 'selItem') { setSel({ kind: 'item', id: b.dataset.id }); return; }
     if (a === 'resetRoomColors') { const t = resolveSel()?.tags?.[0]; if (t) { t.paintColor = null; t.floorTint = null; t.ceilColor = null; t.tileColor = null; t.wallFinish = null; t.sheen = null; t.style = null; commit(); } return; }
-    if (a === 'applyStyle') { const r = resolveSel(); if (r && r !== true && r.tags?.[0]) { applyStyle(r, b.dataset.style); commit(); toast(`Ambiance « ${ML.STYLES[b.dataset.style].label} » appliquée`); } return; }
+    if (a === 'applyStyle') { const r = resolveSel(); if (r && r !== true && r.tags?.[0]) { applyStyle(r, b.dataset.style); commit(); toast(`Ambiance « ${ML.STYLES[b.dataset.style].label} » appliquée. ${ML.STYLES[b.dataset.style].wink ?? ''}`, 3800); } return; }
     if (a === 'setSize') { const it = resolveSel(); if (it) { const f0 = fp(it), cx = f0.x + f0.w / 2, cy = f0.y + f0.h / 2; it.w = +b.dataset.w; it.d = +b.dataset.d; const f1 = fp(it); it.x = r2(cx - f1.w / 2); it.y = r2(cy - f1.h / 2); commit(); } return; }
     if (a === 'startTour') return startTour();
     if (a === 'clearDims') { S.dims = []; sel = null; commit(); return; }
@@ -2911,7 +2911,7 @@ async function saveFile(as = false) {
 async function openFile() {
   if (window.showOpenFilePicker) {
     try { const [h] = await window.showOpenFilePicker({ types: [{ description: 'Projet Atelier appartement', accept: { 'application/json': ['.json'] } }] }); loadText(await (await h.getFile()).text(), h); return; }
-    catch (e) { if (e.name === 'AbortError') return; if (e instanceof SyntaxError || e.message === 'invalide') return toast('Ce fichier n’est pas un projet valide.'); }
+    catch (e) { if (e.name === 'AbortError') return; if (e instanceof SyntaxError || e.message === 'invalide') return toast('Ce fichier n’est pas un projet Moovo 3D. Il a l’air sympa, mais on ne se connaît pas.'); }
   }
   document.getElementById('fImport').click();
 }
@@ -2945,7 +2945,7 @@ function devisLines() {
 }
 function openDevis() {
   const lines = devisLines();
-  if (!lines.length) return toast('Rien à chiffrer : modifie le plan, coche des travaux dans les pièces ou ajoute des équipements avec un prix.', 5000);
+  if (!lines.length) return toast('Rien à chiffrer : un devis à 0 €, c’est beau mais peu crédible. Modifie le plan, coche des travaux ou ajoute des équipements avec un prix.', 5500);
   renderer.render(scene, cam);
   const img3d = renderer.domElement.toDataURL('image/jpeg', .85);
   const plan = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(planSVGString().svg);
@@ -2981,10 +2981,10 @@ document.getElementById('mBody').addEventListener('click', e => {
   if (e.target.closest('[data-act=startTour]')) { closeModal(); startTour(); return; }
   const b = e.target.closest('[data-vact]'); if (!b) return;
   const list = backups(), i = +b.dataset.i, it = list[i];
-  if (b.dataset.vact === 'snap') { backup(document.getElementById('snapName').value.trim() || 'Point de sauvegarde', false); toast('📌 Point de sauvegarde créé'); return openVersions(); }
+  if (b.dataset.vact === 'snap') { backup(document.getElementById('snapName').value.trim() || 'Point de sauvegarde', false); toast('📌 Point de sauvegarde créé : tu peux tenter des choses.'); return openVersions(); }
   if (b.dataset.vact === 'restore' && it) {
     if (!confirm('Restaurer la version du ' + new Date(it.t).toLocaleString('fr-FR') + ' ? (ton état actuel est d’abord sauvegardé)')) return;
-    backup('Avant restauration', false); S = migrate(JSON.parse(it.data)); sel = null; commit(); fit(); closeModal(); toast('Version restaurée'); document.getElementById('projName').value = S.name;
+    backup('Avant restauration', false); S = migrate(JSON.parse(it.data)); sel = null; commit(); fit(); closeModal(); toast('Version restaurée. On fera comme si de rien n’était.'); document.getElementById('projName').value = S.name;
   }
   if (b.dataset.vact === 'dl' && it) download(it.data, slug(S.name) + '-' + new Date(it.t).toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.json', 'application/json');
   if (b.dataset.vact === 'del' && it && confirm('Supprimer cette version ?')) { list.splice(i, 1); lsSet(BKEY, JSON.stringify(list)); openVersions(); }
@@ -3079,14 +3079,14 @@ function openHelp() {
 }
 // --- guide de démarrage (affiché à la première ouverture, puis depuis l'aide)
 const TOUR = [
-  ['👋', 'Bienvenue dans Moovo 3D', 'Tu vas pouvoir dessiner ton logement au centimètre près, le voir en 3D, choisir les couleurs et les matériaux, puis obtenir un budget et un devis. Ce guide prend 1 minute.'],
-  ['📐', 'Le plan', 'À gauche, le plan vu de dessus. <b>Glisse un mur</b> pour le déplacer : les murs accrochés suivent. <b>Clique sur une cote soulignée</b> pour taper la valeur exacte. Molette = zoom, glisser le fond = se déplacer.'],
-  ['🧱', 'Murs et ouvertures', 'Outil <b>Mur</b> (touche M) : clique le point de départ puis le point d’arrivée. Outils <b>Porte</b>, <b>Fenêtre</b>, <b>Baie</b> : clique simplement sur un mur pour poser l’ouverture.'],
-  ['🛋️', 'Meubles et équipements', 'Bouton <b>＋ Ajouter</b> (touche A) : plus de 100 objets avec recherche (canapé, lit, cuisine, salle de bain, prises…). Choisis une <b>taille standard</b> dans le panneau, et touche <b>R</b> pour pivoter.'],
-  ['🎨', 'Couleurs et matériaux', 'Clique <b>dans une pièce</b> : choisis une <b>ambiance</b> en un clic (scandinave, industriel, bohème…), puis affine le revêtement des murs (peinture, papier peint, brique, lambris…), le sol et les couleurs avec le <b>nuancier</b> (références RAL).'],
-  ['🧊', 'La 3D', 'La vue 3D se met à jour en direct. Bouton <b>Visite</b> pour te promener à hauteur des yeux (ZQSD ou flèches), menu <b>Affichage</b> pour couper les murs, allumer les lumières ou isoler une pièce.'],
-  ['💶', 'Budget et devis', 'Onglet <b>Travaux &amp; budget</b> : coche les travaux par pièce, ajuste les prix, et récupère la <b>liste des matériaux à acheter</b>. Menu Projet → <b>Générer le devis</b> pour un document imprimable.'],
-  ['💡', 'Les astuces', 'Les encadrés jaunes donnent des conseils de pro selon ce que tu sélectionnes. Tu peux les masquer dans ⚙ Réglages, et retrouver ce guide et un glossaire dans l’aide (touche ?). Bon projet !'],
+  ['👋', 'Bienvenue dans Moovo 3D', 'Tu vas dessiner ton logement au centimètre près, le visiter en 3D, choisir couleurs et matériaux, puis obtenir un budget et un devis. Le tout sans poussière, sans bruit et sans voisin qui frappe au plafond. Ce guide prend une minute : moins qu’un débat sur la couleur du canapé.'],
+  ['📐', 'Le plan', 'À gauche, le plan vu de dessus. <b>Glisse un mur</b> pour le déplacer : les murs accrochés suivent, solidaires comme on aimerait que le soient tous les corps de métier. <b>Clique sur une cote soulignée</b> pour taper la valeur exacte. Molette = zoom, glisser le fond = se déplacer.'],
+  ['🧱', 'Murs et ouvertures', 'Outil <b>Mur</b> (touche M) : clique le point de départ puis le point d’arrivée. Outils <b>Porte</b>, <b>Fenêtre</b>, <b>Baie</b> : clique sur un mur pour poser l’ouverture. Ici, abattre une cloison prend une seconde et ne remplit aucune benne. Profites-en : dans la vraie vie, c’est la dernière fois.'],
+  ['🛋️', 'Meubles et équipements', 'Bouton <b>＋ Ajouter</b> (touche A) : plus de 100 objets avec recherche (canapé, lit, cuisine, salle de bain, prises…). Choisis une <b>taille standard</b> dans le panneau, touche <b>R</b> pour pivoter. Ils ne pèsent rien, ne rayent pas le parquet et passent toujours dans l’escalier.'],
+  ['🎨', 'Couleurs et matériaux', 'Clique <b>dans une pièce</b> : choisis une <b>ambiance</b> en un clic (scandinave, industriel, bohème…), puis affine murs, sol et couleurs avec le <b>nuancier</b> (références RAL). Il compte quatorze blancs différents. Nous non plus, on n’en revenait pas.'],
+  ['🧊', 'La 3D', 'La vue 3D se met à jour en direct. Bouton <b>Visite</b> pour te promener à hauteur des yeux (ZQSD ou flèches), menu <b>Affichage</b> pour couper les murs, allumer les lumières ou isoler une pièce. Les murs sont solides : inutile d’essayer de passer au travers, on a déjà testé pour toi.'],
+  ['💶', 'Budget et devis', 'Onglet <b>Travaux &amp; budget</b> : coche les travaux par pièce, ajuste les prix et récupère la <b>liste des matériaux à acheter</b>. Menu Projet → <b>Générer le devis</b> pour un document imprimable. Les prix sont réalistes. On est sincèrement désolés.'],
+  ['💡', 'Les astuces', 'Les encadrés jaunes donnent des conseils de pro selon ce que tu sélectionnes. Ils ne vendent rien et ne se vexent pas si tu les masques (⚙ Réglages). Ce guide et un glossaire t’attendent dans l’aide (touche ?). Bon projet !'],
 ];
 let tourI = 0;
 function renderTour() {
@@ -3168,7 +3168,7 @@ addEventListener('keydown', e => {
   if (mod && k === 'o') { e.preventDefault(); openFile(); return; }
   if (e.target.closest('input,select,textarea')) return;
   if (k === 'escape' && !document.getElementById('modal').hidden) { closeModal(); return; }
-  if (mod && k === 'c' && sel?.kind === 'item') { clip = JSON.stringify(resolveSel()); toast('Objet copié'); return; }
+  if (mod && k === 'c' && sel?.kind === 'item') { clip = JSON.stringify(resolveSel()); toast('Objet copié · Ctrl+V pour le coller (sans frais de livraison)'); return; }
   if (mod && k === 'v' && clip) { const it = { ...JSON.parse(clip), id: uid() }; it.x = r2(view.cx - fp(it).w / 2); it.y = r2(view.cy - fp(it).h / 2); S.items.push(it); sel = { kind: 'item', id: it.id }; commit(); return; }
   if (mod) return;
   if (k === 'a') { e.preventDefault(); document.getElementById('bCatalog').click(); }

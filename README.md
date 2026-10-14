@@ -14,6 +14,14 @@ Application 100 % navigateur (aucun serveur, aucune installation) pour :
 - **Extérieur** : 7 ambiances (bois naturel, nordique, contemporain, chalet, bord de mer, provençal, industriel), lasures et teintes RAL par barre ou pour tout le projet, 5 nouveaux bardages (claire-voie, composite, fibre-ciment, claustra, canisse) et textures 3D des bardages, tuiles, bacs acier, lames et sols.
 - **Guide de démarrage** à la première ouverture (intérieur et extérieur), astuces contextuelles (désactivables), glossaire du bâtiment, liste des matériaux à acheter. Le ton est volontairement détendu : on peut apprendre sans s’ennuyer.
 
+## Simple et intuitif
+- **Depuis un plan** : importer une image (plan d’agence, croquis), la mettre à l’échelle avec une longueur connue, puis décalquer ou **détecter les murs automatiquement** (calcul local dans le navigateur, sans service externe ; les passages de porte deviennent des portes).
+- **Appartement témoin** à explorer depuis l’accueil, et **11 ensembles prêts à poser** (salon, cuisines, chambres, salles d’eau…).
+- **Clic droit / appui long** sur un élément pour ses actions courantes ; **glisser-déposer** depuis le catalogue ; **recherche universelle Ctrl+K** (y compris « peindre la chambre en vert sauge »).
+- **Alertes douces** : porte qui cogne un meuble, meubles qui se chevauchent, passage étroit, objet hors des murs.
+- **Historique** lisible des modifications ; **avant / après** à curseur ; **belle capture** grand format ; **visite automatique** pièce par pièce.
+- **Tablette et téléphone** : zoom à deux doigts, appui long, barres d’outils défilantes, boutons plus grands.
+
 ## Fichiers
 | Fichier | Rôle |
 |---|---|

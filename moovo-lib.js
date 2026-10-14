@@ -457,7 +457,17 @@
     ['📄', 'Le devis', 'Menu Projet → <b>Générer le devis</b> : fournitures, quincaillerie, fondations, finitions et main-d’œuvre, avec ta fiche entreprise. Il ne reste plus qu’à trouver le week-end.'],
   ];
 
+  // Pincement à deux doigts (écrans tactiles) : zoom + déplacement, prioritaire sur les autres gestes
+  function attachPinch(el, h) {
+    const pts = new Map(); let st = null;
+    const mid = () => { const [a, b] = [...pts.values()]; return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) || 1 }; };
+    el.addEventListener('pointerdown', e => { if (e.pointerType !== 'touch') return; pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (pts.size === 2) { st = mid(); h.start?.(); e.stopImmediatePropagation(); } }, true);
+    el.addEventListener('pointermove', e => { if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (st && pts.size === 2) { const m = mid(); h.move(st.d / m.d, m.x, m.y, m.x - st.x, m.y - st.y); st = m; e.stopImmediatePropagation(); } }, true);
+    const up = e => { if (!pts.delete(e.pointerId)) return; if (st) { e.stopImmediatePropagation(); if (pts.size < 2) { st = null; h.end?.(); } } };
+    el.addEventListener('pointerup', up, true); el.addEventListener('pointercancel', up, true);
+  }
+
   const tipOfDay = () => TIPS.general[Math.floor(Date.now() / 864e5) % TIPS.general.length];
 
-  window.MoovoLib = { EXT_STYLES, PANEL_DRAW, EXT_TIPS, EXT_TOUR, PALETTES, MATERIALS, WALL_FINISHES, WALL_DRAW, WALL_DEFAULT_COLOR, SHEENS, FLOORS_EXTRA, FLOOR_DRAW, FLOOR_TIPS, STYLES, TIPS, GLOSSARY, colorInfo, colorName, pickerHTML, openPicker, closePicker, tipOfDay, rng };
+  window.MoovoLib = { attachPinch, EXT_STYLES, PANEL_DRAW, EXT_TIPS, EXT_TOUR, PALETTES, MATERIALS, WALL_FINISHES, WALL_DRAW, WALL_DEFAULT_COLOR, SHEENS, FLOORS_EXTRA, FLOOR_DRAW, FLOOR_TIPS, STYLES, TIPS, GLOSSARY, colorInfo, colorName, pickerHTML, openPicker, closePicker, tipOfDay, rng };
 })();

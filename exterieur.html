@@ -112,7 +112,9 @@
   .dimt{font-weight:600;paint-order:stroke;stroke:#fafbfc;text-anchor:middle;dominant-baseline:middle}
   .mem{cursor:pointer} .mem:hover{filter:brightness(1.12)}
   kbd{font:11px ui-monospace,monospace;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 4px;color:var(--muted)}
-  @media (max-width:980px){body{height:auto;overflow:auto;display:block} main{display:block} #planBox{height:62vh;flex:none} #hsplit,#vsplit{display:none} #view3d{height:50vh}}
+  @media (max-width:980px){body{height:auto;overflow:auto;display:block} main{display:block} #planBox{height:62vh;flex:none} #hsplit,#vsplit{display:none} #view3d{height:50vh}
+    header{flex-wrap:wrap;row-gap:6px} .savestate,#coords{display:none} .toolbar{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none} .toolbar>*,.toolbar .seg{flex:none;flex-wrap:nowrap} .toolbar::-webkit-scrollbar{display:none} #tools,#views{flex-wrap:nowrap} .menu{max-width:calc(100vw - 16px)} .styles{grid-template-columns:1fr 1fr}}
+  @media (pointer:coarse){button,.btn{min-height:38px} .tabs button{padding:12px 4px} .f input,.f select{min-height:40px;font-size:16px}}
 </style>
 <script type="importmap">
 {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
@@ -692,6 +694,14 @@ svg.addEventListener('pointerup', () => {
   if (drag && drag.kind !== 'pan' && down?.moved) commit();
   else if (down && !down.moved) clickTool(down);
   down = null; drag = null;
+});
+window.MoovoLib.attachPinch(svg, {
+  start: () => { if (drag?.objs) for (const x of drag.objs) Object.assign(x.o, x.orig); down = null; drag = null; },
+  move: (k, mx, my, dx, dy) => {
+    const r = svg.getBoundingClientRect(); vw.cx -= dx * vw.s; vw.cy -= dy * vw.s;
+    const q = toV({ clientX: mx, clientY: my }); vw.s = clamp(vw.s * k, .0007, .1);
+    vw.cx = q[0] - (mx - r.left - r.width / 2) * vw.s; vw.cy = q[1] - (my - r.top - r.height / 2) * vw.s; render2D();
+  },
 });
 svg.addEventListener('wheel', e => {
   e.preventDefault(); const q = toV(e), r = svg.getBoundingClientRect();

@@ -204,14 +204,35 @@
   .edim{cursor:text}
   .edim .dimt{pointer-events:auto;text-decoration:underline dotted}
   .edim:hover .dimt{fill:#111827}
+  #jumpPanel{display:none}
   @media (max-width:980px){
     body{height:auto;overflow:auto;display:block}
     main{display:block}
+    header{flex-wrap:wrap;row-gap:6px;position:sticky;top:0}
+    header .lbl,.savestate,#coords{display:none}
+    .toolbar{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+    .toolbar>*,.toolbar .seg{flex:none;flex-wrap:nowrap}
+    .toolbar::-webkit-scrollbar{display:none}
+    #tools{flex-wrap:nowrap}
     #planBox{height:64vh;flex:none}
     #hsplit,#vsplit{display:none}
     #view3d{height:50vh}
     #panel{overflow:visible}
     .projname{width:140px}
+    .menu{max-width:calc(100vw - 16px)}
+    .catalog{position:fixed;left:8px;right:8px;top:100px;width:auto}
+    #catList{max-height:60vh}
+    .v3menu{width:min(310px,calc(100vw - 24px))}
+    #jumpPanel{position:fixed;right:14px;bottom:18px;z-index:60;display:block;background:var(--accent);color:#fff;border:0;border-radius:999px;padding:12px 18px;font-weight:600;box-shadow:var(--shadow)}
+    #jumpPanel[hidden]{display:none}
+    .mbox{max-height:92vh}
+  }
+  @media (pointer:coarse){
+    button,.btn{min-height:38px}
+    .tabs button{padding:12px 4px}
+    .f input,.f select{min-height:40px;font-size:16px}
+    #catList button{padding:10px}
+    .foot label{padding:6px 0}
   }
 </style>
 <script type="importmap">
@@ -252,8 +273,8 @@
   <div class="seg"><button id="bUndo" class="ghost" title="Annuler (Ctrl+Z)">↶</button><button id="bRedo" class="ghost" title="Rétablir (Ctrl+Y)">↷</button><button id="bHist" class="ghost" title="Historique des modifications">🕘</button></div>
   <div class="spacer"></div>
   <div class="seg" id="layoutSeg"><button data-layout="plan">Plan</button><button data-layout="split" class="on">Plan + 3D</button><button data-layout="3d">3D</button></div>
-  <button id="bCmd" class="ghost cmdbtn" title="Tout trouver et tout faire (Ctrl+K)">🔍 Rechercher… <kbd>Ctrl K</kbd></button>
-  <button id="bSettings" class="ghost" title="Réglages">⚙ Réglages</button>
+  <button id="bCmd" class="ghost cmdbtn" title="Tout trouver et tout faire (Ctrl+K)">🔍<span class="lbl"> Rechercher… <kbd>Ctrl K</kbd></span></button>
+  <button id="bSettings" class="ghost" title="Réglages">⚙<span class="lbl"> Réglages</span></button>
   <button id="bHelp" class="ghost" title="Aide et raccourcis (?)">?</button>
 </header>
 <main>
@@ -348,6 +369,7 @@
   </aside>
 </main>
 <div id="toast"></div>
+<button id="jumpPanel" hidden>✏️ Modifier la sélection</button>
 <div id="ctx" class="ctx" hidden></div>
 <div id="cmp" class="cmp" hidden><div class="cwrap" id="cmpWrap"><img id="cmpAfter" alt="Après"><img id="cmpBefore" alt="Avant"><div class="cline" id="cmpLine"></div><span class="ctag" style="left:12px">Avant</span><span class="ctag" style="right:12px">Après</span></div>
   <div class="cbar"><span>Glisse sur l’image pour comparer l’existant et ton projet.</span><button id="cmpDl">⬇ Télécharger</button><button id="cmpClose" class="primary">Fermer</button></div></div>
@@ -1689,6 +1711,15 @@ svg.addEventListener('dblclick', e => {
   const el = e.target.closest('[data-kind="opening"]');
   if (tool === 'select' && el) { const o = S.openings.find(x => x.id === el.dataset.id); if (o?.type === 'door') { sel = { kind: 'opening', id: o.id }; act('cycleDoor'); } }
 });
+// pincement : zoom à deux doigts sur tablette et téléphone
+ML.attachPinch(svg, {
+  start: () => { down = drag = pan = null; },
+  move: (k, mx, my, dx, dy) => {
+    const r = svg.getBoundingClientRect(); view.cx -= dx * view.s; view.cy -= dy * view.s;
+    const p = toPlan({ clientX: mx, clientY: my }); view.s = clamp(view.s * k, .0015, .08);
+    view.cx = p[0] - (mx - r.left - r.width / 2) * view.s; view.cy = p[1] - (my - r.top - r.height / 2) * view.s; schedule(false);
+  },
+});
 svg.addEventListener('wheel', e => {
   e.preventDefault();
   const p = toPlan(e), r = svg.getBoundingClientRect();
@@ -2069,6 +2100,7 @@ const check = (label, target, key, val) => `<label class="chk"><input type="chec
 // Astuces pour débutants (désactivables dans les réglages)
 const tipBox = (txt, title = 'Astuce') => prefs.tips === false || !txt ? '' : `<div class="tipbox"><b>💡 ${title}</b> ${txt}</div>`;
 function renderPanel() {
+  { const jp = document.getElementById('jumpPanel'); if (jp) jp.hidden = !sel || panel.getBoundingClientRect().top < innerHeight; }
   if (panel.contains(document.activeElement) && document.activeElement.matches('input,select')) return;
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
   if (!A) return;
@@ -3222,6 +3254,8 @@ function loop() {
 }
 document.getElementById('bUndo').onclick = undo;
 document.getElementById('bHist').onclick = openHistory;
+document.getElementById('jumpPanel').onclick = () => { document.querySelector('.tabs').scrollIntoView({ behavior: 'smooth' }); document.getElementById('jumpPanel').hidden = true; };
+addEventListener('scroll', () => { const jp = document.getElementById('jumpPanel'); if (!jp.hidden && panel.getBoundingClientRect().top < innerHeight * .6) jp.hidden = true; }, { passive: true });
 document.getElementById('mBody').addEventListener('click', e => { const tr = e.target.closest('tr[data-step]'); if (tr && modalKind === 'history') goToStep(+tr.dataset.step); });
 document.getElementById('bRedo').onclick = redo;
 document.getElementById('bExport').onclick = () => {

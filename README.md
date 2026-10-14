@@ -22,7 +22,8 @@ Application 100 % navigateur (aucun serveur, aucune installation) pour :
 - **Clic droit / appui long** sur un élément pour ses actions courantes ; **glisser-déposer** depuis le catalogue ; **recherche universelle Ctrl+K** (y compris « peindre la chambre en vert sauge »).
 - **Alertes douces** : porte qui cogne un meuble, meubles qui se chevauchent, passage étroit, objet hors des murs.
 - **Historique** lisible des modifications ; **avant / après** à curseur ; **belle capture** grand format ; **visite automatique** pièce par pièce.
-- **Tablette et téléphone** : zoom à deux doigts, appui long, barres d’outils défilantes, boutons plus grands.
+- **Téléphone et tablette** : interface dédiée, avec une vue plein écran à la fois (Plan, 3D, Modifier) et une barre de navigation en bas (bouton Ajouter au centre). Les menus s’ouvrent en feuilles qui montent du bas. On zoome à deux doigts, l’appui long ouvre les actions, et une croix directionnelle permet la visite 3D. Le mode paysage est compact, l’encoche de l’iPhone est respectée, et l’appli s’installe sur l’écran d’accueil.
+- **Économe** : la 3D n’est redessinée que lorsque quelque chose change et qu’elle est visible.
 
 ## Fichiers
 | Fichier | Rôle |

@@ -2,7 +2,11 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Moovo">
 <title>Moovo 3D · Extérieur & structures</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png">
@@ -857,7 +861,7 @@ function frameSel() {
   const c = pts.reduce((a, p) => add(a, p), [0, 0, 0]).map(v => v / pts.length), r = Math.max(...pts.map(p => len3(sub(p, c))), .5);
   const dir = new THREE.Vector3().subVectors(cam.position, ctl.target).normalize(); ctl.target.copy(T(c)); cam.position.copy(T(c)).addScaledVector(dir, r * 3 + 1.5); ctl.update();
 }
-function resize3D() { const r = v3.getBoundingClientRect(); if (!r.width || !r.height) return; renderer.setSize(r.width, r.height); labelR.setSize(r.width, r.height); cam.aspect = r.width / r.height; cam.updateProjectionMatrix(); if (typeof kick3D === 'function') kick3D(); }
+function resize3D() { const r = v3.getBoundingClientRect(); if (!r.width || !r.height) return; renderer.setSize(r.width, r.height); labelR.setSize(r.width, r.height); cam.aspect = r.width / r.height; cam.updateProjectionMatrix(); kick3D(); }
 new ResizeObserver(resize3D).observe(v3);
 const ray = new THREE.Raycaster(); let d3 = null;
 renderer.domElement.addEventListener('pointerdown', e => { d3 = [e.clientX, e.clientY]; });
@@ -1207,7 +1211,7 @@ addEventListener('keydown', e => {
 // =====================================================================
 function renderAll() { render2D(); renderPanel(); dirty3D = true; document.getElementById('bUndo').disabled = !past.length; document.getElementById('bRedo').disabled = !future.length; }
 // rendu 3D à la demande (seulement si quelque chose a changé et si la vue est visible)
-let frames3D = 3; const kick3D = (n = 2) => { frames3D = Math.max(frames3D, n); }; ctl.addEventListener('change', () => kick3D());
+var frames3D = 3; function kick3D(n = 2) { frames3D = Math.max(frames3D || 0, n); } ctl.addEventListener('change', () => kick3D());
 function loop() { const vis = v3.offsetWidth > 0 && v3.offsetHeight > 0; if (dirty3D && vis) { build3D(); dirty3D = false; kick3D(); } if (ctl.update()) kick3D(); if (vis && frames3D > 0) { frames3D--; renderer.render(scene, cam); labelR.render(scene, cam); } requestAnimationFrame(loop); }
 document.title = S.name + ' · Moovo 3D';
 applySizes(); setLayout(prefs.layout); setTool('select'); save(); backup('Ouverture du projet');

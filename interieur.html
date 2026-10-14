@@ -2,7 +2,11 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Moovo">
 <title>Moovo 3D · Intérieur</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png">
@@ -984,6 +988,7 @@ function analyze(precise = true) {
   for (const w of [...S.walls, ...BASE().walls]) for (const p of [w.a, w.b]) {
     minx = Math.min(minx, p[0]); maxx = Math.max(maxx, p[0]); miny = Math.min(miny, p[1]); maxy = Math.max(maxy, p[1]);
   }
+  if (!isFinite(minx)) { minx = miny = 0; maxx = maxy = 4; }   // plan vide : petite zone par défaut
   const ox = Math.floor((minx - .6) * 100) / 100, oy = Math.floor((miny - .6) * 100) / 100;
   const nx = Math.ceil((maxx + .6 - ox) * 100), ny = Math.ceil((maxy + .6 - oy) * 100), N = nx * ny;
   // cur = tous les murs (cotes, comparaison) ; full = murs toute hauteur, seuls à séparer les pièces
@@ -1293,6 +1298,7 @@ function fit() {
   let minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;
   for (const w of S.walls) for (const p of [w.a, w.b]) { minx = Math.min(minx, p[0]); maxx = Math.max(maxx, p[0]); miny = Math.min(miny, p[1]); maxy = Math.max(maxy, p[1]); }
   const r = svg.getBoundingClientRect(); if (!r.width) return;
+  if (!isFinite(minx)) { minx = miny = 0; maxx = maxy = 4; }
   view.cx = (minx + maxx) / 2; view.cy = (miny + maxy) / 2;
   view.s = Math.max((maxx - minx + 1.4) / r.width, (maxy - miny + 1.4) / r.height);
 }
@@ -3187,6 +3193,7 @@ function build3D() {
 function bounds() {
   let minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;
   for (const w of S.walls) for (const p of [w.a, w.b]) { minx = Math.min(minx, p[0]); maxx = Math.max(maxx, p[0]); miny = Math.min(miny, p[1]); maxy = Math.max(maxy, p[1]); }
+  if (!isFinite(minx)) return { cx: 2, cz: 2, span: 6 };
   return { cx: (minx + maxx) / 2, cz: (miny + maxy) / 2, span: Math.max(maxx - minx, maxy - miny) };
 }
 let yaw = 0, pitch = 0; const keys = {};
@@ -3227,8 +3234,7 @@ const brandImg = new Image(); brandImg.src = 'img/logo-mark-128.png';
 function beautyShot() {
   ensure3D(); stopTour();
   const keepO = { real: opt.real, shadow: opt.shadow }, sel0 = sel; opt.real = true; opt.shadow = true; sel = null; dirty3D = true;
-  const url = renderImage(2400, 1500);
-  Object.assign(opt, keepO); sel = sel0; dirty3D = true;
+  let url; try { url = renderImage(2400, 1500); } finally { Object.assign(opt, keepO); sel = sel0; dirty3D = true; }
   const im = new Image();
   im.onload = () => {
     const c = document.createElement('canvas'); c.width = 2400; c.height = 1500; const g = c.getContext('2d'); g.drawImage(im, 0, 0);
@@ -3243,11 +3249,14 @@ let cmpBefore = null;
 function openCompare() {
   ensure3D(); stopTour();
   const keep = JSON.stringify(S), sel0 = sel, base = BASE(); sel = null;
-  S.walls = clone(base.walls).map(w => { delete w.accent; return w; }); S.openings = clone(base.openings); S.items = [];
-  for (const t of S.rooms) for (const k of ['paintColor', 'wallFinish', 'floorTint', 'ceilColor', 'style', 'tileColor', 'sheen']) t[k] = null;
-  for (const t of S.rooms) t.floor = 'concrete';
-  analyze(); dirty3D = true; const before = renderImage(1600, 1000);
-  S = JSON.parse(keep); sel = sel0; analyze(); dirty3D = true; const after = renderImage(1600, 1000);
+  let before = null;
+  try {   // le projet est remplacé le temps de la photo « avant » : on le rétablit quoi qu'il arrive
+    S.walls = clone(base.walls).map(w => { delete w.accent; return w; }); S.openings = clone(base.openings); S.items = [];
+    for (const t of S.rooms) for (const k of ['paintColor', 'wallFinish', 'floorTint', 'ceilColor', 'style', 'tileColor', 'sheen']) t[k] = null;
+    for (const t of S.rooms) t.floor = 'concrete';
+    analyze(); dirty3D = true; before = renderImage(1600, 1000);
+  } finally { S = JSON.parse(keep); sel = sel0; analyze(); dirty3D = true; }
+  const after = renderImage(1600, 1000);
   cmpBefore = before; document.getElementById('cmpBefore').src = before; document.getElementById('cmpAfter').src = after;
   document.getElementById('cmp').hidden = false; setCmp(.5); renderAll();
 }
@@ -3294,7 +3303,7 @@ document.getElementById('bShot').onclick = () => beautyShot();
 document.getElementById('bTour3').onclick = () => tourA ? stopTour() : autoTour();
 document.getElementById('bCmp').onclick = () => openCompare();
 syncOptUI();
-function resize3D() { const r = v3.getBoundingClientRect(); if (!r.width || !r.height) return; renderer.setSize(r.width, r.height); labelR.setSize(r.width, r.height); cam.aspect = r.width / r.height; cam.updateProjectionMatrix(); if (typeof kick3D === 'function') kick3D(); }
+function resize3D() { const r = v3.getBoundingClientRect(); if (!r.width || !r.height) return; renderer.setSize(r.width, r.height); labelR.setSize(r.width, r.height); cam.aspect = r.width / r.height; cam.updateProjectionMatrix(); kick3D(); }
 new ResizeObserver(resize3D).observe(v3);
 // sélection & visite à la souris en 3D
 const ray = new THREE.Raycaster(); let d3 = null;
@@ -3331,8 +3340,8 @@ function renderAll() { analyze(); render2D(); renderPanel(); dirty3D = true; doc
 const clock = new THREE.Clock();
 // Rendu 3D à la demande : on ne redessine que si quelque chose a changé et si la vue 3D est visible
 // (économise la batterie et garde le plan fluide sur téléphone)
-let frames3D = 3;
-const kick3D = (n = 2) => { frames3D = Math.max(frames3D, n); };
+var frames3D = 3;
+function kick3D(n = 2) { frames3D = Math.max(frames3D || 0, n); }
 ctl.addEventListener('change', () => kick3D());
 function loop() {
   const dt = Math.min(clock.getDelta(), .05);

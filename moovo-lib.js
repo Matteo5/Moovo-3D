@@ -476,7 +476,10 @@
   body.mshell .menu>button.mshonly{display:flex}
   body.mshell .menu>hr.mshonly{display:block}
   body.mshell{display:flex!important;flex-direction:column;height:100vh;height:100dvh!important;overflow:hidden!important}
-  body.mshell>header{flex:none;flex-wrap:nowrap!important;gap:4px!important;padding:6px 8px!important;position:relative!important}
+  body.mshell>header{flex:none;flex-wrap:nowrap!important;gap:4px!important;padding:calc(6px + env(safe-area-inset-top)) calc(8px + env(safe-area-inset-right)) 6px calc(8px + env(safe-area-inset-left))!important;position:relative!important}
+  body.mshell input,body.mshell select,body.mshell textarea{font-size:16px!important}
+  body.mshell button,body.mshell .btn,body.mshell label{touch-action:manipulation}
+  body.mshell #plan,body.mshell #view3d{-webkit-touch-callout:none;-webkit-user-select:none}
   body.mshell .dsk,body.mshell #jumpPanel,body.mshell .toolbar,body.mshell .foot,body.mshell .splitter{display:none!important}
   body.mshell .mshonly{display:inline-flex}
   body.mshell .brand{min-height:40px;min-width:40px;justify-content:center}
@@ -525,7 +528,19 @@
   body.mshell .modal{padding:0!important;align-items:stretch!important}
   body.mshell .mbox{width:100%!important;max-height:none!important;height:100%;border-radius:0!important}
   body.mshell .v3bar{top:6px;left:6px;right:6px}
-  body.mshell #selbar{max-width:calc(100% - 16px)}`;
+  body.mshell #selbar{max-width:calc(100% - 16px)}
+  @media (max-height:520px){
+    body.mshell>header{padding-top:calc(3px + env(safe-area-inset-top))!important;padding-bottom:3px!important}
+    body.mshell>header>button,body.mshell>header .seg button,body.mshell>header .menuwrap>button{min-height:32px!important;padding:3px 8px}
+    body.mshell #mnav{padding:2px calc(6px + env(safe-area-inset-right)) calc(2px + env(safe-area-inset-bottom)) calc(6px + env(safe-area-inset-left))}
+    #mnav button{flex-direction:row;justify-content:center;gap:6px;min-height:36px;font-size:12px}
+    #mnav button .i{font-size:17px}
+    #mnav button.add .i{width:30px;height:30px;margin-top:0;font-size:20px;border-radius:10px}
+    #mnav button .dot{top:4px;right:auto;left:calc(50% + 2px)}
+    body.mshell #mzoom{flex-direction:row;bottom:8px}
+    #mzoom button{width:38px;height:38px}
+    body.mshell .menu.open.msheet,body.mshell .msheet.open{bottom:calc(46px + env(safe-area-inset-bottom))!important;max-height:80dvh}
+  }`;
   let MS = null;
   function mobileShell(cfg) {
     const mq = matchMedia('(max-width: 900px), (pointer: coarse) and (max-height: 520px)');

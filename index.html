@@ -2,7 +2,11 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Moovo">
 <title>Moovo 3D · Conception & devis</title>
 <meta name="description" content="Concevez en 3D un aménagement intérieur ou une structure extérieure (bois, métal), obtenez les cotes, le métré et un devis prêt à envoyer. Directement dans le navigateur.">
 <link rel="manifest" href="manifest.webmanifest">
@@ -16,6 +20,8 @@
 <style>
   :root{--bg:#f4f5f8;--panel:#fff;--ink:#141821;--muted:#55607a;--line:#e2e6ec;--accent:#2563eb;--accent2:#0ea5a4;--shadow:0 10px 30px #0f172a14}
   *{box-sizing:border-box} html,body{margin:0}
+  button,.btn,a{touch-action:manipulation}
+  header{padding-top:calc(14px + env(safe-area-inset-top))!important}
   body{background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
   a{color:inherit}
   header{display:flex;align-items:center;gap:14px;padding:14px clamp(16px,4vw,48px);background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10}

@@ -235,6 +235,7 @@
         <button data-tool="placard" title="Placard">Placard</button>
         <button data-tool="dim" title="Poser une cote (C)"><span class="ic">↔</span>Coter</button>
         <button data-tool="measure" title="Mesure temporaire (D)"><span class="ic">📏</span>Mesurer</button>
+        <button id="bBg" title="Importer un plan (image) à décalquer ou à convertir en murs"><span class="ic">🖼</span>Plan de fond</button>
       </div>
       <div class="menuwrap">
         <button id="bCatalog" class="primary" title="Ajouter un objet (A)">＋ Ajouter</button>
@@ -244,7 +245,7 @@
       <div class="spacer"></div>
       <div class="seg"><button id="zOut" title="Dézoomer">−</button><span id="zoomPct">100 %</span><button id="zIn" title="Zoomer">+</button><button id="zFit" title="Tout voir (0)">Ajuster</button></div>
     </div>
-    <div id="planBox"><svg id="plan" xmlns="http://www.w3.org/2000/svg"><g id="G"></g></svg><input id="dimEdit" autocomplete="off"></div>
+    <div id="planBox"><svg id="plan" xmlns="http://www.w3.org/2000/svg"><image id="bgI" preserveAspectRatio="none" pointer-events="none" style="display:none"/><g id="G"></g></svg><input id="dimEdit" autocomplete="off"></div>
     <div class="foot">
       <span id="hint"></span>
       <label title="Cotes automatiques des pièces"><input type="checkbox" id="lDims" checked> Cotes</label>
@@ -1214,6 +1215,7 @@ function render2D() {
   EDITS.clear();
   const v = vb(), s = view.s;
   svg.setAttribute('viewBox', `${n4(v.x)} ${n4(v.y)} ${n4(v.w)} ${n4(v.h)}`);
+  syncBgImage();
   let h = '<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#8a909a"/></marker></defs>';
   // quadrillage
   const gx0 = A.ox, gy0 = A.oy, gx1 = A.ox + A.nx / 100, gy1 = A.oy + A.ny / 100, minor = s < .012;
@@ -1224,7 +1226,7 @@ function render2D() {
   for (const r of A.rooms) {
     const t = r.tags[0], col = r === selRoom ? '#d3e0ff' : t ? (t.floorTint ?? FLOORS[t.floor]?.color ?? '#eee') : '#f4f4f4';
     const d = r.rects.map(q => `M${n4(q.x0)},${n4(q.y0)}H${n4(q.x1)}V${n4(q.y1)}H${n4(q.x0)}Z`).join('');
-    h += `<path data-kind="room" d="${d}" fill="${col}"${t ? '' : ' fill-opacity=".9"'}/>`;
+    h += `<path data-kind="room" d="${d}" fill="${col}"${bgOn() ? ' fill-opacity=".3"' : t ? '' : ' fill-opacity=".9"'}/>`;
   }
   // volumes électriques de salle de bain (NF C 15-100) : volume 1 = au-dessus du receveur/baignoire, volume 2 = 60 cm autour
   if (layer.elec || (placing && CAT[placing]?.elec) || (sel?.kind === 'item' && isElec(resolveSel() ?? {}))) {
@@ -1384,6 +1386,10 @@ function render2D() {
     if (hw) { const f = frame(hw.w), pnt = at(hw.w, f, clamp(snapV(hw.al), 0, f.L), hw.side * hw.w.t / 2); h += `<circle cx="${n4(pnt[0])}" cy="${n4(pnt[1])}" r="${n4(7 * s)}" fill="${c.color ?? '#2563eb'}" stroke="#1f2937" stroke-width="1" class="ns" pointer-events="none"/>`; }
     else h += `<circle cx="${n4(cursor[0])}" cy="${n4(cursor[1])}" r="${n4(7 * s)}" fill="${c.color ?? '#2563eb'}" fill-opacity=".6" pointer-events="none"/>`;
   }
+  if (tool === 'calib' && calib?.a) {
+    const b = cursor ?? calib.a;
+    h += `<circle cx="${n4(calib.a[0])}" cy="${n4(calib.a[1])}" r="${n4(4 * s)}" fill="#dc2626"/><line x1="${n4(calib.a[0])}" y1="${n4(calib.a[1])}" x2="${n4(b[0])}" y2="${n4(b[1])}" stroke="#dc2626" stroke-width="2" class="ns" stroke-dasharray="6 3"/>`;
+  }
   if (meas?.a) {
     const b = meas.b ?? (cursor ? snapFine(cursor) : meas.a);
     h += `<circle cx="${n4(meas.a[0])}" cy="${n4(meas.a[1])}" r="${n4(3.5 * s)}" fill="var(--accent)"/>` + dimLine(meas.a[0], meas.a[1], b[0], b[1], `${cmTxt(Math.hypot(b[0] - meas.a[0], b[1] - meas.a[1]))} ${UNIT()}`);
@@ -1504,18 +1510,21 @@ svg.addEventListener('pointerdown', e => {
   if (kind === 'edim') { e.preventDefault(); e.stopPropagation(); openDimEdit(el.dataset.id, e.clientX, e.clientY); return; }
   down = { x: e.clientX, y: e.clientY, p, el, kind, moved: false, free: e.shiftKey };
   svg.setPointerCapture(e.pointerId);
-  if (tool === 'select' && el && kind !== 'room') startDrag(kind, el, p);
+  if (tool === 'bgmove' && S.bgMeta) bgDrag = { p, x: S.bgMeta.x, y: S.bgMeta.y };
+  else if (tool === 'select' && el && kind !== 'room') startDrag(kind, el, p);
   else pan = { cx: view.cx, cy: view.cy, x: e.clientX, y: e.clientY };
 });
 svg.addEventListener('pointermove', e => {
   const p = toPlan(e); cursor = p;
   document.getElementById('coords').textContent = `X ${cmTxt(p[0])} · Y ${cmTxt(p[1])} ${UNIT()}`;
   if (down && !down.moved && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 4) down.moved = true;
+  if (bgDrag) { S.bgMeta.x = r2(bgDrag.x + p[0] - bgDrag.p[0]); S.bgMeta.y = r2(bgDrag.y + p[1] - bgDrag.p[1]); syncBgImage(); return; }
   if (drag && down?.moved) { applyDrag(p); return; }
   if (pan && down?.moved) { view.cx = pan.cx - (e.clientX - pan.x) * view.s; view.cy = pan.cy - (e.clientY - pan.y) * view.s; schedule(false); return; }
   if (!down) { hoverWall = OPS[tool] ? hitWall(p) : null; if (tool !== 'select') schedule(false); }
 });
 svg.addEventListener('pointerup', () => {
+  if (bgDrag) { bgDrag = null; down = null; commit(); return; }
   if (drag) { if (down?.moved) commit(); }
   else if (down && !down.moved) clickTool(down.p, down.el, down.kind);
   down = drag = pan = null;
@@ -1608,6 +1617,15 @@ function applyDrag(p) {
   } else if (drag.kind === 'tag') { drag.t.x = r2(drag.x + d[0]); drag.t.y = r2(drag.y + d[1]); sel = { kind: 'room', x: drag.t.x, y: drag.t.y }; schedule(true); }
 }
 function clickTool(p, el, kind) {
+  if (tool === 'calib') {
+    if (!calib?.a) { calib = { a: p }; schedule(false); return; }
+    const d = Math.hypot(p[0] - calib.a[0], p[1] - calib.a[1]); if (d < 1e-3) return;
+    const ans = prompt(`Longueur réelle de ce segment, en ${UNIT()} (ex. ${prefs.unit === 'mm' ? '3450' : '345'}) :`);
+    const real = parseFloat(String(ans ?? '').replace(',', '.')) / UF();
+    if (isFinite(real) && real > 0) { const k = real / d, b = S.bgMeta, a = calib.a; b.x = r2(a[0] - (a[0] - b.x) * k); b.y = r2(a[1] - (a[1] - b.y) * k); b.w = b.w * k; b.calibrated = true; calib = null; setTool('select'); commit(); toast('📏 Plan mis à l’échelle. Tu peux maintenant détecter les murs ou décalquer.', 4000); openBg(); }
+    else { calib = null; schedule(false); toast('Valeur non comprise : recommence la mesure.'); }
+    return;
+  }
   if (tool === 'select') {
     if (kind === 'corner') { const w = resolveSel(), o = wallById(el.dataset.other); if (w && o) roundCorner(w, el.dataset.end, o, el.dataset.oend, roundR); return; }
     if (kind === 'room') setSel({ kind: 'room', x: p[0], y: p[1] });
@@ -1701,9 +1719,11 @@ const HINTS = {
   measure: 'Clique deux points pour mesurer (mesure temporaire)',
   dim: 'Clique deux points pour poser une cote (s’aimante aux coins et faces des murs, ouvertures, objets) · horizontale/verticale auto, Maj = cote oblique · glisser une cote pour l’écarter',
   place: '',
+  calib: 'Mise à l’échelle : clique le début puis la fin d’une longueur connue sur le plan (une cote, un mur mesuré…) · Échap pour annuler',
+  bgmove: 'Glisse le plan de fond pour l’aligner · Échap ou Sélection pour terminer',
 };
 function setTool(t) {
-  tool = t; draw = null; dimDraw = null; hoverWall = null; if (t !== 'measure') meas = null; if (t !== 'place') placing = null;
+  tool = t; draw = null; dimDraw = null; hoverWall = null; calib = null; if (t !== 'measure') meas = null; if (t !== 'place') placing = null;
   document.querySelectorAll('[data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === t));
   document.getElementById('hint').textContent = HINTS[t];
   svg.style.cursor = t === 'select' ? 'default' : 'crosshair';
@@ -3176,6 +3196,150 @@ function openHelp() {
     <h4>Glossaire</h4>
     <dl class="gloss">${ML.GLOSSARY.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>`);
 }
+// =====================================================================
+//  Plan de fond : image à décalquer, mise à l'échelle, détection automatique des murs
+//  (l'image est gardée à part dans le navigateur pour ne pas alourdir l'historique)
+// =====================================================================
+const BGKEY = 'moovo-bg-' + PID;
+let bgImg = lsGet(BGKEY), bgDrag = null, calib = null;
+const bgOn = () => !!(bgImg && S.bgMeta && S.bgMeta.show !== false);
+function syncBgImage() {
+  const el = document.getElementById('bgI');
+  if (!bgOn()) { el.style.display = 'none'; return; }
+  const b = S.bgMeta; if (el.getAttribute('href') !== bgImg) el.setAttribute('href', bgImg);
+  el.setAttribute('x', b.x); el.setAttribute('y', b.y); el.setAttribute('width', b.w); el.setAttribute('height', b.w * b.ratio); el.style.opacity = b.op ?? .5; el.style.display = '';
+}
+function loadBgFile(file) {
+  const rd = new FileReader();
+  rd.onload = () => {
+    const im = new Image();
+    im.onload = () => {
+      const k = Math.min(1, 2000 / Math.max(im.width, im.height)), c = document.createElement('canvas'); c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+      const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(im, 0, 0, c.width, c.height);
+      const data = c.toDataURL('image/jpeg', .85);
+      if (!lsSet(BGKEY, data)) { toast('Image trop lourde pour le stockage du navigateur : essaie une image plus petite.', 5000); return; }
+      bgImg = data; const v = vb(), w = Math.min(v.w * .8, 20);
+      S.bgMeta = { x: r2(view.cx - w / 2), y: r2(view.cy - w * c.height / c.width / 2), w, ratio: c.height / c.width, op: .55, show: true, calibrated: false };
+      commit(); toast('🖼 Plan importé. Étape suivante : le mettre à l’échelle.', 3500); openBg();
+    };
+    im.onerror = () => toast('Image illisible. Formats acceptés : JPG, PNG, WebP (pour un PDF, fais une capture d’écran).', 5000);
+    im.src = rd.result;
+  };
+  rd.readAsDataURL(file);
+}
+function openBg() {
+  const b = S.bgMeta, has = bgOn() || (bgImg && b);
+  openModal('bg', 'Plan de fond', has ? `
+    <p class="muted" style="margin-top:0">Ton plan est affiché sous le dessin. Trois étapes : <b>1.</b> le mettre à l’échelle, <b>2.</b> l’aligner si besoin, <b>3.</b> détecter les murs automatiquement ou les décalquer avec l’outil Mur.</p>
+    <div class="row" style="margin-top:0">
+      <button class="${b.calibrated ? '' : 'primary'}" data-bg="calib">📏 1. Mettre à l’échelle${b.calibrated ? ' ✓' : ''}</button>
+      <button data-bg="move">✋ 2. Déplacer</button>
+      <button class="${b.calibrated ? 'primary' : ''}" data-bg="detect">🪄 3. Détecter les murs</button>
+    </div>
+    <div class="grid2">
+      <label class="f"><span>Transparence du plan</span><input type="range" min="0.1" max="1" step="0.05" value="${b.op ?? .55}" data-bgk="op"></label>
+      <label class="f"><span>Sensibilité de détection</span><select data-bgk="sens"><option value="normal"${(b.sens ?? 'normal') === 'normal' ? ' selected' : ''}>Normale (murs noirs)</option><option value="light"${b.sens === 'light' ? ' selected' : ''}>Murs gris ou hachurés</option><option value="strict"${b.sens === 'strict' ? ' selected' : ''}>Stricte (plan chargé)</option></select></label>
+    </div>
+    <label class="chk"><input type="checkbox" data-bgk="show"${b.show !== false ? ' checked' : ''}><span>Afficher le plan de fond</span></label>
+    ${tipBox('La détection marche le mieux sur un plan d’agence net, où les murs sont dessinés pleins (noirs ou gris foncé). Elle crée les murs droits ; les portes et fenêtres restent à poser (outils Porte et Fenêtre, un clic sur le mur). Sur un croquis à main levée, décalque plutôt avec l’outil Mur : c’est rapide et le résultat est propre.')}
+    <div class="row"><label class="btn" style="cursor:pointer">🔄 Changer d’image<input type="file" accept="image/*" data-bgfile hidden></label><button class="danger" data-bg="remove">Retirer le plan de fond</button></div>`
+  : `<p style="margin-top:0">Importe le plan de ton logement (plan d’agence, plan de notaire, croquis coté…) pour le <b>décalquer</b>, ou laisse l’appli <b>détecter les murs</b> toute seule.</p>
+    <ol class="muted" style="padding-left:18px"><li>Choisis une image (JPG, PNG). Un PDF ? Fais une capture d’écran de la page.</li><li>Mets-la à l’échelle en mesurant une longueur connue.</li><li>Détecte les murs, ou dessine-les par-dessus avec l’outil Mur.</li></ol>
+    <div class="row"><label class="btn primary" style="cursor:pointer;background:var(--accent);color:#fff;border-color:var(--accent)">🖼 Choisir une image…<input type="file" accept="image/*" data-bgfile hidden></label></div>
+    ${tipBox('Une photo prise bien à plat, de face et sans ombre donne les meilleurs résultats. Un plan photographié de travers, c’est un peu comme une cote prise au pifomètre : ça finit toujours par se voir.')}`);
+}
+document.getElementById('bBg').onclick = openBg;
+document.getElementById('mBody').addEventListener('change', e => {
+  if (e.target.matches('[data-bgfile]')) { const f = e.target.files[0]; if (f) loadBgFile(f); return; }
+  const k = e.target.dataset.bgk; if (!k || !S.bgMeta) return;
+  if (k === 'show') S.bgMeta.show = e.target.checked; else if (k === 'sens') S.bgMeta.sens = e.target.value; else S.bgMeta[k] = +e.target.value;
+  commit();
+});
+document.getElementById('mBody').addEventListener('input', e => { if (e.target.dataset.bgk === 'op' && S.bgMeta) { S.bgMeta.op = +e.target.value; syncBgImage(); } });
+document.getElementById('mBody').addEventListener('click', e => {
+  const b = e.target.closest('[data-bg]'); if (!b) return;
+  const a = b.dataset.bg;
+  if (a === 'calib') { closeModal(); setTool('calib'); toast('Clique le début puis la fin d’une longueur que tu connais sur le plan.', 4000); }
+  else if (a === 'move') { closeModal(); setTool('bgmove'); }
+  else if (a === 'detect') { closeModal(); runDetect(); }
+  else if (a === 'remove' && confirm('Retirer le plan de fond ? (tes murs restent)')) { bgImg = null; try { localStorage.removeItem(BGKEY); } catch {} delete S.bgMeta; closeModal(); commit(); }
+});
+// Détection : bandes sombres horizontales et verticales assez longues et d'épaisseur plausible = murs
+function detectWalls(imgEl, meta, sens = 'normal') {
+  const maxW = 1600, k = Math.min(1, maxW / imgEl.naturalWidth), W = Math.round(imgEl.naturalWidth * k), H = Math.round(imgEl.naturalHeight * k);
+  const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(imgEl, 0, 0, W, H);
+  const px = g.getImageData(0, 0, W, H).data, lum = new Uint8Array(W * H), hist = new Array(256).fill(0);
+  for (let i = 0; i < W * H; i++) { const l = (px[i * 4] * 299 + px[i * 4 + 1] * 587 + px[i * 4 + 2] * 114) / 1000 | 0; lum[i] = l; hist[l]++; }
+  // seuil d'Otsu, borné selon la sensibilité
+  let sum = 0; for (let i = 0; i < 256; i++) sum += i * hist[i];
+  let sB = 0, wB = 0, best = 0, thr = 110; for (let i = 0; i < 256; i++) { wB += hist[i]; if (!wB) continue; const wF = W * H - wB; if (!wF) break; sB += i * hist[i]; const mB = sB / wB, mF = (sum - sB) / wF, v = wB * wF * (mB - mF) ** 2; if (v > best) { best = v; thr = i; } }
+  thr = clamp(thr, 60, sens === 'light' ? 190 : sens === 'strict' ? 100 : 140);
+  const dark = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) dark[i] = lum[i] < thr ? 1 : 0;
+  const ppm = W / meta.w, minT = Math.max(2, Math.round(.045 * ppm)), maxT = Math.max(minT + 2, Math.round(.65 * ppm)), minLen = Math.max(Math.round(.35 * ppm), minT * 3);
+  const segs = [];
+  for (const horiz of [true, false]) {
+    const A2 = horiz ? W : H, B2 = horiz ? H : W, at2 = (a, b) => horiz ? b * W + a : a * W + b, mask = new Uint8Array(W * H);
+    for (let b = 0; b < B2; b++) { let st = -1; for (let a = 0; a <= A2; a++) { const on = a < A2 && dark[at2(a, b)]; if (on && st < 0) st = a; else if (!on && st >= 0) { if (a - st >= minLen) for (let x = st; x < a; x++) mask[at2(x, b)] = 1; st = -1; } } }
+    const seen = new Uint8Array(W * H), stack = [];
+    for (let i = 0; i < W * H; i++) {
+      if (!mask[i] || seen[i]) continue;
+      let x0 = W, x1 = 0, y0 = H, y1 = 0, n = 0; stack.push(i); seen[i] = 1;
+      while (stack.length) { const j = stack.pop(), x = j % W, y = j / W | 0; n++; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+        for (const q of [j - 1, j + 1, j - W, j + W]) if (q >= 0 && q < W * H && mask[q] && !seen[q] && Math.abs((q % W) - x) <= 1) { seen[q] = 1; stack.push(q); } }
+      const len = horiz ? x1 - x0 + 1 : y1 - y0 + 1, th = horiz ? y1 - y0 + 1 : x1 - x0 + 1;
+      if (len < minLen || th < minT || th > maxT || n < .55 * len * th) continue;
+      const m = v => r2(v / ppm);
+      if (horiz) segs.push({ h: true, c: m((y0 + y1 + 1) / 2) + meta.y, s: m(x0) + meta.x, e: m(x1 + 1) + meta.x, t: Math.max(.05, Math.round(th / ppm * 100) / 100) });
+      else segs.push({ h: false, c: m((x0 + x1 + 1) / 2) + meta.x, s: m(y0) + meta.y, e: m(y1 + 1) + meta.y, t: Math.max(.05, Math.round(th / ppm * 100) / 100) });
+    }
+  }
+  // raccords : chaque extrémité rejoint l'axe du mur perpendiculaire qu'elle touche
+  const tol = .06;
+  for (const a of segs) for (const end of ['s', 'e']) {
+    const v = a[end];
+    const hit = segs.find(b => b.h !== a.h && a.c >= b.s - a.t / 2 - tol && a.c <= b.e + a.t / 2 + tol && Math.abs(v - b.c) <= b.t / 2 + a.t / 2 + tol);
+    if (hit) a[end] = r2(hit.c);
+  }
+  // vide de 55 cm à 1,30 m entre deux murs alignés = passage de porte : on fusionne et on pose une porte
+  const doors = [];
+  let merged = true;
+  while (merged) {
+    merged = false;
+    for (const a of segs) for (const b of segs) {
+      if (a === b || a.h !== b.h || Math.abs(a.c - b.c) > Math.max(a.t, b.t) / 2 || b.s <= a.e) continue;
+      const gap = b.s - a.e; if (gap < .55 || gap > 1.3) continue;
+      if (segs.some(o => o !== a && o !== b && o.h === a.h && Math.abs(o.c - a.c) < .05 && o.s > a.e - .01 && o.s < b.s)) continue;
+      a.doors = [...(a.doors ?? []), { at: a.e - a.s, w: gap }, ...(b.doors ?? []).map(d => ({ at: d.at + b.s - a.s, w: d.w }))];
+      a.e = b.e; a.t = Math.max(a.t, b.t); segs.splice(segs.indexOf(b), 1); merged = true; break;
+    }
+    if (merged) continue;
+  }
+  const walls = [];
+  for (const a of segs.filter(x => x.e - x.s > .1)) {
+    const w = W_('w-' + uid(), a.h ? [r2(a.s), r2(a.c)] : [r2(a.c), r2(a.s)], a.h ? [r2(a.e), r2(a.c)] : [r2(a.c), r2(a.e)], a.t >= .15 ? 'ext' : 'int', a.t);
+    walls.push(w); for (const d of a.doors ?? []) doors.push(O_('o-' + uid(), w.id, 'door', r2(d.at), r2(d.w), { side: 1 }));
+  }
+  return { walls, doors };
+}
+function runDetect() {
+  if (!bgImg || !S.bgMeta) return toast('Importe d’abord un plan de fond.');
+  if (!S.bgMeta.calibrated && !confirm('Le plan n’est pas encore mis à l’échelle : les dimensions risquent d’être fausses. Détecter quand même ?')) return;
+  const im = new Image();
+  im.onload = () => {
+    const { walls, doors } = detectWalls(im, S.bgMeta, S.bgMeta.sens);
+    if (walls.length < 3) { toast('Pas assez de murs trouvés 🤔 Essaie la sensibilité « Murs gris ou hachurés », ou décalque avec l’outil Mur.', 6000); return; }
+    if (!confirm(`${walls.length} murs et ${doors.length} passages de porte détectés. Remplacer le plan actuel (murs, ouvertures, pièces et objets) par ce plan ?`)) return;
+    backup('Avant détection des murs', false);
+    S.walls = walls; S.openings = doors; S.rooms = []; S.items = []; S.dims = []; S.baseline = { walls: clone(walls), openings: clone(doors) };
+    for (const o of S.openings) clampOpening(o);
+    sel = null; commit();
+    // nomme les pièces trouvées pour qu'on puisse tout de suite choisir sols et couleurs
+    let n = 0; for (const r of A.rooms) if (r.area > 1.2 && !r.tags.length && r.rects.length) { const q = r.rects.reduce((a, b) => (b.x1 - b.x0) * (b.y1 - b.y0) > (a.x1 - a.x0) * (a.y1 - a.y0) ? b : a); S.rooms.push(T_('r-' + uid(), `Pièce ${++n}`, r2((q.x0 + q.x1) / 2), r2((q.y0 + q.y1) / 2), 'parquet')); }
+    commit(); fit(); schedule(false); setView('persp');
+    toast(`🪄 ${walls.length} murs, ${doors.length} portes et ${n} pièces créés. Vérifie le sens des portes (double-clic), puis ajoute les fenêtres d’un clic sur les murs.`, 7000);
+  };
+  im.src = bgImg;
+}
 // --- guide de démarrage (affiché à la première ouverture, puis depuis l'aide)
 const TOUR = [
   ['👋', 'Bienvenue dans Moovo 3D', 'Tu vas dessiner ton logement au centimètre près, le visiter en 3D, choisir couleurs et matériaux, puis obtenir un budget et un devis. Le tout sans poussière, sans bruit et sans voisin qui frappe au plafond. Ce guide prend une minute : moins qu’un débat sur la couleur du canapé.'],
@@ -3284,7 +3448,8 @@ backup('Ouverture du projet');
 setTool('select');
 renderAll();
 requestAnimationFrame(() => { fit(); render2D(); resize3D(); setView('persp'); loop(); });
-if (!prefs.toured) setTimeout(startTour, 400);
+if (new URLSearchParams(location.search).get('bg')) { history.replaceState(null, '', location.pathname + '?p=' + encodeURIComponent(PID)); setTimeout(openBg, 300); }
+else if (!prefs.toured) setTimeout(startTour, 400);
 </script>
 </body>
 </html>

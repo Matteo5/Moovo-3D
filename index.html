@@ -159,6 +159,7 @@ const C = MoovoCore, $ = id => document.getElementById(id), esc = C.esc;
 }
 const TEMPLATES = {
   interior: [
+    ['import', '🖼 Depuis un plan (image)', 'Importe ton plan, mets-le à l’échelle, les murs se dessinent'],
     ['room', 'Pièce vide', '4,20 × 3,60 m, une porte, une fenêtre'],
     ['studio', 'Studio', 'Séjour + salle d’eau, 28 m²'],
     ['maison', 'Maison de plain-pied', '3 pièces, 10 × 8 m'],
@@ -212,12 +213,13 @@ function renderTpls() {
   $('tpls').innerHTML = TEMPLATES[newType].map(([k, n, d]) => `<button class="tpl ${k === newTpl ? 'on' : ''}" data-tpl="${k}"><b>${n}</b><span>${d}</span></button>`).join('');
 }
 function openNew() { newType = 'interior'; newTpl = 'room'; $('newName').value = ''; renderTpls(); $('ovNew').hidden = false; }
-document.querySelectorAll('.type').forEach(b => b.onclick = () => { newType = b.dataset.type; newTpl = TEMPLATES[newType][newType === 'interior' ? 0 : 1][0]; renderTpls(); });
+document.querySelectorAll('.type').forEach(b => b.onclick = () => { newType = b.dataset.type; newTpl = TEMPLATES[newType][1][0]; renderTpls(); });
 $('tpls').addEventListener('click', e => { const b = e.target.closest('[data-tpl]'); if (b) { newTpl = b.dataset.tpl; renderTpls(); } });
 $('okNew').onclick = () => {
   const tpl = TEMPLATES[newType].find(t => t[0] === newTpl);
-  const p = C.create({ name: $('newName').value.trim() || tpl[1], type: newType, template: newTpl });
-  location.href = url(p);
+  const imp = newTpl === 'import';
+  const p = C.create({ name: $('newName').value.trim() || (imp ? 'Mon logement' : tpl[1]), type: newType, template: imp ? 'room' : newTpl });
+  location.href = url(p) + (imp ? '&bg=1' : '');
 };
 $('cNew').onclick = () => $('ovNew').hidden = true;
 for (const id of ['bNew', 'bNew2']) $(id).onclick = openNew;

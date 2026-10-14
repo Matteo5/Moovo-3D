@@ -9,7 +9,10 @@ Application 100 % navigateur (aucun serveur, aucune installation) pour :
 - **10 ambiances** en un clic par pièce (scandinave, japandi, industriel, bohème, classique chic…) : murs, sol, plafond et couleurs du mobilier.
 - **12 revêtements muraux** texturés en 3D (peinture mat/velours/satin/brillant, chaux, béton ciré, papiers peints, lambris, tasseaux, brique, pierre, métro, zellige) et **22 sols** (parquets, carreaux de ciment, terrazzo, tomettes, travertin…).
 - **101 objets** au catalogue, avec tailles standard en un clic (lits, canapés, tables, douches…).
-- **Guide de démarrage** à la première ouverture, astuces contextuelles (désactivables), glossaire du bâtiment, liste des matériaux à acheter.
+- **Mur d’accent** : un revêtement ou une couleur propre à une face de mur (limité à la pièce choisie).
+- **Plinthes** par pièce, **crédence** (métro, zellige, verre laqué, inox, marbre…) et option **rendu réaliste** (reflets, tonalité filmique).
+- **Extérieur** : 7 ambiances (bois naturel, nordique, contemporain, chalet, bord de mer, provençal, industriel), lasures et teintes RAL par barre ou pour tout le projet, 5 nouveaux bardages (claire-voie, composite, fibre-ciment, claustra, canisse) et textures 3D des bardages, tuiles, bacs acier, lames et sols.
+- **Guide de démarrage** à la première ouverture (intérieur et extérieur), astuces contextuelles (désactivables), glossaire du bâtiment, liste des matériaux à acheter. Le ton est volontairement détendu : on peut apprendre sans s’ennuyer.
 
 ## Fichiers
 | Fichier | Rôle |

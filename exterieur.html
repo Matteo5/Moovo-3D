@@ -61,6 +61,20 @@
   #panel h3{margin:0 0 2px;font-size:15px}
   #panel h4{margin:16px 0 7px;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
   .muted{color:var(--muted);font-size:12.5px}
+  .tipbox{margin-top:10px;padding:8px 10px;background:#fff8e6;border:1px solid #f6e3b0;border-radius:8px;font-size:12.5px;color:#5c4400;line-height:1.45}
+  .tipbox b{color:#3d2e00;margin-right:2px}
+  .styles{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .styles button{display:flex;flex-direction:column;align-items:flex-start;gap:5px;text-align:left;padding:7px 8px;font-size:12.5px;white-space:normal}
+  .styles button.on{background:#e9f0ff;border-color:#2563eb;color:inherit}
+  .styles .sw{display:flex;width:100%;height:14px;border-radius:4px;overflow:hidden;border:1px solid #0001}
+  .styles .sw i{flex:1}
+  .tour{position:fixed;inset:0;z-index:150;background:#0f172a73;display:flex;align-items:center;justify-content:center;padding:16px}
+  .tour[hidden]{display:none}
+  .tour .tbox{background:#fff;border-radius:16px;box-shadow:0 12px 40px #0f172a33;width:min(520px,100%);padding:22px 24px 18px}
+  .tour .tstep{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+  .tour h2{margin:6px 0 8px;font-size:20px} .tour .tico{font-size:40px;line-height:1} .tour p{margin:0 0 8px;color:#374151;line-height:1.5}
+  .tour .tdots{display:flex;gap:6px;margin:14px 0} .tour .tdots i{width:8px;height:8px;border-radius:50%;background:#cfd5de} .tour .tdots i.on{background:#2563eb}
+  .tour .tnav{display:flex;justify-content:space-between;align-items:center;gap:8px}
   .note{margin-top:10px;padding:8px 10px;background:#f6f8fb;border-radius:8px;font-size:12.5px;color:var(--muted)}
   .warn{background:var(--warn-bg);color:var(--warn);border:1px solid #f3d9a4;border-radius:8px;padding:8px 10px;font-size:12.5px;margin-top:10px}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;margin-top:8px}
@@ -170,6 +184,7 @@
             <label><input type="checkbox" id="oGround" checked> Terrain</label>
             <label><input type="checkbox" id="oLen"> Longueurs des barres</label>
             <label><input type="checkbox" id="oShadow" checked> Ombres</label>
+            <label><input type="checkbox" id="oTex" checked> Textures (bardages, tuiles, lames)</label>
             <h5>Couleur</h5>
             <label><input type="radio" name="oColor" value="mat" checked> Par matériau</label>
             <label><input type="radio" name="oColor" value="role"> Par fonction (poteau, poutre…)</label>
@@ -183,6 +198,7 @@
   </aside>
 </main>
 <div id="toast"></div>
+<div id="tour" class="tour" hidden><div class="tbox" role="dialog" aria-modal="true"><div id="tourBody"></div><div class="tdots" id="tourDots"></div><div class="tnav"><button id="tourSkip" class="ghost">Passer le guide</button><div class="seg"><button id="tourPrev">← Précédent</button><button id="tourNext" class="pri">Suivant →</button></div></div></div></div>
 <div id="modal" class="modal" hidden><div class="mbox"><div class="mhead"><b id="mTitle"></b><button id="mClose" class="ghost">✕</button></div><div id="mBody"></div></div></div>
 
 <script src="moovo-core.js"></script>
@@ -244,7 +260,11 @@ const PANEL = {
   bardacier: { l: 'Bardage acier', price: 32, color: '#8d939a', t: .04 }, lames: { l: 'Lames de terrasse', price: 55, color: '#a87b50', t: .027 },
   dalle: { l: 'Dalle béton 12 cm (fourni-coulé)', price: 78, color: '#b9b9b6', t: .12 }, verre: { l: 'Verre feuilleté', price: 190, color: '#d6eef8', t: .012, glass: true },
   toile: { l: 'Toile tendue', price: 40, color: '#efe6d4', t: .005 }, gravier: { l: 'Gravier stabilisé', price: 14, color: '#cfc8ba', t: .06 },
+  claireVoie: { l: 'Bardage bois à claire-voie', price: 55, color: '#b0835a', t: .022 }, composite: { l: 'Lames composites', price: 75, color: '#6b5a4c', t: .023 },
+  fibre: { l: 'Bardage fibre-ciment', price: 45, color: '#cbd0cc', t: .008 }, claustra: { l: 'Claustra / ventelles bois', price: 65, color: '#b0835a', t: .03 },
+  canisse: { l: 'Brise-vue canisse', price: 12, color: '#c8b48c', t: .01 },
 };
+const CLAD = new Set(['bardage', 'claireVoie', 'composite', 'fibre', 'claustra', 'canisse', 'bardacier']), ROOF = new Set(['bac', 'tuile', 'epdm']);
 const ROLES = { poteau: ['Poteau', '#2563eb'], poutre: ['Poutre / sablière', '#0f766e'], chevron: ['Chevron / panne', '#d97706'], solive: ['Solive / lambourde', '#7c3aed'], montant: ['Montant d’ossature', '#0891b2'], lisse: ['Lisse', '#65a30d'], contrev: ['Contreventement', '#dc2626'], lame: ['Lame', '#a16207'], plot: ['Plot / pied', '#475569'], autre: ['Autre', '#6b7280'] };
 
 // =====================================================================
@@ -564,7 +584,12 @@ function dimLine(a, b, txt, off, col, edit) {
     <path class="ns" d="M${n4(A[0] - uy * tk)},${n4(A[1] + ux * tk)}L${n4(A[0] + uy * tk)},${n4(A[1] - ux * tk)}M${n4(Bp[0] - uy * tk)},${n4(Bp[1] + ux * tk)}L${n4(Bp[0] + uy * tk)},${n4(Bp[1] - ux * tk)}" stroke="${col}" stroke-width="1.2"/>
     <text class="dimt" ${eid ? `data-k="edim" data-id="${eid}" style="cursor:text;text-decoration:underline dotted;fill:${col}"` : `style="fill:${col};pointer-events:none"`} x="${n4(tx)}" y="${n4(ty)}" font-size="${n4(11 * s)}" stroke-width="${n4(3 * s)}"${vert ? ` transform="rotate(-90 ${n4(tx)} ${n4(ty)})"` : ''}>${txt}</text>`;
 }
-const colorOf = m => prefs.o.color === 'role' ? (ROLES[m.role]?.[1] ?? '#6b7280') : (MAT[m.mat]?.color ?? '#999');
+// Teinte d'une barre : la sienne, sinon celle de l'ambiance du projet (bois / métal), sinon la couleur du matériau
+// (l'acier galvanisé reste brut : seuls l'acier peint, le thermolaqué et l'alu prennent la teinte métal)
+const PAINTABLE = new Set(['s235', 'thermo', 'alu']);
+const finishOf = m => m.color ?? (MAT[m.mat]?.fam === 'bois' ? S.settings.woodColor : PAINTABLE.has(m.mat) ? S.settings.metalColor : null) ?? MAT[m.mat]?.color ?? '#999';
+const panelColor = p => p.color ?? (CLAD.has(p.type) ? S.settings.cladColor : ROOF.has(p.type) ? S.settings.roofColor : null) ?? PANEL[p.type]?.color ?? '#cccccc';
+const colorOf = m => prefs.o.color === 'role' ? (ROLES[m.role]?.[1] ?? '#6b7280') : finishOf(m);
 function render2D() {
   EDITS.clear();
   const v = vb(), s = vw.s, V = VIEWS[view];
@@ -742,8 +767,23 @@ function profile(sk) {
   else { sh.moveTo(-b / 2, -h / 2); sh.lineTo(b / 2, -h / 2); sh.lineTo(b / 2, h / 2); sh.lineTo(-b / 2, h / 2); }
   _shape.set(sk, sh); return sh;
 }
-const o3 = Object.assign({ panels: true, xray: false, blocks: true, ground: true, len: false, shadow: true, color: 'mat' }, prefs.o);
+const o3 = Object.assign({ panels: true, xray: false, blocks: true, ground: true, len: false, shadow: true, tex: true, color: 'mat' }, prefs.o);
 let dirty3D = true, view3 = 'persp';
+// Panneaux texturés (bardage, couverture, terrasse…) : texture dessinée une fois par type + teinte, répétée selon la taille
+const _ptex = new Map();
+function panelTex(type, col) {
+  const k = type + col; if (_ptex.has(k)) return _ptex.get(k);
+  const d = window.MoovoLib.PANEL_DRAW[type], c = document.createElement('canvas'); c.width = c.height = 512; d.draw(c.getContext('2d'), col);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; _ptex.set(k, t); return t;
+}
+function panelMat(p, pt, lu, lv, on) {
+  const col = panelColor(p), D = window.MoovoLib.PANEL_DRAW[p.type];
+  if (on || o3.xray || pt.glass || !D || !o3.tex) return new THREE.MeshStandardMaterial({ color: on ? '#93c5fd' : col, roughness: .7, transparent: o3.xray || pt.glass, opacity: pt.glass ? .45 : o3.xray ? .35 : 1, depthWrite: !(o3.xray || pt.glass), side: THREE.DoubleSide });
+  const t = panelTex(p.type, col).clone(); t.needsUpdate = true;
+  const vert = p.dir === 'v'; t.center.set(.5, .5); t.rotation = vert ? Math.PI / 2 : 0;
+  t.repeat.set((vert ? lv : lu) / D.size, (vert ? lu : lv) / D.size);
+  return new THREE.MeshStandardMaterial({ map: t, roughness: ['bac', 'bardacier'].includes(p.type) ? .45 : .85, metalness: ['bac', 'bardacier'].includes(p.type) ? .3 : 0, side: THREE.DoubleSide, transparent: !!D.alpha, alphaTest: D.alpha ? .5 : 0 });
+}
 function build3D() {
   root.traverse(o => o.geometry?.dispose()); scene.remove(root); root = new THREE.Group(); scene.add(root); labels.clear();
   if (renderer.shadowMap.enabled !== o3.shadow) { renderer.shadowMap.enabled = o3.shadow; _m.forEach(m => { m.needsUpdate = true; }); }
@@ -766,7 +806,7 @@ function build3D() {
   }
   if (o3.panels) for (const p of S.panels) {
     const pt = PANEL[p.type] ?? PANEL.osb, t = p.t ?? pt.t, on = isSel('p', p.id), n = nrm(crs(p.u, p.v)), lu = len3(p.u), lv = len3(p.v); if (lu < 1e-4 || lv < 1e-4) continue;
-    const mat = new THREE.MeshStandardMaterial({ color: on ? '#93c5fd' : (p.color ?? pt.color), roughness: .7, transparent: o3.xray || pt.glass, opacity: pt.glass ? .45 : o3.xray ? .35 : 1, depthWrite: !(o3.xray || pt.glass), side: THREE.DoubleSide });
+    const mat = panelMat(p, pt, lu, lv, on);
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(lu, lv, t), mat), M4 = new THREE.Matrix4().makeBasis(T(nrm(p.u)), T(nrm(p.v)), T(n));
     if (M4.determinant() < 0) M4.makeBasis(T(nrm(p.u)).negate(), T(nrm(p.v)), T(n));
     mesh.applyMatrix4(M4); mesh.position.copy(T(add(add(p.p0, mul(p.u, .5)), add(mul(p.v, .5), mul(n, t / 2)))));
@@ -816,7 +856,7 @@ const panel = document.getElementById('panel');
 const secOpts = cur => ['bois', 'acier', 'alu', 'acc'].map(f => `<optgroup label="${{ bois: 'Bois', acier: 'Acier', alu: 'Aluminium', acc: 'Accessoires' }[f]}">${Object.entries(SEC).filter(([, s]) => s.fam === f).map(([k, s]) => `<option value="${k}"${k === cur ? ' selected' : ''}>${s.l}</option>`).join('')}</optgroup>`).join('');
 const matOpts = (cur, fam) => Object.entries(MAT).filter(([, m]) => !fam || m.fam === fam || (fam === 'acier' && m.fam === 'alu')).map(([k, m]) => `<option value="${k}"${k === cur ? ' selected' : ''}>${m.l}</option>`).join('');
 const panOpts = (cur, none) => (none ? `<option value="none"${cur === 'none' ? ' selected' : ''}>Aucun(e)</option>` : '') + Object.entries(PANEL).map(([k, p]) => `<option value="${k}"${k === cur ? ' selected' : ''}>${p.l}</option>`).join('');
-const fld = (label, path, val, type = 'text', cls = '') => type === 'color' ? `<div class="f ${cls}"><span>${label}</span>${window.MoovoLib.pickerHTML(val, `data-p="${path}"`, path.startsWith('site') ? 'paint' : 'furn')}</div>` : `<label class="f ${cls}"><span>${label}</span><input data-p="${path}" type="${type}" ${type === 'number' ? 'step="any"' : ''} value="${esc(val)}"></label>`;
+const fld = (label, path, val, type = 'text', cls = '') => type === 'color' ? `<div class="f ${cls}"><span>${label}</span>${window.MoovoLib.pickerHTML(val, `data-p="${path}"`, path.startsWith('site') ? 'paint' : path.startsWith('b.') ? 'paint' : 'ext')}</div>` : `<label class="f ${cls}"><span>${label}</span><input data-p="${path}" type="${type}" ${type === 'number' ? 'step="any"' : ''} value="${esc(val)}"></label>`;
 const lenF = (label, path, v, cls = '') => fld(label + ` (${UNIT()})`, path, prefs.unit === 'mm' ? Math.round(v * 1000) : Math.round(v * 1000) / 10, 'number', cls) .replace('data-p=', 'data-len="1" data-p=');
 const selF = (label, path, opts, cls = '') => `<label class="f ${cls}"><span>${label}</span><select data-p="${path}">${opts}</select></label>`;
 function renderPanel() {
@@ -840,7 +880,10 @@ function selPanel() {
     return `<h3>${esc(m.name || ROLES[m.role]?.[0] || 'Barre')}</h3><div class="muted">${esc(sc.l)} · ${esc(mt?.l)} · ${L(Lg)} ${UNIT()} · ${fm(kg, 1)} kg</div>${genNote}
       <div class="grid2">${fld('Nom', 'm.name', m.name || '', 'text')}${selF('Fonction', 'm.role', Object.entries(ROLES).map(([k, r]) => `<option value="${k}"${k === m.role ? ' selected' : ''}>${r[0]}</option>`).join(''))}
         ${selF('Section', 'm.sec', secOpts(m.sec), 'full')}${selF('Matériau', 'm.mat', matOpts(m.mat, sc.fam === 'acc' ? 'acc' : null))}${lenF('Longueur', 'm.len', Lg)}
-        ${fld('Rotation de la section (°)', 'm.rot', m.rot || 0, 'number')}</div>
+        ${fld('Rotation de la section (°)', 'm.rot', m.rot || 0, 'number')}
+        ${fld(MAT[m.mat]?.fam === 'bois' ? 'Lasure / teinte' : 'Teinte (RAL)', 'm.color', finishOf(m), 'color')}</div>
+      ${m.color ? '<div class="row" style="margin-top:6px"><button data-act="resetColor">Comme le projet</button></div>' : ''}
+      ${tipBox(window.MoovoLib.EXT_TIPS.member)}
       <h4>Extrémité A</h4><div class="grid3">${lenF('X', 'm.a.0', m.a[0])}${lenF('Y', 'm.a.1', m.a[1])}${lenF('Z', 'm.a.2', m.a[2])}</div>
       <h4>Extrémité B</h4><div class="grid3">${lenF('X', 'm.b.0', m.b[0])}${lenF('Y', 'm.b.1', m.b[1])}${lenF('Z', 'm.b.2', m.b[2])}</div>
       ${moveBlock()}
@@ -849,7 +892,10 @@ function selPanel() {
   if (s.k === 'p') {
     const p = o, pt = PANEL[p.type];
     return `<h3>${esc(pt?.l ?? 'Panneau')}</h3><div class="muted">${fm(panelArea(p))} m²</div>${genNote}
-      <div class="grid2">${selF('Type', 'p.type', panOpts(p.type), 'full')}${lenF('Épaisseur', 'p.t', p.t ?? pt?.t ?? .02)}${fld('Couleur', 'p.color', p.color ?? pt?.color ?? '#cccccc', 'color')}</div>
+      <div class="grid2">${selF('Type', 'p.type', panOpts(p.type), 'full')}${lenF('Épaisseur', 'p.t', p.t ?? pt?.t ?? .02)}${fld('Teinte', 'p.color', panelColor(p), 'color')}
+        ${window.MoovoLib.PANEL_DRAW[p.type] ? selF('Sens des lames / motifs', 'p.dir', `<option value="h"${p.dir !== 'v' ? ' selected' : ''}>Le long du côté 1</option><option value="v"${p.dir === 'v' ? ' selected' : ''}>Le long du côté 2</option>`) : ''}</div>
+      ${p.color ? '<div class="row" style="margin-top:6px"><button data-act="resetColor">Comme le projet</button></div>' : ''}
+      ${tipBox(window.MoovoLib.EXT_TIPS.panel)}
       <h4>Origine</h4><div class="grid3">${lenF('X', 'p.p0.0', p.p0[0])}${lenF('Y', 'p.p0.1', p.p0[1])}${lenF('Z', 'p.p0.2', p.p0[2])}</div>
       <h4>Côté 1 (vecteur)</h4><div class="grid3">${lenF('X', 'p.u.0', p.u[0])}${lenF('Y', 'p.u.1', p.u[1])}${lenF('Z', 'p.u.2', p.u[2])}</div>
       <h4>Côté 2 (vecteur)</h4><div class="grid3">${lenF('X', 'p.v.0', p.v[0])}${lenF('Y', 'p.v.1', p.v[1])}${lenF('Z', 'p.v.2', p.v[2])}</div>
@@ -870,6 +916,13 @@ function projectPanel() {
   return `<h3>${esc(S.name)}</h3><div class="muted">Clique une barre, un panneau ou un volume pour le modifier. Les cotes soulignées se modifient au clavier.</div>
     <div class="tiles" style="margin-top:10px"><div class="tile"><b>${nb}</b><span>barres · ${fm(tot, 1)} m</span></div><div class="tile"><b>${fm(B.panelRows.reduce((a, r) => a + r.area, 0), 1)} m²</b><span>panneaux</span></div></div>
     <div class="row"><button class="pri" data-act="devis">📄 Générer le devis</button><button data-act="addBlock">＋ Bâtiment existant</button></div>
+    ${tipBox(window.MoovoLib.EXT_TIPS.general[Math.floor(Date.now() / 864e5) % window.MoovoLib.EXT_TIPS.general.length], 'Astuce du jour')}
+    <h4>Ambiance en un clic</h4>
+    <div class="styles">${Object.entries(window.MoovoLib.EXT_STYLES).map(([k, v]) => `<button data-act="applyStyle" data-style="${k}" title="${esc(v.desc)}" class="${S.settings.style === k ? 'on' : ''}"><span class="sw">${[v.wood ?? '#e1c58f', v.metal, v.clad, v.roof].map(c => `<i style="background:${c}"></i>`).join('')}</span>${v.label}</button>`).join('')}</div>
+    <h4>Teintes du projet</h4>
+    <div class="grid2">${fld('Bois (lasure)', 's.woodColor', S.settings.woodColor ?? '#e1c58f', 'color')}${fld('Métal peint / alu (RAL)', 's.metalColor', S.settings.metalColor ?? '#383e42', 'color')}${fld('Bardages', 's.cladColor', S.settings.cladColor ?? '#b0835a', 'color')}${fld('Couverture', 's.roofColor', S.settings.roofColor ?? '#7b828b', 'color')}</div>
+    ${tipBox(window.MoovoLib.EXT_TIPS.styles)}
+    <div class="row"><button data-act="startTour">🎓 Guide de démarrage</button></div>
     <h4>Valeurs par défaut des nouvelles barres</h4>
     <div class="grid2">${selF('Section', 's.sec', secOpts(S.settings.sec), 'full')}${selF('Matériau', 's.mat', matOpts(S.settings.mat))}${lenF('Hauteur des poteaux', 's.postH', S.settings.postH)}${selF('Panneaux dessinés', 's.panel', panOpts(S.settings.panel), 'full')}</div>
     <h4>Terrain</h4><div class="grid3">${lenF('Longueur', 'site.w', S.site.w)}${lenF('Profondeur', 'site.d', S.site.d)}${fld('Couleur', 'site.ground', S.site.ground, 'color')}</div>
@@ -927,7 +980,7 @@ panel.addEventListener('change', e => {
     else setPath(o, path, path === 'rot' ? (v || 0) : v);
   } else if (head === 'mv') { const d = [0, 0, 0]; d[+path] = v; for (const s of sel) { const x = find(s); if (x.a) { x.a = add(x.a, d).map(r3); x.b = add(x.b, d).map(r3); } else if (x.p0) x.p0 = add(x.p0, d).map(r3); else { x.x += d[0]; x.y += d[1]; x.z = (x.z || 0) + d[2]; } } }
   else if (head === 'multi') { if (v) for (const s of sel) { const x = find(s); if (x?.a) x[path] = v; } }
-  else if (head === 's') S.settings[path] = v;
+  else if (head === 's') { S.settings[path] = path === 'woodColor' && v === '#e1c58f' ? null : v; if (/Color$/.test(path)) S.settings.style = null; }
   else if (head === 'site') S.site[path] = v;
   else if (head === 'price') setPath(S.prices, path, v);
   t.blur(); commit();
@@ -937,6 +990,9 @@ function act(a, ds = {}) {
   const objs = sel.map(find).filter(Boolean);
   if (a === 'del') { for (const s of sel) { if (s.k === 'm') S.members = S.members.filter(x => x.id !== s.id); if (s.k === 'p') S.panels = S.panels.filter(x => x.id !== s.id); if (s.k === 'b') S.blocks = S.blocks.filter(x => x.id !== s.id); if (s.k === 'd') S.dims = S.dims.filter(x => x.id !== s.id); } sel = []; commit(); }
   else if (a === 'dup') { const ns = []; for (const s of sel) { const o = clone(find(s)); o.id = s.k + uid(); delete o.gen; const d = [.3, .3, 0]; if (o.a) { o.a = add(o.a, d); o.b = add(o.b, d); } else if (o.p0) o.p0 = add(o.p0, d); else { o.x += .3; o.y += .3; } (s.k === 'm' ? S.members : s.k === 'p' ? S.panels : s.k === 'b' ? S.blocks : S.dims).push(o); ns.push({ k: s.k, id: o.id }); } sel = ns; commit(); }
+  else if (a === 'resetColor') { for (const o of objs) delete o.color; commit(); }
+  else if (a === 'applyStyle') { applyExtStyle(ds.style); commit(); const st = window.MoovoLib.EXT_STYLES[ds.style]; toast(`Ambiance « ${st.label} » appliquée. ${st.wink}`, 4000); }
+  else if (a === 'startTour') startTour();
   else if (a === 'swap') { const m = objs[0]; [m.a, m.b] = [m.b, m.a]; commit(); }
   else if (a === 'vertical') { const m = objs[0]; m.b = [m.a[0], m.a[1], r3(m.a[2] + mLen(m))]; commit(); }
   else if (a === 'level') { const m = objs[0]; const ax = sub(m.b, m.a), hl = Math.hypot(ax[0], ax[1]) || 1, Lg = mLen(m); m.b = [r3(m.a[0] + ax[0] / hl * Lg), r3(m.a[1] + ax[1] / hl * Lg), m.a[2]]; commit(); }
@@ -1030,7 +1086,7 @@ document.getElementById('bFrame').onclick = frameSel;
 const shot = () => { renderer.render(scene, cam); download(renderer.domElement.toDataURL('image/png'), slug(S.name) + '-3d.png'); };
 document.getElementById('bShot').onclick = shot;
 // options
-for (const [id, k] of [['oPanels', 'panels'], ['oXray', 'xray'], ['oBlocks', 'blocks'], ['oGround', 'ground'], ['oLen', 'len'], ['oShadow', 'shadow']]) { const el = document.getElementById(id); el.checked = !!o3[k]; el.onchange = () => { o3[k] = el.checked; prefs.o = o3; savePrefs(); dirty3D = true; }; }
+for (const [id, k] of [['oPanels', 'panels'], ['oXray', 'xray'], ['oBlocks', 'blocks'], ['oGround', 'ground'], ['oLen', 'len'], ['oShadow', 'shadow'], ['oTex', 'tex']]) { const el = document.getElementById(id); el.checked = !!o3[k]; el.onchange = () => { o3[k] = el.checked; prefs.o = o3; savePrefs(); dirty3D = true; }; }
 document.querySelectorAll('[name=oColor]').forEach(r => { r.checked = r.value === o3.color; r.onchange = () => { o3.color = prefs.o.color = r.value; savePrefs(); dirty3D = true; render2D(); }; });
 for (const [id, k] of [['lDims', 'dims'], ['lPanels', 'panels'], ['lGrid', 'grid']]) { const el = document.getElementById(id); el.checked = !!prefs.l[k]; el.onchange = () => { prefs.l[k] = el.checked; savePrefs(); render2D(); }; }
 document.getElementById('snap').value = prefs.snap; document.getElementById('snap').onchange = e => { prefs.snap = e.target.value; savePrefs(); };
@@ -1070,7 +1126,34 @@ document.getElementById('bHelp').onclick = () => openModal('Aide', `<table><tbod
   <tr><td>Maj + clic</td><td>Sélection multiple · barre bien droite</td></tr><tr><td>Flèches · Maj · Alt</td><td>Déplacer de 1 cm · 10 cm · 1 mm dans la vue</td></tr>
   <tr><td><kbd>Ctrl+D</kbd> · <kbd>Suppr</kbd></td><td>Dupliquer · supprimer</td></tr><tr><td><kbd>Ctrl+Z</kbd> / <kbd>Ctrl+Y</kbd> · <kbd>Ctrl+S</kbd></td><td>Annuler / rétablir · enregistrer un fichier</td></tr>
   <tr><td>Clic sur une cote soulignée</td><td>Taper la longueur exacte</td></tr><tr><td><kbd>0</kbd> · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></td><td>Tout voir · disposition 2D / 2D+3D / 3D</td></tr></tbody></table>
-  <p class="muted">Le métré et le devis sont des estimations pour préparer un chiffrage : vérifie les sections et les assemblages selon les règles de l’art (DTU, Eurocodes) ou avec un bureau d’études.</p>`);
+  <p class="muted">Le métré et le devis sont des estimations pour préparer un chiffrage : vérifie les sections et les assemblages selon les règles de l’art (DTU, Eurocodes) ou avec un bureau d’études. Le logiciel est doué, mais il n’a pas son diplôme d’ingénieur.</p>
+  <label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px;cursor:pointer"><input type="checkbox" id="tipsToggle"${prefs.tips !== false ? ' checked' : ''}> Afficher les astuces dans les panneaux</label>
+  <div class="row"><button class="pri" id="helpTour">🎓 Revoir le guide de démarrage</button></div>
+  <h4>Conseils de base</h4><ul class="muted" style="padding-left:18px;margin:0">${window.MoovoLib.EXT_TIPS.general.map(t => `<li style="margin:3px 0">${t}</li>`).join('')}</ul>`);
+document.getElementById('mBody').addEventListener('click', e => { if (e.target.id === 'helpTour') { closeModal(); startTour(); } });
+document.getElementById('mBody').addEventListener('change', e => { if (e.target.id === 'tipsToggle') { prefs.tips = e.target.checked; savePrefs(); renderPanel(); } });
+// --- astuces, ambiances et guide de démarrage
+function tipBox(txt, title = 'Astuce') { return prefs.tips === false || !txt ? '' : `<div class="tipbox"><b>💡 ${title}</b> ${txt}</div>`; }
+function applyExtStyle(key) {
+  const st = window.MoovoLib.EXT_STYLES[key];
+  Object.assign(S.settings, { style: key, woodColor: st.wood, metalColor: st.metal, cladColor: st.clad, roofColor: st.roof });
+  for (const m of S.members) delete m.color; for (const p of S.panels) delete p.color;
+}
+let tourI = 0;
+const TOUR = window.MoovoLib.EXT_TOUR;
+function renderTour() {
+  const [ic, t, txt] = TOUR[tourI];
+  document.getElementById('tourBody').innerHTML = `<div class="tico">${ic}</div><div class="tstep">Étape ${tourI + 1} sur ${TOUR.length}</div><h2>${t}</h2><p>${txt}</p>`;
+  document.getElementById('tourDots').innerHTML = TOUR.map((_, i) => `<i class="${i === tourI ? 'on' : ''}"></i>`).join('');
+  document.getElementById('tourPrev').disabled = tourI === 0;
+  document.getElementById('tourNext').textContent = tourI === TOUR.length - 1 ? 'C’est parti !' : 'Suivant →';
+}
+function startTour() { tourI = 0; renderTour(); document.getElementById('tour').hidden = false; }
+function endTour() { document.getElementById('tour').hidden = true; prefs.toured = true; savePrefs(); }
+document.getElementById('tourPrev').onclick = () => { tourI = Math.max(0, tourI - 1); renderTour(); };
+document.getElementById('tourNext').onclick = () => { if (tourI >= TOUR.length - 1) endTour(); else { tourI++; renderTour(); } };
+document.getElementById('tourSkip').onclick = endTour;
+document.getElementById('tour').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Escape') endTour(); });
 function setLayout(l) { prefs.layout = l; savePrefs(); document.body.className = 'layout-' + l; document.querySelectorAll('[data-layout]').forEach(b => b.classList.toggle('on', b.dataset.layout === l)); setTimeout(() => { resize3D(); render2D(); }, 30); }
 document.querySelectorAll('[data-layout]').forEach(b => b.onclick = () => setLayout(b.dataset.layout));
 function splitter(id, fn) { const el = document.getElementById(id); el.addEventListener('pointerdown', e => { e.preventDefault(); el.setPointerCapture(e.pointerId); const mv = ev => { fn(ev); applySizes(); resize3D(); render2D(); }; const up = () => { el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); savePrefs(); }; el.addEventListener('pointermove', mv); el.addEventListener('pointerup', up); }); }
@@ -1108,6 +1191,7 @@ applySizes(); setLayout(prefs.layout); setTool('select'); save(); backup('Ouvert
 document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === view));
 document.getElementById('wpLbl').textContent = VIEWS[view].h; syncWp();
 requestAnimationFrame(() => { fit(); renderAll(); resize3D(); setView3('persp'); loop(); });
+if (!prefs.toured) setTimeout(startTour, 400);
 </script>
 </body>
 </html>

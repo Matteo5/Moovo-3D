@@ -23,6 +23,7 @@
       ['#8f9695', 'Gris fenêtre', 'RAL 7040'], ['#6b665e', 'Gris quartz', 'RAL 7039'], ['#6e6558', 'Gris beige', 'RAL 7006'],
       ['#4f5358', 'Gris ardoise', 'RAL 7015'], ['#383e42', 'Gris anthracite', 'RAL 7016'], ['#2f3234', 'Gris noir', 'RAL 7021'],
       ['#1c1e20', 'Noir graphite', 'RAL 9011'], ['#0e0e10', 'Noir foncé', 'RAL 9005'],
+      ['#7b828b', 'Gris bac acier', ''], ['#8d939a', 'Gris acier clair', ''],
     ] },
     verts: { label: 'Verts', tip: 'Le vert sauge ou eucalyptus apaise : idéal en chambre ou en salle de bain. Il se marie très bien avec le bois clair, le rotin et le laiton.', colors: [
       ['#b9ceac', 'Vert blanc', 'RAL 6019'], ['#a7b59a', 'Vert sauge', ''], ['#8a9977', 'Vert pâle', 'RAL 6021'],
@@ -40,7 +41,7 @@
       ['#ead6cc', 'Rose poudré clair', ''], ['#d9a9a0', 'Rose poudré', ''], ['#d8a0a6', 'Rose clair', 'RAL 3015'],
       ['#c88c77', 'Rouge beige', 'RAL 3012'], ['#c9a27e', 'Argile', ''], ['#c18a5a', 'Ocre clair', ''],
       ['#c9952f', 'Moutarde', ''], ['#b08a47', 'Jaune ocre', 'RAL 1024'], ['#b8674a', 'Terracotta', ''],
-      ['#a65e2f', 'Brun orangé', 'RAL 8023'], ['#8f4e35', 'Brun cuivré', 'RAL 8004'], ['#6d342d', 'Rouge oxyde', 'RAL 3009'],
+      ['#a65e2f', 'Brun orangé', 'RAL 8023'], ['#a8553c', 'Tuile terre cuite', ''], ['#8f4e35', 'Brun cuivré', 'RAL 8004'], ['#6d342d', 'Rouge oxyde', 'RAL 3009'],
     ] },
   };
 
@@ -71,6 +72,21 @@
       ['#7b7d7f', 'Béton ciré gris', 'pierre'], ['#2a2b2d', 'Granit noir', 'pierre'], ['#7b6a58', 'Stratifié bois', 'pierre'], ['#fbfbfb', 'Céramique blanche', 'pierre'],
     ] },
   };
+
+  // Extérieur : lasures / saturateurs et teintes RAL courantes en menuiserie et métallerie
+  Object.assign(MATERIALS, {
+    lasure: { label: 'Lasures & saturateurs', tip: 'Un bois extérieur non protégé grise en un an ou deux : c’est joli, mais il faut l’assumer. Une lasure s’entretient tous les 3 à 5 ans, un saturateur tous les ans ou deux, sans ponçage.', colors: [
+      ['#e1c58f', 'Incolore (bois naturel)', 'lasure'], ['#e6dccb', 'Blanc céruse', 'lasure'], ['#d7d5cb', 'Gris argenté (bois grisé)', 'lasure'], ['#d8b98a', 'Chêne clair', 'lasure'],
+      ['#b88654', 'Chêne moyen', 'lasure'], ['#b0835a', 'Douglas naturel', 'lasure'], ['#9c6b3f', 'Teck', 'lasure'], ['#7f4f30', 'Acajou', 'lasure'], ['#5c4030', 'Noyer', 'lasure'],
+      ['#7d7f7c', 'Gris galet', 'lasure'], ['#4a4c4e', 'Gris anthracite', 'lasure'], ['#232323', 'Noir (bois brûlé)', 'lasure'], ['#50533c', 'Vert olive', 'lasure'], ['#4f5f6e', 'Bleu ardoise', 'lasure'],
+    ] },
+    ralExt: { label: 'RAL menuiseries & métal', tip: 'Le gris anthracite RAL 7016 est la teinte la plus posée en France sur les menuiseries et portails : sobre, elle va avec presque tout. Vérifie le PLU de ta commune, qui impose parfois les teintes.', colors: [
+      ['#383e42', 'Gris anthracite', 'RAL 7016'], ['#0e0e10', 'Noir foncé', 'RAL 9005'], ['#1c1e20', 'Noir graphite', 'RAL 9011'], ['#4d4b45', 'Gris terre d’ombre', 'RAL 7022'],
+      ['#6b665e', 'Gris quartz', 'RAL 7039'], ['#8f9695', 'Gris fenêtre', 'RAL 7040'], ['#cbd0cc', 'Gris clair', 'RAL 7035'], ['#f4f4ef', 'Blanc pur', 'RAL 9010'],
+      ['#f1f0ea', 'Blanc signalisation', 'RAL 9016'], ['#e6d2b5', 'Ivoire clair', 'RAL 1015'], ['#114232', 'Vert mousse', 'RAL 6005'], ['#6c7c59', 'Vert réséda', 'RAL 6011'],
+      ['#5e2028', 'Rouge bordeaux', 'RAL 3004'], ['#45322e', 'Brun chocolat', 'RAL 8017'], ['#1f3855', 'Bleu saphir', 'RAL 5003'], ['#637d96', 'Bleu pigeon', 'RAL 5014'],
+    ] },
+  });
 
   // ------------------------------------------------------------------
   //  Revêtements muraux (dessinés en texture 512 px = size m)
@@ -317,6 +333,8 @@
   const pushRecent = hex => { try { const r = [hex, ...recent().filter(x => x !== hex)].slice(0, 12); localStorage.setItem(RECENT_KEY, JSON.stringify(r)); } catch {} };
   const PICK_CSS = `
   .cpick{display:flex !important;justify-content:flex-start;align-items:center;gap:8px;width:100%;text-align:left;font:inherit;font-size:13px;border:1px solid var(--line,#e1e5eb);border-radius:7px;padding:5px 8px;background:#fff;cursor:pointer;color:var(--ink,#1b1f27);min-height:34px}
+  .grid2>.f,.grid3>.f{min-width:0}
+  .cpick{min-width:0;max-width:100%}
   .cpick i{width:22px;height:22px;border-radius:6px;border:1px solid #0002;flex:none}
   .cpick em{font-style:normal;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .cpop{position:fixed;z-index:300;width:340px;max-width:calc(100vw - 16px);max-height:min(520px,80vh);overflow:auto;background:#fff;border:1px solid #e1e5eb;border-radius:12px;box-shadow:0 12px 40px #0f172a33;padding:10px;font:13px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#1b1f27}
@@ -363,7 +381,8 @@
   function closePicker() { if (pop) pop.hidden = true; popInput = popBtn = null; }
   function renderPop() {
     const kind = popBtn?.dataset.pal || 'paint', cur = (popInput?.value || '').toLowerCase();
-    const cats = kind === 'furn' ? [...Object.keys(MATERIALS), ...Object.keys(PALETTES)] : [...Object.keys(PALETTES), ...Object.keys(MATERIALS)];
+    const extFirst = ['lasure', 'ralExt'], matKeys = Object.keys(MATERIALS).filter(k => !extFirst.includes(k));
+    const cats = kind === 'ext' ? [...extFirst, ...matKeys, ...Object.keys(PALETTES)] : kind === 'furn' ? [...matKeys, ...Object.keys(PALETTES), ...extFirst] : [...Object.keys(PALETTES), ...matKeys, ...extFirst];
     if (!popCat || !cats.includes(popCat)) popCat = (colorInfo(cur)?.cat) || cats[0];
     const src = PALETTES[popCat] ?? MATERIALS[popCat], rec = recent(), info = colorInfo(cur);
     pop.innerHTML = `<div class="ctabs">${cats.map(k => `<button data-cat="${k}" class="${k === popCat ? 'on' : ''}">${(PALETTES[k] ?? MATERIALS[k]).label}</button>`).join('')}</div>
@@ -388,7 +407,57 @@
   // Rendu HTML d'un champ couleur (le <input type=hidden> porte les data-* du formulaire)
   const pickerHTML = (value, attrs, pal = 'paint') => `<button type="button" class="cpick" data-pal="${pal}"><i style="background:${value}"></i><em>${colorName(value)}</em></button><input type="hidden" ${attrs} value="${value}">`;
 
+  // ------------------------------------------------------------------
+  //  Extérieur : ambiances, textures de bardage et de couverture, astuces
+  // ------------------------------------------------------------------
+  const EXT_STYLES = {
+    naturel:      { label: 'Bois naturel',       desc: 'Douglas ou mélèze laissés naturels, quincaillerie anthracite.', wood: null, metal: '#383e42', clad: '#b0835a', roof: '#383e42', wink: 'Il grisera avec le temps, comme nous tous, mais avec plus d’élégance.' },
+    nordique:     { label: 'Nordique',           desc: 'Bois noir, toiture sombre, lignes simples.', wood: '#232323', metal: '#1c1e20', clad: '#232323', roof: '#2f3234', wink: 'Fjord non compris, mais l’esprit y est.' },
+    contemporain: { label: 'Contemporain',       desc: 'Alu anthracite RAL 7016 et bois teinté teck.', wood: '#9c6b3f', metal: '#383e42', clad: '#383e42', roof: '#383e42', wink: 'Le voisin va forcément te demander le nom de ton architecte.' },
+    chalet:       { label: 'Chalet / campagne',  desc: 'Bois miel, tuiles terre cuite, vert olive.', wood: '#b88654', metal: '#50533c', clad: '#9c6b3f', roof: '#a8553c', wink: 'Géraniums aux fenêtres fortement recommandés.' },
+    mer:          { label: 'Bord de mer',        desc: 'Bois grisé, bardage blanc, touches de bleu.', wood: '#d7d5cb', metal: '#637d96', clad: '#f1f0ea', roof: '#8f9695', wink: 'L’iode est offerte, le sel dans les gonds aussi : prévois de l’inox.' },
+    provence:     { label: 'Provençal',          desc: 'Blanc céruse, ivoire, tuiles et vert réséda.', wood: '#e6dccb', metal: '#6c7c59', clad: '#e6d2b5', roof: '#b8674a', wink: 'La partie de pétanque n’est pas chiffrée dans le devis.' },
+    industriel:   { label: 'Industriel',         desc: 'Acier noir, bois brut foncé, bardage métal.', wood: '#5c4030', metal: '#1f2328', clad: '#8d939a', roof: '#7b828b', wink: 'La rouille décorative reste en option. La vraie, on l’évite.' },
+  };
+  // Textures de panneaux extérieurs (512 px = size m), lames dans le sens de la longueur du panneau
+  const PANEL_DRAW = {
+    bardage:   { size: 1.2, draw: (g, c) => { const r = rng(211); for (let y = 0; y < 512; y += 64) { g.fillStyle = vary(c, r, 10, 8); g.fillRect(0, y, 512, 64); g.fillStyle = '#00000038'; g.fillRect(0, y + 58, 512, 6); g.fillStyle = '#ffffff1a'; g.fillRect(0, y, 512, 3); } } },
+    claireVoie:{ size: 1.2, draw: (g, c) => { const r = rng(223); g.fillStyle = shade(c, -45); g.fillRect(0, 0, 512, 512); for (let x = 0; x < 512; x += 48) { g.fillStyle = vary(c, r, 10, 8); g.fillRect(x + 6, 0, 36, 512); } } },
+    composite: { size: 1.2, draw: (g, c) => { const r = rng(227); for (let y = 0; y < 512; y += 64) { g.fillStyle = vary(c, r, 4, 3); g.fillRect(0, y, 512, 60); g.fillStyle = '#00000020'; for (let k = 6; k < 60; k += 6) g.fillRect(0, y + k, 512, 1.5); g.fillStyle = '#00000050'; g.fillRect(0, y + 60, 512, 4); } } },
+    fibre:     { size: 1.2, draw: (g, c) => { const r = rng(229); for (let y = 0; y < 512; y += 80) { g.fillStyle = vary(c, r, 4, 2); g.fillRect(0, y, 512, 80); g.fillStyle = '#00000030'; g.fillRect(0, y + 76, 512, 4); } noise(g, 2500, 233, .04); } },
+    bac:       { size: 1.0, draw: (g, c) => { g.fillStyle = c; g.fillRect(0, 0, 512, 512); for (let x = 0; x < 512; x += 128) { const gr = g.createLinearGradient(x, 0, x + 40, 0); gr.addColorStop(0, shade(c, 10)); gr.addColorStop(.5, shade(c, -12)); gr.addColorStop(1, shade(c, 6)); g.fillStyle = gr; g.fillRect(x, 0, 40, 512); } } },
+    bardacier: { size: 1.0, draw: (g, c) => PANEL_DRAW.bac.draw(g, c) },
+    tuile:     { size: .8, draw: (g, c) => { const r = rng(239); g.fillStyle = shade(c, -20); g.fillRect(0, 0, 512, 512); for (let y = 0, row = 0; y < 512; y += 64, row++) for (let x = row % 2 ? -32 : 0; x < 512; x += 64) { g.fillStyle = vary(c, r, 12, 8); g.beginPath(); g.ellipse(x + 32, y + 40, 30, 36, 0, Math.PI, 0, true); g.lineTo(x + 62, y); g.lineTo(x + 2, y); g.fill(); } } },
+    lames:     { size: 1.2, draw: (g, c) => { const r = rng(241); for (let y = 0; y < 512; y += 64) { let x = -Math.floor(r() * 300); while (x < 512) { const len = 220 + r() * 300; g.fillStyle = vary(c, r, 10, 8); g.fillRect(x, y, len, 58); g.strokeStyle = '#00000022'; g.strokeRect(x + .5, y + .5, len - 1, 57); x += len; } g.fillStyle = '#00000060'; g.fillRect(0, y + 58, 512, 6); } } },
+    osb:       { size: .8, draw: (g, c) => { const r = rng(251); g.fillStyle = c; g.fillRect(0, 0, 512, 512); for (let i = 0; i < 900; i++) { g.save(); g.translate(r() * 512, r() * 512); g.rotate(r() * 6.28); g.fillStyle = vary(c, r, 22, 14); g.fillRect(-14, -4, 28, 8); g.restore(); } } },
+    gravier:   { size: .6, draw: (g, c) => { const r = rng(257); g.fillStyle = shade(c, -15); g.fillRect(0, 0, 512, 512); for (let i = 0; i < 2600; i++) { g.fillStyle = vary(c, r, 26, 10); g.beginPath(); g.arc(r() * 512, r() * 512, 2 + r() * 5, 0, 7); g.fill(); } } },
+    dalle:     { size: 2, draw: (g, c) => { clouds(g, c, 263, 60, 8); noise(g, 3000, 269, .05); } },
+    claustra:  { size: 1.0, draw: (g, c) => { g.clearRect(0, 0, 512, 512); const r = rng(271); for (let y = 0; y < 512; y += 64) { g.fillStyle = vary(c, r, 8, 6); g.fillRect(0, y + 8, 512, 40); g.fillStyle = '#00000030'; g.fillRect(0, y + 44, 512, 4); } }, alpha: true },
+    canisse:   { size: .6, draw: (g, c) => { const r = rng(277); g.clearRect(0, 0, 512, 512); for (let x = 0; x < 512; x += 12) { g.fillStyle = vary(c, r, 14, 10); g.fillRect(x, 0, 10, 512); } g.fillStyle = '#5a4630'; for (const y of [120, 380]) g.fillRect(0, y, 512, 4); }, alpha: true },
+  };
+  const EXT_TIPS = {
+    general: [
+      'Commence par un assistant (✨) : il crée une structure complète que tu peux ensuite modifier barre par barre.',
+      'Avant de construire, consulte le PLU de ta commune : hauteur, teintes, distance aux limites… Le règlement a souvent plus d’avis que ta belle-famille.',
+      'Abri ou carport : déclaration préalable entre 5 et 20 m² d’emprise, permis de construire au-delà (les seuils diffèrent pour une extension accolée à la maison). Renseigne-toi en mairie.',
+      'Tout bois en contact avec le sol ou l’eau stagnante doit être de classe 4 (pin traité autoclave, mélèze, chêne…).',
+      'Les vues Face et Côté servent à régler les hauteurs. La vue de dessus, elle, ment toujours un peu sur les pentes.',
+    ],
+    member: 'Teinte : pour le bois, choisis une lasure ou un saturateur ; pour l’acier, une teinte RAL (thermolaquage). « Comme le projet » suit l’ambiance générale.',
+    panel: 'Le sens des lames change tout : horizontales, elles allongent ; verticales, elles élancent. Les lames de terrasse se posent avec 5 mm d’écart et une légère pente (1 à 2 %) pour l’écoulement de l’eau.',
+    styles: 'Une ambiance règle d’un coup les teintes du bois, du métal, des bardages et de la couverture. Les teintes choisies à la main sur un élément restent prioritaires.',
+    prices: 'Les prix sont des moyennes de négoce en France : compare avec ton fournisseur, surtout pour le bois et l’acier dont les cours varient beaucoup.',
+  };
+  const EXT_TOUR = [
+    ['🏗️', 'Bienvenue dans l’atelier extérieur', 'Pergola, carport, abri, terrasse, hangar ou clôture : tu dessines la structure, la 3D suit, et le métré, la liste de débit et le devis se calculent seuls. Aucune scie n’a été allumée pendant la conception.'],
+    ['✨', 'Les assistants', 'Bouton <b>Assistants</b> : quelques dimensions et la structure complète apparaît (poteaux, poutres, chevrons, couverture). Tu peux la régénérer ou la modifier barre par barre.'],
+    ['📐', 'Dessiner à la main', 'Outils <b>Barre</b>, <b>Poteau</b> et <b>Panneau</b>. Les vues <b>Dessus</b>, <b>Face</b> et <b>Côté</b> servent à placer les éléments en hauteur. Les cotes soulignées se modifient au clavier.'],
+    ['🎨', 'Teintes et bardages', 'Dans l’onglet <b>Sélection</b> (sans rien sélectionner), choisis une <b>ambiance</b> : bois naturel, nordique, contemporain… Puis affine chaque barre (lasure, RAL) et chaque panneau (bardage, sens des lames).'],
+    ['🪚', 'Métré et débit', 'Onglet <b>Métré &amp; débit</b> : longueurs, poids, volume de bois, et un plan de coupe optimisé pour acheter le moins de barres possible. Les chutes, elles, finiront en petit bois.'],
+    ['📄', 'Le devis', 'Menu Projet → <b>Générer le devis</b> : fournitures, quincaillerie, fondations, finitions et main-d’œuvre, avec ta fiche entreprise. Il ne reste plus qu’à trouver le week-end.'],
+  ];
+
   const tipOfDay = () => TIPS.general[Math.floor(Date.now() / 864e5) % TIPS.general.length];
 
-  window.MoovoLib = { PALETTES, MATERIALS, WALL_FINISHES, WALL_DRAW, WALL_DEFAULT_COLOR, SHEENS, FLOORS_EXTRA, FLOOR_DRAW, FLOOR_TIPS, STYLES, TIPS, GLOSSARY, colorInfo, colorName, pickerHTML, openPicker, closePicker, tipOfDay, rng };
+  window.MoovoLib = { EXT_STYLES, PANEL_DRAW, EXT_TIPS, EXT_TOUR, PALETTES, MATERIALS, WALL_FINISHES, WALL_DRAW, WALL_DEFAULT_COLOR, SHEENS, FLOORS_EXTRA, FLOOR_DRAW, FLOOR_TIPS, STYLES, TIPS, GLOSSARY, colorInfo, colorName, pickerHTML, openPicker, closePicker, tipOfDay, rng };
 })();

@@ -287,6 +287,7 @@
               </div>
               <label><input type="checkbox" id="oIsolate"> Isoler la pièce sélectionnée</label>
               <h5>Ambiance</h5>
+              <label><input type="checkbox" id="oReal" checked> Rendu réaliste (reflets, lumière douce)</label>
               <label><input type="checkbox" id="oNight"> Lumières allumées (nuit)</label>
               <label class="col">Orientation du soleil : <b id="oSunv"></b><input type="range" id="oSun" min="0" max="360" step="5" value="40"></label>
               <h5>Visite</h5>
@@ -318,6 +319,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 // =====================================================================
 //  Catalogues
@@ -440,6 +442,7 @@ Object.assign(CAT, {
   microwave:   { label: 'Micro-ondes (sur plan)',      w: .50, d: .38, h: .30, elev: .90, price: 150, color: '#2a2b2d', cg: 'Cuisine' },
   wineCooler:  { label: 'Cave à vin',                  w: .60, d: .60, h: 1.45, price: 700, color: '#1d1d1f', cg: 'Cuisine' },
   barStool:    { label: 'Tabouret de bar',             w: .40, d: .40, h: .75, price: 90, color: '#1f2328', cg: 'Cuisine' },
+  backsplash:  { label: 'Crédence',                    w: 1.20, d: .012, h: .60, elev: .90, price: 180, color: '#f4f4ef', cg: 'Cuisine', finish: 'subway' },
   bar:         { label: 'Comptoir / bar',              w: 1.60, d: .45, h: 1.05, price: 500, color: '#f3f1ec', cg: 'Cuisine' },
   // Salle de bain
   doubleVanity:{ label: 'Meuble double vasque',        w: 1.40, d: .48, h: .85, price: 900, color: '#c19a6b', cg: 'Salle de bain' },
@@ -488,7 +491,9 @@ const CAT_GROUP = t => CAT[t]?.group ?? CAT[t]?.cg ?? ({
   shower: 'Salle de bain', bath: 'Salle de bain', vanity: 'Salle de bain', wc: 'Salle de bain', washer: 'Salle de bain', dryer: 'Salle de bain', towel: 'Salle de bain', glass: 'Salle de bain',
   halfwall: 'Construction', gaine: 'Construction',
 }[t] ?? 'Divers');
-const MOUNT = new Set(['shelf', 'wallCabinet', 'hood', 'tvWall', 'mirror', 'artwork', 'curtain']);   // objets posés contre un mur en hauteur
+const MOUNT = new Set(['shelf', 'wallCabinet', 'hood', 'tvWall', 'mirror', 'artwork', 'curtain', 'backsplash']);
+// Matières de crédence : revêtements texturés de la bibliothèque + verre laqué et inox
+const SPLASH = [['subway', 'Carrelage métro'], ['zellige', 'Zellige'], ['concrete', 'Béton ciré'], ['stone', 'Pierre'], ['lime', 'Tadelakt'], ['glass', 'Verre laqué'], ['inox', 'Inox brossé'], ['marble', 'Marbre']];   // objets posés contre un mur en hauteur
 // Sols
 Object.assign(FLOORS, {
   parquetDark: { label: 'Parquet foncé',           color: '#b98f63' },
@@ -511,7 +516,7 @@ const axisH = it => PLATE.has(it.type) ? (it.elev || 0) : (it.elev || 0) + (it.h
 // =====================================================================
 const W_ = (id, a, b, kind = 'int', t = .10) => ({ id, a, b, t, kind });
 const O_ = (id, wall, type, at, width, o = {}) => ({ id, wall, type, at, width, height: OPS[type].h, sill: OPS[type].sill, side: 1, hinge: 'a', ...o });
-const I_ = (type, name, x, y, w, d, o = {}) => ({ id: uid(), type, name, x, y, w, d, rot: 0, h: CAT[type].h ?? null, elev: CAT[type].elev ?? 0, price: 0, wet: !!CAT[type].wet, chairs: !!CAT[type].chairs, color: null, ...o });
+const I_ = (type, name, x, y, w, d, o = {}) => ({ id: uid(), type, name, x, y, w, d, rot: 0, h: CAT[type].h ?? null, elev: CAT[type].elev ?? 0, price: 0, wet: !!CAT[type].wet, chairs: !!CAT[type].chairs, color: null, ...(CAT[type].finish ? { finish: CAT[type].finish } : {}), ...o });
 const T_ = (id, name, x, y, floor) => ({ id, name, x, y, floor, works: { floor: false, paint: false, tile: false } });
 const INITIAL = {
   v: 1,
@@ -646,11 +651,12 @@ function migrate(st) {
   st.name ??= 'Appartement T4';
   st.dims ??= [];
   st.settings ??= {};
-  Object.assign(st.settings, { defaultT: .07, tileH: 1.20, wetH: 2.10, tileColor: '#e6edf2', wallColor: '#f5f2ed', ceilColor: '#fbfbf9', doorColor: '#fbfaf7', frameColor: '#ffffff' }, { ...st.settings });
+  Object.assign(st.settings, { skirt: true, skirtH: .07, skirtColor: '#f4f4ef', defaultT: .07, tileH: 1.20, wetH: 2.10, tileColor: '#e6edf2', wallColor: '#f5f2ed', ceilColor: '#fbfbf9', doorColor: '#fbfaf7', frameColor: '#ffffff' }, { ...st.settings });
   for (const [k, v] of Object.entries({ ceiling: 45, verriere: 650, coffrage: 55, demo: 35, wall: 50, newOpening: 350, door: 250, closeOpening: 150, paint: 12, tile: 50, misc: 0 })) st.prices[k] ??= v;
   st.prices.floor ??= {};
   for (const [k, v] of Object.entries({ parquet: 45, parquetDark: 55, chevron: 85, tile: 55, tileWarm: 55, tileLarge: 70, marble: 120, concrete: 35, carpet: 30 })) st.prices.floor[k] ??= v;
   for (const [k, v] of Object.entries(ML.FLOORS_EXTRA)) st.prices.floor[k] ??= v.price;
+  st.prices.skirting ??= 14;
   st.prices.wallFinish ??= {};
   for (const [k, v] of Object.entries(ML.WALL_FINISHES)) if (k !== 'paint') st.prices.wallFinish[k] ??= v.price;
   for (const t of st.rooms) t.works ??= { floor: false, paint: false, tile: false };
@@ -980,6 +986,9 @@ function accentAreas(rid, H) {
   }
   return out;
 }
+// Plinthes : partout sauf pièces carrelées au mur (la faïence descend jusqu'au sol) ou désactivées
+const skirtOn = t => S.settings.skirt !== false && !t.noSkirt && !t.works.tile;
+const skirtLen = rid => { const sk = S.settings.skirtH ?? .07; let L2 = 0; for (const run of boundaryRuns(rid)) for (const g of runTiles(run, rid, sk, sk, sk)) if (g.y0 <= 0) L2 += g.e - g.s; return L2; };
 // Faïence le long d'un bord : rectangles {s,e,y0,y1}
 const roomH = tag => tag?.ceiling ? Math.min(tag.ceiling, S.H) : S.H;
 function runTiles(run, rid, H = S.H, tileH = S.settings.tileH, wetH = S.settings.wetH) {
@@ -1065,6 +1074,7 @@ function works() {
   out.rooms = A.rooms.filter(r => r.tags[0]).map(r => ({ r, st: roomStats(r) }));
   for (const { r, st } of out.rooms) {
     const t = st.tag, nm = roomName(r);
+    if (t.works.floor && skirtOn(t)) { const ml = skirtLen(r.id); out.lines.push({ label: `Plinthes ${nm}`, qty: `${fm(ml)} ml`, key: 'skirting', unit: '€/ml', total: ml * P.skirting, sec: 'Revêtements de sol', qn: ml, un: 'ml', pu: P.skirting }); }
     if (t.works.floor) out.lines.push({ label: `Sol ${nm} (${FLOORS[t.floor]?.label ?? t.floor})`, qty: `${fm(st.area)} m²`, key: 'floor.' + t.floor, unit: '€/m²', total: st.area * (P.floor[t.floor] ?? 0), sec: 'Revêtements de sol', qn: st.area, un: 'm²', pu: P.floor[t.floor] ?? 0 });
     if (t.works.tile) out.lines.push({ label: `Faïence ${nm}`, qty: `${fm(st.tile)} m² (+10 % de chute à l’achat)`, key: 'tile', unit: '€/m²', total: st.tile * 1.1 * P.tile, sec: 'Faïence', qn: st.tile * 1.1, un: 'm²', pu: P.tile });
     if (t.ceiling) out.lines.push({ label: `Faux plafond ${nm} à ${cmTxt(st.H)} ${UNIT()}`, qty: `${fm(st.area)} m² (placo sur ossature)`, key: 'ceiling', unit: '€/m²', total: st.area * (P.ceiling ?? 45), sec: 'Plafonds', qn: st.area, un: 'm²', pu: P.ceiling ?? 45 });
@@ -1178,7 +1188,7 @@ function itemSym(it) {
     case 'bed140': case 'bed180': case 'bunk': case 'crib': g += `<rect x="${n4(x + .05)}" y="${n4(y + .05)}" width="${n4(w - .1)}" height="${n4(Math.min(.3, d * .2))}" rx=".05" fill="#fff" ${th}/><line x1="${n4(x)}" y1="${n4(y + d * .26)}" x2="${n4(-x)}" y2="${n4(y + d * .26)}" ${th}/>`; break;
     case 'loveseat': g += `<line x1="${n4(x)}" y1="${n4(y + .22)}" x2="${n4(-x)}" y2="${n4(y + .22)}" ${th}/>`; break;
     case 'fireplace': case 'stove': g += `<rect x="${n4(-w * .27)}" y="${n4(-y - d * .35)}" width="${n4(w * .54)}" height="${n4(d * .3)}" fill="#f97316" fill-opacity=".7" ${th}/>`; break;
-    case 'tvWall': case 'mirror': case 'artwork': case 'curtain': case 'airCon': g += `<path d="M${n4(x)},${n4(y)}L${n4(-x)},${n4(-y)}" ${th} stroke-dasharray="3 2"/>`; break;
+    case 'tvWall': case 'mirror': case 'artwork': case 'curtain': case 'airCon': case 'backsplash': g += `<path d="M${n4(x)},${n4(y)}L${n4(-x)},${n4(-y)}" ${th} stroke-dasharray="3 2"/>`; break;
     case 'dressing': case 'storageUnit': case 'sideboard': case 'dresser': case 'shoeCabinet': { const n = Math.max(2, Math.round(w / (it.type === 'dressing' ? .8 : .4))); for (let k = 1; k < n; k++) g += `<line x1="${n4(x + w * k / n)}" y1="${n4(y)}" x2="${n4(x + w * k / n)}" y2="${n4(-y)}" ${th}/>`; break; }
     case 'outdoorSet': if (it.chairs) for (const sd of [-1, 1]) for (const t of [-.25, .25]) { const [cx, cy] = [t * w, sd * (d / 2 + .22)]; g += `<rect x="${n4(cx - .2)}" y="${n4(cy - .2)}" width=".4" height=".4" fill="#9ca3af" fill-opacity=".6" ${st}/>`; } break;
     case 'coffrage': g = `<rect x="${n4(x)}" y="${n4(y)}" width="${n4(w)}" height="${n4(d)}" fill="${it.color ?? '#a78bfa'}" fill-opacity=".28" stroke="#6d28d9" stroke-width="1.3" stroke-dasharray="6 3" class="ns"/><path class="ns" d="M${n4(x)},${n4(y)}L${n4(-x)},${n4(-y)}" stroke="#6d28d9" stroke-width=".8" stroke-dasharray="2 3"/>`; break;
@@ -2026,6 +2036,7 @@ function itemPanel(it) {
     ${tipBox(ML.TIPS.byGroup[CAT_GROUP(it.type)] ?? ML.TIPS.item)}
     ${['shower', 'bath'].includes(it.type) ? check('Zone humide : faïence montée à la hauteur « zone humide » sur les murs qu’elle touche', 'item', 'wet', it.wet) : ''}
     ${it.type === 'table' ? check('Chaises autour', 'item', 'chairs', it.chairs) : ''}
+    ${it.type === 'backsplash' ? `<div class="grid2">${selectF('Matière de la crédence', 'item', 'finish', it.finish ?? 'subway', SPLASH, 'full')}</div>${tipBox('Une crédence monte d’environ 60 cm entre le plan de travail et les meubles hauts. Derrière les plaques, préfère un matériau qui supporte la chaleur (carrelage, inox, verre trempé). Le papier peint, lui, vit sa meilleure vie ailleurs.')}` : ''}
     ${it.type === 'halfwall' ? check(`Verrière au-dessus, jusqu’au plafond (${cmTxt(S.H - itemH(it, 1.2))} ${UNIT()})`, 'item', 'glassAbove', !!it.glassAbove) : ''}
     <div class="row"><button data-act="rotate">↻ Pivoter (R)</button><button data-act="dup">Dupliquer</button><button data-act="del" class="danger">Supprimer</button></div>`;
 }
@@ -2073,6 +2084,9 @@ function roomPanel(r) {
       </div>
       ${tipBox(ML.FLOOR_TIPS[t.floor], FLOORS[t.floor]?.label)}
       ${t.paintColor || t.floorTint || t.ceilColor || t.tileColor || t.wallFinish ? '<div class="row" style="margin-top:6px"><button data-act="resetRoomColors">Couleurs et revêtements d’origine</button></div>' : ''}
+      <h4>Plinthes</h4>
+      ${S.settings.skirt === false ? '<p class="muted">Plinthes désactivées pour tout le projet (⚙ Réglages).</p>' : t.works.tile ? '<p class="muted">Pas de plinthes : la faïence descend jusqu’au sol.</p>' : `${check('Plinthes dans cette pièce', 'tag', 'skirtOn', !t.noSkirt)}
+      ${!t.noSkirt ? `<div class="grid2">${field('Couleur des plinthes', 'tag', 'skirtColor', 'color', t.skirtColor ?? S.settings.skirtColor)}</div>` : ''}`}
       <h4>Faux plafond</h4>
       ${check(`Faux plafond dans cette pièce${t.ceiling ? ` (${fm(r.area)} m²)` : ''}`, 'tag', 'fp', !!t.ceiling)}
       ${t.ceiling ? `<div class="grid2">${field('Hauteur sous faux plafond (cm)', 'tag', 'ceiling', 'cm', t.ceiling)}</div>` : ''}
@@ -2294,6 +2308,7 @@ function onFieldChange(e) {
     if (tg) {
       if (key === 'fp') tg.ceiling = v ? r2(Math.min(2.30, S.H - .1)) : null;
       else if (key === 'ceiling') tg.ceiling = v == null ? null : r2(clamp(v, 1.8, S.H));
+      else if (key === 'skirtOn') tg.noSkirt = !v;
       else if (key === 'wallFinish') { tg.wallFinish = v === 'paint' ? null : v; if (ML.WALL_DEFAULT_COLOR[v]) tg.paintColor = ML.WALL_DEFAULT_COLOR[v]; tg.style = null; }
       else setPath(tg, key, v);
     }
@@ -2350,6 +2365,8 @@ const labelR = new CSS2DRenderer();
 labelR.domElement.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none';
 v3.prepend(labelR.domElement); v3.prepend(renderer.domElement);
 const scene = new THREE.Scene(); scene.background = new THREE.Color('#eef0f3');
+// Rendu réaliste : reflets d'environnement (métal, verre, carrelage) et tonalité filmique
+const envTex = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), .04).texture;
 const cam = new THREE.PerspectiveCamera(50, 1, .05, 300);
 const ctl = new OrbitControls(cam, renderer.domElement);
 ctl.enableDamping = true; ctl.maxPolarAngle = Math.PI / 2 - .03;
@@ -2363,10 +2380,10 @@ const ground = new THREE.Mesh(new THREE.PlaneGeometry(120, 120).rotateX(-Math.PI
 ground.position.y = -.005; ground.receiveShadow = true; scene.add(ground);
 let root = new THREE.Group(); scene.add(root);
 const labels = new THREE.Group(); scene.add(labels);
-const opt = Object.assign({ doorMode: 'open', glass: true, wallMode: 'full', cutH: 1.1, wallOp: .35, furn: true, elec: true, ceil: true, roof: false, finish: true, tex: true, lbl: true, shadow: true, isolate: false, night: false, sun: 40, eye: 1.6, speed: 1.8, collide: true }, prefs.opt || {});
+const opt = Object.assign({ real: true, doorMode: 'open', glass: true, wallMode: 'full', cutH: 1.1, wallOp: .35, furn: true, elec: true, ceil: true, roof: false, finish: true, tex: true, lbl: true, shadow: true, isolate: false, night: false, sun: 40, eye: 1.6, speed: 1.8, collide: true }, prefs.opt || {});
 const OPT_UI = [['oDoorMode', 'doorMode', 'sel'], ['oGlass', 'glass', 'bool'], ['oWallMode', 'wallMode', 'sel'], ['oCutH', 'cutH', 'num'], ['oWallOp', 'wallOp', 'num'],
   ['oFurn', 'furn', 'bool'], ['oElec', 'elec', 'bool'], ['oCeil', 'ceil', 'bool'], ['oRoof', 'roof', 'bool'], ['oFinish', 'finish', 'bool'], ['oTex', 'tex', 'bool'],
-  ['oLbl', 'lbl', 'bool'], ['oShadow', 'shadow', 'bool'], ['oIsolate', 'isolate', 'bool'], ['oNight', 'night', 'bool'], ['oSun', 'sun', 'num'], ['oEye', 'eye', 'cm'], ['oSpeed', 'speed', 'num'], ['oCollide', 'collide', 'bool']];
+  ['oLbl', 'lbl', 'bool'], ['oShadow', 'shadow', 'bool'], ['oIsolate', 'isolate', 'bool'], ['oNight', 'night', 'bool'], ['oSun', 'sun', 'num'], ['oEye', 'eye', 'cm'], ['oSpeed', 'speed', 'num'], ['oCollide', 'collide', 'bool'], ['oReal', 'real', 'bool']];
 function syncOptUI() {
   for (const [id, k, t] of OPT_UI) { const el = document.getElementById(id); if (!el) continue; if (t === 'bool') el.checked = !!opt[k]; else el.value = t === 'cm' ? Math.round(opt[k] * 100) : opt[k]; }
   document.getElementById('oCutHv').textContent = cmTxt(opt.cutH) + ' ' + UNIT();
@@ -2383,7 +2400,7 @@ for (const [id, k, t] of OPT_UI) document.getElementById(id)?.addEventListener(t
 });
 
 const _m = new Map();
-const M = (c, o = {}) => { const k = c + JSON.stringify(o); if (!_m.has(k)) _m.set(k, new THREE.MeshStandardMaterial({ color: c, roughness: .75, ...o })); return _m.get(k); };
+const M = (c, o = {}) => { const k = c + JSON.stringify(o); if (!_m.has(k)) _m.set(k, new THREE.MeshStandardMaterial({ color: c, roughness: .75, envMapIntensity: .35, ...o })); return _m.get(k); };
 function rng(seed) { return () => (seed = (seed * 16807) % 2147483647) / 2147483647; }
 function canvasTex(draw, sizeM) {
   const c = document.createElement('canvas'); c.width = c.height = 512; draw(c.getContext('2d'));
@@ -2410,7 +2427,7 @@ function wallFinishMat(t) {
   const k = fin + col;
   if (!_wf.has(k)) {
     const tx = canvasTex(g => ML.WALL_DRAW[fin](g, col), 1); tx.repeat.set(1 / (ML.WALL_FINISHES[fin].size ?? 1), 1 / (ML.WALL_FINISHES[fin].size ?? 1));
-    _wf.set(k, new THREE.MeshStandardMaterial({ map: tx, roughness: ['subway', 'zellige'].includes(fin) ? .3 : .9 }));
+    _wf.set(k, new THREE.MeshStandardMaterial({ envMapIntensity: .3, map: tx, roughness: ['subway', 'zellige'].includes(fin) ? .3 : .9 }));
   }
   return _wf.get(k);
 }
@@ -2647,6 +2664,13 @@ Object.assign(B3, {
   lounger: (g, it) => { const m = M(it.color ?? '#e6dccb'); add3(g, it.w, .25, it.d * .65, 0, 0, it.d * .175, m); const back = new THREE.Group(); back.position.set(0, .25, -it.d * .15); back.rotation.x = -.7; add3(back, it.w, .06, it.d * .35, 0, 0, -it.d * .175, m); g.add(back); add3(g, it.w - .06, .06, it.d * .62, 0, .25, it.d * .18, M('#f1f0ea')); },
   planter: (g, it) => { const h = itemH(it, .45); add3(g, it.w, h, it.d, 0, 0, 0, M(it.color ?? '#55595f', { roughness: .8 })); add3(g, it.w - .04, .02, it.d - .04, 0, h - .03, 0, M('#4a3426')); for (let x = -it.w / 2 + .15; x < it.w / 2 - .1; x += .25) foliage(g, x, h + .12, 0, .14, 4, Math.round(x * 100) + 50); },
   outdoorSet: (g, it) => B3.table(g, { ...it, color: it.color ?? '#2f3234' }),
+  backsplash: (g, it) => {
+    const e = it.elev ?? .9, h = itemH(it, .6), fin = it.finish ?? 'subway', col = it.color ?? '#f4f4ef';
+    const mat = fin === 'glass' ? M(col, { roughness: .04, metalness: .1, envMapIntensity: 1.2 }) : fin === 'inox' ? M('#c9ced3', { metalness: .9, roughness: .28, envMapIntensity: 1 })
+      : fin === 'marble' ? new THREE.MeshStandardMaterial({ envMapIntensity: .3, map: TEX.marble, roughness: .2 }) : wallFinishMat({ wallFinish: fin, paintColor: col });
+    const pg = new THREE.PlaneGeometry(it.w, h), uv = pg.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * it.w, uv.getY(i) * h);
+    const p = new THREE.Mesh(pg, mat); p.position.set(0, e + h / 2, -it.d / 2 + .007); g.add(p);
+  },
 });
 
 // Portes : battante, double, coulissante en applique, à galandage, vitrée
@@ -2779,7 +2803,7 @@ function build3D() {
     const geos = r.rects.map(q => { const g = new THREE.PlaneGeometry(q.x1 - q.x0, q.y1 - q.y0); g.rotateX(-Math.PI / 2); g.translate((q.x0 + q.x1) / 2, 0, (q.y0 + q.y1) / 2); const pos = g.attributes.position, uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, pos.getX(i), -pos.getZ(i)); return g; });
     if (!geos.length) continue;
     const g = mergeGeometries(geos); geos.forEach(x => x.dispose());
-    const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial(opt.tex ? { map: TEX[fl] ?? TEX.concrete, color: t?.floorTint ?? '#ffffff', roughness: .85, emissive: r === selRoom ? 0x1a3a6a : 0x000000 } : { color: t?.floorTint ?? FLOORS[fl]?.color ?? '#ddd', roughness: .9, emissive: r === selRoom ? 0x1a3a6a : 0x000000 }));
+    const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial(opt.tex ? { envMapIntensity: .3, map: TEX[fl] ?? TEX.concrete, color: t?.floorTint ?? '#ffffff', roughness: .85, emissive: r === selRoom ? 0x1a3a6a : 0x000000 } : { color: t?.floorTint ?? FLOORS[fl]?.color ?? '#ddd', roughness: .9, emissive: r === selRoom ? 0x1a3a6a : 0x000000 }));
     mesh.position.y = .002; mesh.receiveShadow = true; mesh.userData.pick = { kind: 'room', x: t ? t.x : r.cx, y: t ? t.y : r.cy }; root.add(mesh);
     if (opt.roof && opt.wallMode !== 'cut') {
       const roof = new THREE.Mesh(g.clone(), M(t?.ceilColor ?? S.settings.ceilColor, { side: THREE.BackSide, roughness: .95 }));
@@ -2807,8 +2831,18 @@ function build3D() {
         }
       }
     }
+    if (opt.finish && t && skirtOn(t)) {
+      const sk = S.settings.skirtH ?? .07, sm = M(t.skirtColor ?? S.settings.skirtColor ?? '#f4f4ef', { roughness: .5 }), th = .012;
+      for (const run of boundaryRuns(r.id)) for (const sg of runTiles(run, r.id, sk, sk, sk)) {
+        if (sg.y0 > 0) continue;
+        const L2 = sg.e - sg.s, m = (sg.s + sg.e) / 2, hh = Math.min(sg.y1, Hc); if (hh <= 0) continue;
+        const b = run.o === 'h' ? new THREE.Mesh(new THREE.BoxGeometry(L2, hh, th), sm) : new THREE.Mesh(new THREE.BoxGeometry(th, hh, L2), sm);
+        if (run.o === 'h') b.position.set(m, hh / 2, run.c + run.nrm * th / 2); else b.position.set(run.c + run.nrm * th / 2, hh / 2, m);
+        b.castShadow = false; b.receiveShadow = true; root.add(b);
+      }
+    }
     if (opt.finish && t?.works.tile) {
-      const tm = new THREE.MeshStandardMaterial({ map: wallTileTex(t.tileColor ?? S.settings.tileColor), roughness: .35 });
+      const tm = new THREE.MeshStandardMaterial({ envMapIntensity: .3, map: wallTileTex(t.tileColor ?? S.settings.tileColor), roughness: .35 });
       for (const run of boundaryRuns(r.id)) for (const s of runTiles(run, r.id, roomH(t))) {
         const y1 = Math.min(s.y1, Hc); if (y1 <= s.y0) continue;
         const pg = new THREE.PlaneGeometry(s.e - s.s, y1 - s.y0), uv = pg.attributes.uv;
@@ -2822,7 +2856,11 @@ function build3D() {
     const div = document.createElement('div'); div.className = 'lbl3'; div.innerHTML = `${esc(roomName(r))}<span>${fm(r.area, 1)} m²</span>`;
     const lab = new CSS2DObject(div); lab.position.set(t ? t.x : r.cx, .3, t ? t.y : r.cy); lab.visible = opt.lbl && viewMode !== 'walk'; labels.add(lab);
   }
-  hemi.intensity = opt.night ? .12 : 1.15; sun.intensity = opt.night ? 0 : 1.8;
+  const tm = opt.real ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping;
+  if (renderer.toneMapping !== tm) { renderer.toneMapping = tm; _m.forEach(m => { m.needsUpdate = true; }); _wf.forEach(m => { m.needsUpdate = true; }); }
+  renderer.toneMappingExposure = .92;
+  scene.environment = opt.real && !opt.night ? envTex : null;
+  hemi.intensity = opt.night ? .12 : opt.real ? .5 : 1.15; sun.intensity = opt.night ? 0 : opt.real ? 2.6 : 1.8;
   scene.background.set(opt.night ? '#1b1e24' : '#eef0f3');
   let nLights = 0;
   buildWalkPolys();
@@ -3099,6 +3137,12 @@ function openSettings() {
       ${field('Portes', 'settings', 'doorColor', 'color', st.doorColor)}
       ${field('Menuiseries (fenêtres)', 'settings', 'frameColor', 'color', st.frameColor)}
       ${field('Faïence', 'settings', 'tileColor', 'color', st.tileColor)}
+    </div>
+    <h4>Plinthes</h4>
+    <label class="chk"><input type="checkbox" data-target="settings" data-key="skirt" data-unit="bool"${st.skirt !== false ? ' checked' : ''}><span>Plinthes dans toutes les pièces (sauf pièces carrelées au mur)</span></label>
+    <div class="grid2">
+      ${field('Hauteur des plinthes (cm)', 'settings', 'skirtH', 'cm', st.skirtH ?? .07)}
+      ${field('Couleur par défaut', 'settings', 'skirtColor', 'color', st.skirtColor ?? '#f4f4ef')}
     </div>
     <h4>Faïence</h4>
     <div class="grid2">

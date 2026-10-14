@@ -50,26 +50,26 @@
     bois: { label: 'Bois', tip: 'Garde 2 ou 3 essences maximum dans une même pièce : par exemple un chêne clair pour les meubles et un bois plus foncé pour un rappel.', colors: [
       ['#e6dccb', 'Frêne blanchi', 'bois'], ['#e2c28e', 'Pin', 'bois'], ['#d6b97c', 'Bambou', 'bois'], ['#d8b98a', 'Chêne clair', 'bois'],
       ['#c19a6b', 'Chêne naturel', 'bois'], ['#b08a62', 'Hêtre', 'bois'], ['#9c6b3f', 'Teck', 'bois'], ['#8a6a4a', 'Chêne fumé', 'bois'],
-      ['#6b4a32', 'Noyer', 'bois'], ['#3e2c22', 'Wengé', 'bois'],
+      ['#6b4a32', 'Noyer', 'bois'], ['#3e2c22', 'Wengé', 'bois'], ['#d9cbb5', 'Bouleau', 'bois'],
     ] },
     laque: { label: 'Laqués & mélaminés', tip: 'Un meuble laqué blanc ou gris clair agrandit visuellement une petite cuisine. Les façades mates marquent moins les traces de doigts que les brillantes.', colors: [
       ['#f4f4f2', 'Blanc mat', 'laque'], ['#f3f1ec', 'Blanc cassé', 'laque'], ['#e8e3da', 'Crème', 'laque'], ['#cfd0cd', 'Gris perle', 'laque'],
       ['#8d9096', 'Gris moyen', 'laque'], ['#3b3f45', 'Anthracite', 'laque'], ['#1d1d1f', 'Noir mat', 'laque'], ['#9caf88', 'Vert sauge', 'laque'],
-      ['#3f5b45', 'Vert forêt', 'laque'], ['#23324a', 'Bleu nuit', 'laque'], ['#1f5a63', 'Bleu canard', 'laque'], ['#b8674a', 'Terracotta', 'laque'],
+      ['#3f5b45', 'Vert forêt', 'laque'], ['#23324a', 'Bleu nuit', 'laque'], ['#16171a', 'Noir laqué', 'laque'], ['#141416', 'Noir piano', 'laque'], ['#e3e6ea', 'Blanc électroménager', 'laque'], ['#e5e7eb', 'Blanc radiateur', 'laque'], ['#1f5a63', 'Bleu canard', 'laque'], ['#b8674a', 'Terracotta', 'laque'],
     ] },
     metal: { label: 'Métal', tip: 'Le noir mat donne un style atelier ; le laiton brossé apporte une touche chaude et chic. Évite de mélanger plus de deux métaux différents.', colors: [
       ['#1f2328', 'Acier noir mat', 'metal'], ['#c9ced3', 'Inox brossé', 'metal'], ['#a7adb4', 'Aluminium', 'metal'], ['#b5a26a', 'Laiton brossé', 'metal'],
-      ['#b87333', 'Cuivre', 'metal'], ['#c0a062', 'Doré champagne', 'metal'], ['#5a5f66', 'Gun metal', 'metal'],
+      ['#b87333', 'Cuivre', 'metal'], ['#c9ced4', 'Inox satiné', 'metal'], ['#c0a062', 'Doré champagne', 'metal'], ['#5a5f66', 'Gun metal', 'metal'],
     ] },
     tissu: { label: 'Tissus & cuirs', tip: 'Choisis d’abord la couleur du canapé (la plus grande surface textile), puis accorde coussins, rideaux et tapis avec 1 ou 2 teintes de rappel.', colors: [
       ['#efe9df', 'Bouclette blanche', 'tissu'], ['#d9cfbf', 'Lin naturel', 'tissu'], ['#bfb6a8', 'Lin grège', 'tissu'], ['#8d9096', 'Gris chiné', 'tissu'],
       ['#55595f', 'Gris anthracite', 'tissu'], ['#6d7b8c', 'Bleu gris', 'tissu'], ['#1f5a63', 'Velours bleu canard', 'tissu'], ['#3f5b45', 'Velours vert', 'tissu'],
       ['#c9952f', 'Velours moutarde', 'tissu'], ['#b8674a', 'Velours terracotta', 'tissu'], ['#d9a9a0', 'Rose poudré', 'tissu'], ['#8b4b2a', 'Cuir cognac', 'tissu'],
-      ['#3a2a22', 'Cuir chocolat', 'tissu'], ['#8fa7c4', 'Bleu ciel', 'tissu'],
+      ['#3a2a22', 'Cuir chocolat', 'tissu'], ['#9b7b62', 'Cuir camel', 'tissu'], ['#4a4f57', 'Gris graphite', 'tissu'], ['#8fa7c4', 'Bleu ciel', 'tissu'],
     ] },
     pierre: { label: 'Pierre, céramique & plans', tip: 'Pour un plan de travail, le quartz et la céramique résistent mieux aux taches et à la chaleur que le marbre ou le bois massif.', colors: [
       ['#f2f1ee', 'Marbre blanc', 'pierre'], ['#e9e6df', 'Quartz blanc', 'pierre'], ['#d9d3c7', 'Travertin', 'pierre'], ['#bdb8ae', 'Béton clair', 'pierre'],
-      ['#7b7d7f', 'Béton ciré gris', 'pierre'], ['#2a2b2d', 'Granit noir', 'pierre'], ['#7b6a58', 'Stratifié bois', 'pierre'], ['#fbfbfb', 'Céramique blanche', 'pierre'],
+      ['#7b7d7f', 'Béton ciré gris', 'pierre'], ['#efefea', 'Blanc béton', 'pierre'], ['#2a2b2d', 'Granit noir', 'pierre'], ['#7b6a58', 'Stratifié bois', 'pierre'], ['#fbfbfb', 'Céramique blanche', 'pierre'],
     ] },
   };
 

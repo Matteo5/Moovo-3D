@@ -285,6 +285,7 @@
       <label title="Cotes automatiques des pièces"><input type="checkbox" id="lDims" checked> Cotes</label>
       <label title="Volumes de salle de bain, hauteurs"><input type="checkbox" id="lElec"> Électricité</label>
       <label><input type="checkbox" id="lFurn2" checked> Mobilier</label>
+      <label title="Porte qui cogne un meuble, passage étroit, meubles qui se chevauchent…"><input type="checkbox" id="lAlerts" checked> Alertes</label>
       <label title="S’aimanter aux murs et objets"><input type="checkbox" id="lMagnet" checked> Aimant</label>
       <label>Pas <select id="snap"><option value="0.001">1 mm</option><option value="0.005">5 mm</option><option value="0.01" selected>1 cm</option><option value="0.05">5 cm</option><option value="0.1">10 cm</option></select></label>
       <label>Unité <select id="unitSel"><option value="cm">cm</option><option value="mm">mm</option></select></label>
@@ -1267,6 +1268,41 @@ function doorGeom(w, f, o) {
   const side = o.side || 1, ha = o.hinge !== 'b';
   return { hp: at(w, f, ha ? o.at : o.at + o.width, side * w.t / 2), ud: [f.u[0] * (ha ? 1 : -1), f.u[1] * (ha ? 1 : -1)], nd: [f.n[0] * side, f.n[1] * side] };
 }
+// =====================================================================
+//  Alertes douces : porte qui cogne, meubles qui se chevauchent, passage étroit, objet hors des murs
+// =====================================================================
+const SEATS = new Set(['chair', 'officeChair', 'barStool', 'pouf', 'nightstand', 'plant', 'plantSmall', 'plantTall', 'lamp', 'coatRack', 'filing']);
+const FITTED = new Set(['counter', 'fridge', 'fridgeUS', 'oven', 'tallUnit', 'dishwasher', 'washer', 'dryer', 'wineCooler', 'island', 'bar', 'vanity', 'doubleVanity', 'bath', 'bathFree', 'shower', 'walkIn', 'wc', 'bathColumn', 'handBasin', 'gaine', 'column', 'radiator', 'towel', 'glass', 'halfwall', 'waterHeater', 'stairs']);
+const CLOSE_OK = new Set(['coffeeTable', 'coffeeRound', 'tv', 'tvWall']);   // posés volontairement près d'autres meubles
+const NOFLOOR = new Set(['rug', 'rugRound', 'sink', 'hob', 'backsplash', 'microwave', 'coffrage']);
+const floorish = it => { const c = CAT[it.type] ?? {}; return !c.ceil && !c.elec && !c.group && !MOUNT.has(it.type) && (it.elev || 0) < .5 && !NOFLOOR.has(it.type); };
+const ovl = (a, b, m = 0) => a.x < b.x + b.w - m && b.x < a.x + a.w - m && a.y < b.y + b.h - m && b.y < a.y + a.h - m;
+let ALERTS = [];
+function computeAlerts() {
+  const out = [], fl = S.items.filter(floorish), F = new Map(fl.map(it => [it, fp(it)]));
+  // portes battantes : le débattement ne doit rien toucher
+  for (const o of S.openings) {
+    if (o.type !== 'door' || ['coulissante', 'galandage'].includes(o.style)) continue;
+    const w = wallById(o.wall); if (!w || isArc(w)) continue;
+    const f = frame(w), sd = o.side || 1, p1 = at(w, f, o.at, sd * w.t / 2), p2 = at(w, f, o.at + o.width, sd * (w.t / 2 + o.width * (o.style === 'double' ? .5 : 1)));
+    const r = { x: Math.min(p1[0], p2[0]), y: Math.min(p1[1], p2[1]), w: Math.abs(p2[0] - p1[0]), h: Math.abs(p2[1] - p1[1]) };
+    for (const it of fl) if (ovl(r, F.get(it), .02)) { out.push({ it, o, lvl: 'warn', t: `La porte cogne dans « ${it.name} ». Ça se voit tout de suite sur le plan, et ça s’entendrait à chaque fois. Déplace le meuble ou change le sens d’ouverture (double-clic sur la porte).` }); break; }
+  }
+  // chevauchements et passages entre meubles
+  const big = fl.filter(it => !SEATS.has(it.type));
+  for (let i = 0; i < big.length; i++) for (let j = i + 1; j < big.length; j++) {
+    const a = big[i], b = big[j], fa = F.get(a), fb = F.get(b);
+    if (FITTED.has(a.type) && FITTED.has(b.type)) continue;
+    if (ovl(fa, fb, .02)) { out.push({ it: b, lvl: 'warn', t: `« ${a.name} » et « ${b.name} » se chevauchent : même en 3D, deux meubles ne tiennent pas à la même place.` }); continue; }
+    const ox = Math.min(fa.x + fa.w, fb.x + fb.w) - Math.max(fa.x, fb.x), oy = Math.min(fa.y + fa.h, fb.y + fb.h) - Math.max(fa.y, fb.y);
+    const gap = ox > .2 ? Math.max(fb.y - (fa.y + fa.h), fa.y - (fb.y + fb.h)) : oy > .2 ? Math.max(fb.x - (fa.x + fa.w), fa.x - (fb.x + fb.w)) : -1;
+    if (a._r !== b._r || [a, b].some(x => CLOSE_OK.has(x.type) || /table basse|meuble tv/i.test(x.name)) || FITTED.has(a.type) || FITTED.has(b.type)) continue;
+    if (gap > .03 && gap < .5) out.push({ it: b, lvl: 'info', t: `Passage de ${cmTxt(gap)} ${UNIT()} entre « ${a.name} » et « ${b.name} » : 70 cm conseillés (90 cm pour circuler sans rentrer le ventre).` });
+  }
+  // objet posé hors des pièces
+  for (const it of fl) { const f = F.get(it); if (it._r == null && !A.regionAt(f.x + f.w / 2, f.y + f.h / 2)) out.push({ it, lvl: 'info', t: `« ${it.name} » est hors des murs. Sur le palier, il risque de vexer les voisins.` }); }
+  return out;
+}
 const ROUND2D = new Set(['rugRound', 'roundTable', 'coffeeRound', 'pouf', 'plantTall', 'plantSmall', 'waterHeater', 'barStool', 'officeChair', 'coatRack']);
 function itemSym(it) {
   const c = CAT[it.type] ?? {}, w = it.w, d = it.d, x = -w / 2, y = -d / 2, s = view.s;
@@ -1354,6 +1390,12 @@ function render2D() {
     else if (it.type === 'coffrage' && Math.min(f.w, f.h) / s > 14) h += `<text class="t2" x="${n4(cx)}" y="${n4(cy)}" font-size="${n4(10 * s)}" stroke-width="${n4(3 * s)}"${vert ? ` transform="rotate(-90 ${n4(cx)} ${n4(cy)})"` : ''} style="fill:#5b21b6">Coffrage −${cmTxt(itemH(it, .2))} ${UNIT()}</text>`;
     else if (Math.min(f.w, f.h) / s > 22 && it.type !== 'rug') h +=`<text class="t2" x="${n4(cx)}" y="${n4(cy)}" font-size="${n4(10 * s)}" stroke-width="${n4(3 * s)}"${vert ? ` transform="rotate(-90 ${n4(cx)} ${n4(cy)})"` : ''}>${esc(it.name)}</text>`;
     h += '</g>';
+  }
+  // alertes
+  ALERTS = prefs.alerts === false ? [] : computeAlerts();
+  for (const al of ALERTS) {
+    const f = fp(al.it), x = f.x + f.w, y = f.y, r = 7 * s;
+    h += `<g class="alert" data-kind="item" data-id="${al.it.id}"><circle cx="${n4(x)}" cy="${n4(y)}" r="${n4(r)}" fill="${al.lvl === 'warn' ? '#f59e0b' : '#3b82f6'}" stroke="#fff" stroke-width="1.5" class="ns"/><text x="${n4(x)}" y="${n4(y)}" font-size="${n4(10 * s)}" font-weight="800" fill="#fff" text-anchor="middle" dominant-baseline="central" style="pointer-events:none">${al.lvl === 'warn' ? '!' : 'i'}</text><title>${esc(al.t)}</title></g>`;
   }
   // murs
   let lowLines = '';
@@ -2169,6 +2211,7 @@ function itemPanel(it) {
     </div>
     ${it.color ? '<div class="row" style="margin-top:6px"><button data-act="resetColor">Couleur d’origine</button></div>' : ''}
     ${SIZES[it.type] ? `<h4>Tailles standard</h4><div class="row" style="margin-top:0">${SIZES[it.type].map(([w2, d2, l]) => `<button data-act="setSize" data-w="${w2}" data-d="${d2}" class="${Math.abs(it.w - w2) < .005 && Math.abs(it.d - d2) < .005 ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}
+    ${ALERTS.filter(a => a.it === it).map(a => `<div class="warn">${a.lvl === 'warn' ? '⚠️' : 'ℹ️'} ${esc(a.t)}</div>`).join('')}
     ${norm}
     ${tipBox(ML.TIPS.byGroup[CAT_GROUP(it.type)] ?? ML.TIPS.item)}
     ${['shower', 'bath'].includes(it.type) ? check('Zone humide : faïence montée à la hauteur « zone humide » sur les murs qu’elle touche', 'item', 'wet', it.wet) : ''}
@@ -2243,6 +2286,7 @@ function generalPanel() {
   const st = S.settings;
   return `<h3>${esc(S.name)}</h3><div class="muted">Clique un mur, une ouverture, un objet ou une pièce pour le modifier. Clique une <b>cote soulignée</b> pour taper sa valeur exacte.</div>
     <div class="row"><button data-act="openSettings">⚙ Réglages</button><button data-act="openVersions">🕘 Versions</button><button data-act="openHelp">? Aide &amp; glossaire</button><button data-act="startTour">🎓 Guide de démarrage</button></div>
+    ${ALERTS.length ? `<h4>Points d’attention (${ALERTS.length})</h4>${ALERTS.slice(0, 8).map(a => `<div class="warn clickable" data-act="selItem" data-id="${a.it.id}" style="cursor:pointer">${a.lvl === 'warn' ? '⚠️' : 'ℹ️'} ${esc(a.t)}</div>`).join('')}${ALERTS.length > 8 ? `<p class="muted">… et ${ALERTS.length - 8} autres (pastilles sur le plan).</p>` : ''}` : ''}
     ${tipBox(ML.tipOfDay(), 'Astuce du jour')}
     ${tipBox(ML.TIPS.room)}
     <div class="grid2">
@@ -2461,7 +2505,7 @@ function onFieldChange(e) {
 panel.addEventListener('change', onFieldChange);
 document.getElementById('mBody').addEventListener('change', onFieldChange);
 panel.addEventListener('click', e => {
-  const b = e.target.closest('button[data-act]');
+  const b = e.target.closest('[data-act]');
   if (b) {
     const a = b.dataset.act;
     if (a === 'deltag') { S.rooms = S.rooms.filter(x => x.id !== b.dataset.id); commit(); return; }
@@ -3738,6 +3782,8 @@ splitter('vsplit', ev => { const r = document.querySelector('aside').getBounding
 document.getElementById('unitSel').onchange = e => { prefs.unit = e.target.value; savePrefs(); renderAll(); };
 document.getElementById('snap').onchange = e => { prefs.snap = e.target.value; savePrefs(); };
 document.getElementById('lMagnet').onchange = e => { prefs.magnet = e.target.checked; savePrefs(); };
+document.getElementById('lAlerts').checked = prefs.alerts !== false;
+document.getElementById('lAlerts').onchange = e => { prefs.alerts = e.target.checked; savePrefs(); renderAll(); };
 for (const [id, k] of [['lDims', 'dims'], ['lElec', 'elec'], ['lFurn2', 'furn']]) document.getElementById(id).addEventListener('change', e => { prefs.layers[k] = e.target.checked; savePrefs(); });
 // --- nom du projet
 const pn = document.getElementById('projName');

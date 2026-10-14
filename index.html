@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Moovo 3D · Conception & devis</title>
+<meta name="description" content="Concevez en 3D un aménagement intérieur ou une structure extérieure (bois, métal), obtenez les cotes, le métré et un devis prêt à envoyer. Directement dans le navigateur.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg">
+<meta name="theme-color" content="#2563eb">
+<style>
+  :root{--bg:#f4f5f8;--panel:#fff;--ink:#141821;--muted:#55607a;--line:#e2e6ec;--accent:#2563eb;--accent2:#0ea5a4;--shadow:0 10px 30px #0f172a14}
+  *{box-sizing:border-box} html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  a{color:inherit}
+  header{display:flex;align-items:center;gap:14px;padding:14px clamp(16px,4vw,48px);background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10}
+  .logo{display:flex;align-items:center;gap:9px;font-weight:800;font-size:18px;letter-spacing:-.01em}
+  .logo span{color:var(--accent)}
+  .sp{flex:1}
+  button,.btn{font:inherit;font-size:14px;border:1px solid var(--line);background:#fff;border-radius:10px;padding:8px 14px;cursor:pointer;color:var(--ink);white-space:nowrap}
+  button:hover,.btn:hover{border-color:#c4cad4}
+  .pri{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .pri:hover{background:#1d4ed8}
+  .ghost{border-color:transparent;background:transparent}
+  main{max-width:1180px;margin:0 auto;padding:28px clamp(16px,4vw,48px) 60px}
+  .hero{display:grid;grid-template-columns:1.2fr 1fr;gap:28px;align-items:center;background:linear-gradient(135deg,#1e3a8a,#2563eb 55%,#0ea5a4);color:#fff;border-radius:20px;padding:30px 34px;margin-bottom:30px;box-shadow:var(--shadow)}
+  .hero h1{margin:0 0 8px;font-size:clamp(24px,3.2vw,34px);line-height:1.15;letter-spacing:-.02em}
+  .hero p{margin:0 0 16px;max-width:560px}
+  .hero .btn,.hero button{border:0}
+  .hero .pri{background:#fff;color:#1e3a8a}
+  .hero ul{list-style:none;padding:0;margin:0;display:grid;gap:9px;font-size:14px}
+  .hero li{background:#ffffff1f;border-radius:10px;padding:9px 12px}
+  h2{font-size:18px;margin:0 0 14px;display:flex;align-items:center;gap:10px}
+  h2 small{font-weight:400;color:var(--muted);font-size:13px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;transition:.15s}
+  .card:hover{box-shadow:var(--shadow);transform:translateY(-1px)}
+  .thumb{height:118px;display:flex;align-items:center;justify-content:center;font-size:44px;background:linear-gradient(135deg,#e9f0ff,#f5f7fb);cursor:pointer;position:relative}
+  .thumb.ext{background:linear-gradient(135deg,#e6f7f2,#f4f9f6)}
+  .thumb .tag{position:absolute;top:9px;left:9px;font-size:11px;font-weight:600;background:#fff;border-radius:999px;padding:2px 9px;color:var(--accent)}
+  .thumb.ext .tag{color:#0f766e}
+  .cbody{padding:11px 13px 12px;display:flex;flex-direction:column;gap:3px}
+  .cbody b{font-size:15px;cursor:pointer}
+  .cbody .muted{font-size:12.5px;color:var(--muted)}
+  .cact{display:flex;gap:4px;padding:0 9px 10px;flex-wrap:wrap}
+  .cact button{font-size:12.5px;padding:4px 9px;border-radius:8px}
+  .cact .del{color:#b42318;margin-left:auto}
+  .new{border:2px dashed #c9d2df;background:transparent;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;min-height:212px;color:var(--muted);cursor:pointer;border-radius:14px;font-weight:600}
+  .new:hover{border-color:var(--accent);color:var(--accent)}
+  .new span{font-size:34px;line-height:1}
+  .empty{color:var(--muted)}
+  .feat{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-top:34px}
+  .feat div{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;font-size:14px;color:#3b4252}
+  .feat b{display:block;color:var(--ink);margin-bottom:3px}
+  footer{max-width:1180px;margin:0 auto;padding:0 clamp(16px,4vw,48px) 40px;color:var(--muted);font-size:13px;display:flex;gap:14px;flex-wrap:wrap}
+  /* fenêtres */
+  .ov{position:fixed;inset:0;background:#0f172a73;display:flex;align-items:flex-start;justify-content:center;padding:5vh 14px;z-index:50;overflow:auto}
+  .ov[hidden]{display:none}
+  .box{background:#fff;border-radius:16px;box-shadow:0 18px 50px #0f172a40;width:min(820px,100%);padding:20px 22px}
+  .box h3{margin:0 0 4px;font-size:19px}
+  .types{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}
+  .type{border:2px solid var(--line);border-radius:14px;padding:14px;cursor:pointer;text-align:left;background:#fff;white-space:normal}
+  .type.on{border-color:var(--accent);background:#f3f7ff}
+  .type b{display:block;font-size:16px;margin-bottom:2px}
+  .type span{font-size:13px;color:var(--muted)}
+  .type .ic{font-size:28px}
+  .tpls{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;margin:8px 0 14px}
+  .tpl{border:1px solid var(--line);border-radius:12px;padding:10px;text-align:left;white-space:normal;background:#fff}
+  .tpl.on{border-color:var(--accent);box-shadow:0 0 0 3px #2563eb22}
+  .tpl b{display:block;font-size:14px} .tpl span{font-size:12px;color:var(--muted)}
+  label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);margin-bottom:10px}
+  label.f input,label.f textarea,label.f select{font:inherit;color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:8px 10px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+  .row{display:flex;gap:8px;justify-content:flex-end;margin-top:6px;flex-wrap:wrap}
+  #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#141821;color:#fff;padding:10px 16px;border-radius:999px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;z-index:99}
+  #toast.show{opacity:1}
+  @media (max-width:760px){.hero{grid-template-columns:1fr}.types{grid-template-columns:1fr}.two{grid-template-columns:1fr} header .hide-s{display:none}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><svg width="26" height="26" viewBox="0 0 64 64"><path d="M8 28 32 10l24 18v24a4 4 0 0 1-4 4H12a4 4 0 0 1-4-4z" fill="#2563eb"/><path d="M22 56V36h20v20" fill="#fff" opacity=".9"/><path d="M8 28 32 10l24 18" fill="none" stroke="#0ea5a4" stroke-width="4" stroke-linejoin="round"/></svg>Moovo <span>3D</span></div>
+  <div class="sp"></div>
+  <button class="ghost hide-s" id="bCompany">🏢 Mon entreprise</button>
+  <label class="btn hide-s">📂 Importer<input type="file" id="fImp" accept=".json,application/json" hidden></label>
+  <button class="pri" id="bNew">＋ Nouveau projet</button>
+</header>
+<main>
+  <section class="hero" id="hero">
+    <div>
+      <h1>Concevez, chiffrez et partagez vos projets en 3D</h1>
+      <p>Aménagement intérieur, extension, pergola, carport, abri, terrasse ou charpente métallique : dessinez au millimètre, visualisez en 3D, obtenez le métré et un devis prêt à envoyer. Tout fonctionne dans le navigateur.</p>
+      <button class="pri" id="bNew2">Commencer un projet</button>
+    </div>
+    <ul>
+      <li>📐 Plans cotés au millimètre, cotes modifiables d’un clic</li>
+      <li>🧱 Intérieur : cloisons, portes, électricité aux normes, budget travaux</li>
+      <li>🪵 Extérieur : structures bois et acier, sections réelles, liste de débit</li>
+      <li>📄 Devis professionnel imprimable en PDF, aux mentions françaises</li>
+    </ul>
+  </section>
+
+  <h2>Mes projets <small id="count"></small></h2>
+  <div class="grid" id="grid"></div>
+
+  <div class="feat">
+    <div><b>Vos données restent chez vous</b>Les projets sont enregistrés dans ce navigateur, avec des versions automatiques. Exportez un fichier pour les garder ou les ouvrir ailleurs.</div>
+    <div><b>Partage par lien</b>Envoyez un projet à un client ou un collègue : il en reçoit une copie modifiable, sans compte.</div>
+    <div><b>Pensé pour les artisans</b>Profil d’entreprise, numérotation des devis, TVA 20 / 10 / 5,5 %, acompte, assurance décennale, liste de débit à commander.</div>
+  </div>
+</main>
+<footer>
+  <span>Moovo 3D — version de travail</span>
+  <span id="storage"></span>
+  <a href="#" id="bExportAll">Sauvegarde complète (tous les projets)</a>
+  <label style="cursor:pointer;text-decoration:underline">Restaurer une sauvegarde complète<input type="file" id="fImpAll" accept=".json" hidden></label>
+</footer>
+
+<!-- Nouveau projet -->
+<div class="ov" id="ovNew" hidden><div class="box">
+  <h3>Nouveau projet</h3>
+  <div style="color:var(--muted);font-size:14px">Choisis le type de projet puis un point de départ. Tout reste modifiable ensuite.</div>
+  <div class="types">
+    <button class="type on" data-type="interior"><span class="ic">🛋️</span><b>Intérieur</b><span>Appartement, maison, rénovation : cloisons, portes, sols, faïence, électricité, budget travaux.</span></button>
+    <button class="type" data-type="exterior"><span class="ic">🏗️</span><b>Extérieur & structures</b><span>Pergola, carport, abri, terrasse, ossature bois, charpente métallique : métré, débit et devis.</span></button>
+  </div>
+  <div style="font-size:13px;font-weight:600;color:var(--muted)">Point de départ</div>
+  <div class="tpls" id="tpls"></div>
+  <label class="f">Nom du projet<input id="newName" placeholder="ex. Pergola M. Durand"></label>
+  <div class="row"><button id="cNew">Annuler</button><button class="pri" id="okNew">Créer et ouvrir</button></div>
+</div></div>
+
+<!-- Entreprise -->
+<div class="ov" id="ovCo" hidden><div class="box">
+  <h3>Mon entreprise</h3>
+  <div style="color:var(--muted);font-size:14px;margin-bottom:12px">Ces informations apparaissent sur tous tes devis. Elles restent dans ce navigateur.</div>
+  <div id="coForm"></div>
+  <div class="row"><button id="cCo">Fermer</button><button class="pri" id="okCo">Enregistrer</button></div>
+</div></div>
+<div id="toast"></div>
+
+<script src="moovo-core.js"></script>
+<script>
+'use strict';
+const C = MoovoCore, $ = id => document.getElementById(id), esc = C.esc;
+const TEMPLATES = {
+  interior: [
+    ['room', 'Pièce vide', '4,20 × 3,60 m, une porte, une fenêtre'],
+    ['studio', 'Studio', 'Séjour + salle d’eau, 28 m²'],
+    ['maison', 'Maison de plain-pied', '3 pièces, 10 × 8 m'],
+    ['t4', 'Appartement T4 (exemple)', 'Le plan T4 d’origine de Moovo 3D'],
+  ],
+  exterior: [
+    ['empty', 'Projet vide', 'Terrain seul, à dessiner'],
+    ['pergola', 'Pergola bois', 'Autoportante 4 × 3 m, chevrons'],
+    ['carport', 'Carport', '5,5 × 3 m, monopente, bac acier'],
+    ['abri', 'Abri de jardin', 'Ossature bois 3 × 2,4 m, bardage'],
+    ['terrasse', 'Terrasse bois', '6 × 4 m sur plots, lambourdes, lames'],
+    ['hangar', 'Hangar métallique', 'Portiques IPE 12 × 8 m, pannes, bac acier'],
+    ['cloture', 'Clôture / garde-corps', '10 m, poteaux acier, lisses bois'],
+  ],
+};
+let newType = 'interior', newTpl = 'room';
+function toast(m) { const t = $('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 2600); }
+const url = p => (p.type === 'exterior' ? 'exterieur.html' : 'interieur.html') + '?p=' + encodeURIComponent(p.id);
+const ago = t => { const d = (Date.now() - t) / 1000; if (d < 60) return 'à l’instant'; if (d < 3600) return `il y a ${Math.round(d / 60)} min`; if (d < 86400) return `il y a ${Math.round(d / 3600)} h`; return new Date(t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }); };
+
+function render() {
+  const l = C.list();
+  $('count').textContent = l.length ? `${l.length} projet${l.length > 1 ? 's' : ''}` : '';
+  $('hero').style.display = l.length > 2 ? 'none' : '';
+  $('grid').innerHTML = `<button class="new" id="bNew3"><span>＋</span>Nouveau projet</button>` + l.map(p => {
+    const ext = p.type === 'exterior', tpl = (TEMPLATES[p.type] || []).find(t => t[0] === p.template);
+    return `<div class="card" data-id="${esc(p.id)}">
+      <div class="thumb ${ext ? 'ext' : ''}" data-open><span class="tag">${ext ? 'Extérieur' : 'Intérieur'}</span>${ext ? '🏗️' : '🛋️'}</div>
+      <div class="cbody"><b data-open>${esc(p.name)}</b><span class="muted">${tpl ? esc(tpl[1]) + ' · ' : ''}modifié ${ago(p.updated)}</span></div>
+      <div class="cact"><button data-open>Ouvrir</button><button data-ren>Renommer</button><button data-dup>Dupliquer</button><button data-exp>Exporter</button><button class="del" data-del>Supprimer</button></div></div>`;
+  }).join('');
+  $('bNew3').onclick = openNew;
+  let used = 0; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); used += (localStorage.getItem(k) || '').length; } } catch {}
+  $('storage').textContent = `Espace utilisé dans ce navigateur : ${(used / 1024 / 1024).toFixed(2)} Mo sur ≈ 5 Mo`;
+}
+$('grid').addEventListener('click', e => {
+  const card = e.target.closest('.card'); if (!card) return;
+  const p = C.get(card.dataset.id); if (!p) return;
+  if (e.target.closest('[data-open]')) location.href = url(p);
+  else if (e.target.closest('[data-ren]')) { const n = prompt('Nouveau nom :', p.name); if (n) { C.touch(p.id, { name: n.trim() }); const d = C.load(p.id); if (d) { d.name = n.trim(); C.ls.set(C.PFX + p.id, JSON.stringify(d)); } render(); } }
+  else if (e.target.closest('[data-dup]')) { C.duplicate(p.id); render(); toast('Projet dupliqué'); }
+  else if (e.target.closest('[data-exp]')) { const d = C.load(p.id); if (!d) return toast('Projet encore vide : ouvre-le une fois.'); download(JSON.stringify(d, null, 2), slug(p.name) + '.json'); }
+  else if (e.target.closest('[data-del]')) { if (confirm(`Supprimer définitivement « ${p.name} » ?\nPense à l’exporter avant si tu veux le garder.`)) { C.remove(p.id); render(); toast('Projet supprimé'); } }
+});
+const slug = n => (n || 'projet').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase();
+function download(text, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = name; a.click(); }
+
+// --- nouveau projet
+function renderTpls() {
+  document.querySelectorAll('.type').forEach(b => b.classList.toggle('on', b.dataset.type === newType));
+  $('tpls').innerHTML = TEMPLATES[newType].map(([k, n, d]) => `<button class="tpl ${k === newTpl ? 'on' : ''}" data-tpl="${k}"><b>${n}</b><span>${d}</span></button>`).join('');
+}
+function openNew() { newType = 'interior'; newTpl = 'room'; $('newName').value = ''; renderTpls(); $('ovNew').hidden = false; }
+document.querySelectorAll('.type').forEach(b => b.onclick = () => { newType = b.dataset.type; newTpl = TEMPLATES[newType][newType === 'interior' ? 0 : 1][0]; renderTpls(); });
+$('tpls').addEventListener('click', e => { const b = e.target.closest('[data-tpl]'); if (b) { newTpl = b.dataset.tpl; renderTpls(); } });
+$('okNew').onclick = () => {
+  const tpl = TEMPLATES[newType].find(t => t[0] === newTpl);
+  const p = C.create({ name: $('newName').value.trim() || tpl[1], type: newType, template: newTpl });
+  location.href = url(p);
+};
+$('cNew').onclick = () => $('ovNew').hidden = true;
+for (const id of ['bNew', 'bNew2']) $(id).onclick = openNew;
+for (const ov of ['ovNew', 'ovCo']) $(ov).addEventListener('pointerdown', e => { if (e.target.id === ov) $(ov).hidden = true; });
+addEventListener('keydown', e => { if (e.key === 'Escape') { $('ovNew').hidden = true; $('ovCo').hidden = true; } });
+
+// --- import d'un fichier projet
+function importData(d, fallbackName) {
+  const type = C.typeOf(d); if (!type) throw new Error('format');
+  const p = C.create({ name: d.name || fallbackName || 'Projet importé', type, template: null, data: d });
+  return p;
+}
+$('fImp').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return; e.target.value = '';
+  try { const p = importData(JSON.parse(await f.text()), f.name.replace(/\.json$/i, '')); toast('Projet importé'); location.href = url(p); }
+  catch { toast('Ce fichier n’est pas un projet Moovo 3D.'); }
+};
+// --- sauvegarde complète
+$('bExportAll').onclick = e => {
+  e.preventDefault();
+  const all = { kind: 'moovo3d-bundle', date: new Date().toISOString(), company: C.company(), projects: C.list().map(p => ({ meta: p, data: C.load(p.id) })) };
+  download(JSON.stringify(all), 'moovo3d-sauvegarde-' + new Date().toISOString().slice(0, 10) + '.json');
+};
+$('fImpAll').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return; e.target.value = '';
+  try {
+    const b = JSON.parse(await f.text()); if (b.kind !== 'moovo3d-bundle') throw 0;
+    let n = 0; for (const { meta, data } of b.projects) { if (!data) continue; C.create({ name: meta.name, type: meta.type, template: meta.template, data }); n++; }
+    if (b.company && !C.company().name) C.saveCompany(b.company);
+    render(); toast(`${n} projet(s) restauré(s)`);
+  } catch { toast('Fichier de sauvegarde non reconnu.'); }
+};
+
+// --- entreprise
+const CO_FIELDS = [['name', 'Nom commercial'], ['legal', 'Forme juridique'], ['address', 'Adresse'], ['zip', 'Code postal'], ['city', 'Ville'], ['phone', 'Téléphone'], ['email', 'E-mail'], ['siret', 'SIRET'], ['tva', 'N° TVA intracommunautaire'],
+  ['insurer', 'Assureur décennale / RC pro'], ['policy', 'N° de police'], ['zone', 'Couverture géographique'], ['hourly', 'Taux horaire (€ HT)'], ['validity', 'Validité des devis (jours)'], ['deposit', 'Acompte (%)'], ['iban', 'IBAN'], ['payment', 'Conditions de paiement'], ['delay', 'Délai d’exécution']];
+$('bCompany').onclick = () => { const c = C.company(); $('coForm').innerHTML = `<div class="two">${CO_FIELDS.map(([k, l]) => `<label class="f">${l}<input data-k="${k}" value="${esc(c[k])}"></label>`).join('')}</div>`; $('ovCo').hidden = false; };
+$('okCo').onclick = () => { const c = C.company(); document.querySelectorAll('#coForm [data-k]').forEach(i => { c[i.dataset.k] = ['hourly', 'validity', 'deposit'].includes(i.dataset.k) ? Number(i.value) : i.value; }); C.saveCompany(c); $('ovCo').hidden = true; toast('Informations enregistrées'); };
+$('cCo').onclick = () => $('ovCo').hidden = true;
+
+// --- démarrage : reprise de l'ancienne version, lien de partage, hors-ligne
+C.migrateLegacy();
+render();
+(async () => {
+  const m = location.hash.match(/^#partage=(.+)$/);
+  if (!m) return;
+  history.replaceState(null, '', location.pathname + location.search);
+  try {
+    const d = await C.decodeShare(m[1]);
+    if (confirm(`Ouvrir une copie du projet partagé « ${d.name || 'sans nom'} » ?`)) { const p = importData(d); location.href = url(p); }
+  } catch { toast('Lien de partage illisible ou incomplet.'); }
+})();
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>

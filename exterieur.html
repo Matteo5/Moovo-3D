@@ -1,0 +1,1112 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Moovo 3D · Extérieur & structures</title>
+<link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg"><meta name="theme-color" content="#0f766e">
+<style>
+  :root{--bg:#eef0f3;--panel:#fff;--ink:#1b1f27;--muted:#5d6678;--line:#e1e5eb;--line2:#cfd5de;--accent:#0f766e;--accent2:#2563eb;--accent-weak:#e6f5f2;--danger:#b42318;--warn:#9a5b00;--warn-bg:#fff6e5;--aside:470px;--v3h:52%;--shadow:0 8px 30px #0f172a1f}
+  *{box-sizing:border-box} html,body{margin:0;height:100%}
+  body{display:grid;grid-template-rows:auto 1fr;height:100vh;overflow:hidden;background:var(--bg);color:var(--ink);font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  header{display:flex;align-items:center;gap:8px;padding:7px 12px;background:var(--panel);border-bottom:1px solid var(--line);position:relative;z-index:30}
+  .brand{font-size:15px;display:flex;gap:6px;align-items:center;color:var(--accent);text-decoration:none} .brand b{color:var(--ink)}
+  .projname{font:inherit;font-weight:600;border:1px solid transparent;border-radius:7px;padding:4px 8px;background:transparent;color:var(--ink);width:230px}
+  .projname:hover{border-color:var(--line)} .projname:focus{outline:none;border-color:var(--accent);background:#fff}
+  .savestate{font-size:12px;color:#15803d;white-space:nowrap}
+  .sp{flex:1}
+  .seg{display:flex;gap:3px;align-items:center;flex-wrap:wrap}
+  button,.btn{font:inherit;font-size:13px;border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 10px;cursor:pointer;color:var(--ink);white-space:nowrap;line-height:1.25}
+  button:hover,.btn:hover{border-color:var(--line2)}
+  button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.pri{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  button.ghost{border-color:transparent;background:transparent} button.ghost:hover{background:#f1f3f6}
+  button.danger{color:var(--danger)} button:disabled{opacity:.4;cursor:default}
+  hr{border:0;border-top:1px solid var(--line);margin:6px 0}
+  .menuwrap{position:relative}
+  .menu{position:absolute;top:calc(100% + 6px);left:0;min-width:270px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:6px;display:none;z-index:60}
+  .menu.open{display:block} .menu.right{left:auto;right:0}
+  .menu>button,.menu .mi{display:flex;justify-content:space-between;gap:16px;width:100%;text-align:left;border:0;background:transparent;padding:7px 10px;border-radius:7px;cursor:pointer;font-size:13px}
+  .menu>button:hover,.menu .mi:hover{background:#f1f4f9}
+  main{display:grid;grid-template-columns:minmax(0,1fr) 6px var(--aside);min-height:0}
+  body.layout-2d #view3d,body.layout-2d #vsplit{display:none}
+  body.layout-3d main{grid-template-columns:1fr} body.layout-3d #planWrap,body.layout-3d #hsplit{display:none}
+  body.layout-3d aside{display:grid;grid-template-columns:minmax(0,1fr) 420px;grid-template-rows:auto 1fr}
+  body.layout-3d #view3d{grid-row:1/3;grid-column:1;height:auto} body.layout-3d #vsplit{display:none}
+  body.layout-3d .tabs,body.layout-3d #panel{grid-column:2;border-left:1px solid var(--line)}
+  .splitter{background:var(--line);cursor:col-resize} .splitter:hover{background:var(--accent)} .splitter.h{cursor:row-resize;height:5px;flex:none}
+  #planWrap{display:flex;flex-direction:column;min-height:0;min-width:0}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:7px 10px;background:var(--panel);border-bottom:1px solid var(--line)}
+  .wp{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted)}
+  .wp input{width:78px;font:12px ui-monospace,Consolas,monospace;border:1px solid var(--line);border-radius:6px;padding:4px 6px}
+  #planBox{position:relative;flex:1;min-height:0}
+  #plan{position:absolute;inset:0;width:100%;height:100%;background:#fafbfc;touch-action:none;user-select:none}
+  #dimEdit{position:absolute;z-index:5;width:120px;font:600 14px ui-monospace,Consolas,monospace;padding:5px 8px;border:2px solid var(--accent);border-radius:8px;box-shadow:var(--shadow);text-align:center;display:none}
+  .viewtag{position:absolute;left:10px;top:8px;background:#ffffffe0;border:1px solid var(--line);border-radius:8px;padding:3px 9px;font-size:12px;color:var(--muted);pointer-events:none}
+  .foot{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:5px 12px;font-size:12px;color:var(--muted);background:var(--panel);border-top:1px solid var(--line)}
+  .foot #hint{flex:1;min-width:200px} .foot label{display:flex;gap:5px;align-items:center;cursor:pointer}
+  .foot select{font:inherit;font-size:12px;border:1px solid var(--line);border-radius:6px;padding:1px 4px}
+  #coords{font-family:ui-monospace,Consolas,monospace;min-width:190px;text-align:right}
+  aside{display:flex;flex-direction:column;min-height:0;background:var(--panel)}
+  #view3d{position:relative;height:var(--v3h);min-height:160px;background:#dfe7ee;overflow:hidden;flex:none}
+  #view3d canvas{display:block}
+  .v3bar{position:absolute;top:8px;left:8px;right:8px;display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap;pointer-events:none;z-index:3}
+  .v3bar>*{pointer-events:auto} .v3bar button{background:#ffffffeb} .v3bar button.on{background:var(--accent)}
+  .v3menu{width:270px;padding:10px 12px} .v3menu label{display:flex;gap:8px;align-items:center;padding:3px 0;font-size:13px;cursor:pointer}
+  .v3menu h5{margin:8px 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .tabs{display:flex;border-bottom:1px solid var(--line);background:var(--panel)}
+  .tabs button{flex:1;border:0;border-radius:0;border-bottom:2px solid transparent;padding:9px 4px;background:transparent}
+  .tabs button.on{background:none;color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+  #panel{flex:1;overflow:auto;padding:14px 16px 28px;min-height:0}
+  #panel h3{margin:0 0 2px;font-size:15px}
+  #panel h4{margin:16px 0 7px;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .muted{color:var(--muted);font-size:12.5px}
+  .note{margin-top:10px;padding:8px 10px;background:#f6f8fb;border-radius:8px;font-size:12.5px;color:var(--muted)}
+  .warn{background:var(--warn-bg);color:var(--warn);border:1px solid #f3d9a4;border-radius:8px;padding:8px 10px;font-size:12.5px;margin-top:10px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;margin-top:8px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px 8px;margin-top:6px}
+  .f{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)} .f.full{grid-column:1/-1}
+  .f input,.f select{font:inherit;font-size:14px;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:6px 8px;width:100%;background:#fff}
+  .f input[type=number]{font-family:ui-monospace,Consolas,monospace}
+  .f input[type=color]{padding:2px;height:34px}
+  .chk{display:flex;gap:8px;align-items:center;margin:7px 0;font-size:13px;cursor:pointer}
+  .row{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+  .tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .tile{border:1px solid var(--line);border-radius:10px;padding:8px 10px} .tile b{display:block;font-size:18px;font-variant-numeric:tabular-nums} .tile span{font-size:12px;color:var(--muted)}
+  .tile.total{grid-column:1/-1;background:var(--accent-weak);border-color:#b7e2da}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{text-align:left;padding:5px 4px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-weight:500;color:var(--muted);font-size:11.5px} td.n,th.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+  td input[type=number]{width:70px;font:inherit;font-size:12.5px;border:1px solid var(--line);border-radius:6px;padding:3px 5px;text-align:right}
+  details{margin-top:6px} summary{cursor:pointer;color:var(--accent);font-size:12.5px}
+  .bar{display:flex;height:20px;border:1px solid var(--line2);border-radius:3px;overflow:hidden;margin:3px 0;font-size:9.5px}
+  .bar span{padding:0 4px;background:#d9c19a;border-right:1px solid #8a6a3e;display:flex;align-items:center;justify-content:center;overflow:hidden;white-space:nowrap}
+  .bar span.st{background:#c4ccd6;border-right-color:#5d6678} .bar i{flex:1;background:repeating-linear-gradient(45deg,#fff,#fff 3px,#eee 3px,#eee 6px)}
+  .gens{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .gens button{white-space:normal;text-align:left;padding:10px} .gens b{display:block;font-size:13.5px} .gens span{font-size:12px;color:var(--muted)}
+  .modal{position:fixed;inset:0;background:#0f172a66;display:flex;align-items:flex-start;justify-content:center;z-index:100;padding:5vh 16px;overflow:auto}
+  .modal[hidden]{display:none}
+  .mbox{background:#fff;border-radius:14px;box-shadow:var(--shadow);width:min(720px,100%);display:flex;flex-direction:column}
+  .mhead{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);font-size:15px}
+  #mBody{padding:14px 16px 18px}
+  #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:#1b1f27;color:#fff;padding:9px 16px;border-radius:999px;font-size:13px;opacity:0;pointer-events:none;transition:.25s;z-index:200}
+  #toast.show{opacity:1;transform:translateX(-50%)}
+  .lbl3{font:600 11px system-ui;background:#ffffffe6;padding:3px 8px;border-radius:5px;pointer-events:none;white-space:nowrap;color:#0f766e}
+  .ns{vector-effect:non-scaling-stroke}
+  .g{stroke:#eceef1;stroke-width:1;vector-effect:non-scaling-stroke} .gM{stroke:#d3d8df;stroke-width:1;vector-effect:non-scaling-stroke}
+  .t2{fill:#1f2937;paint-order:stroke;stroke:#ffffffd0;text-anchor:middle;dominant-baseline:middle;pointer-events:none}
+  .dimt{font-weight:600;paint-order:stroke;stroke:#fafbfc;text-anchor:middle;dominant-baseline:middle}
+  .mem{cursor:pointer} .mem:hover{filter:brightness(1.12)}
+  kbd{font:11px ui-monospace,monospace;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 4px;color:var(--muted)}
+  @media (max-width:980px){body{height:auto;overflow:auto;display:block} main{display:block} #planBox{height:62vh;flex:none} #hsplit,#vsplit{display:none} #view3d{height:50vh}}
+</style>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+</head>
+<body class="layout-split">
+<header>
+  <a class="brand" href="index.html" title="Retour à mes projets">⌂ <b>Moovo 3D</b></a>
+  <input id="projName" class="projname" spellcheck="false">
+  <span id="saveState" class="savestate"></span>
+  <div class="menuwrap"><button id="bProj" class="ghost">Projet ▾</button>
+    <div class="menu" id="projMenu">
+      <button data-cmd="save">💾 Enregistrer dans un fichier <kbd>Ctrl+S</kbd></button>
+      <button data-cmd="devis">📄 Générer le devis…</button>
+      <button data-cmd="csv">📋 Liste de débit (CSV)</button>
+      <button data-cmd="share">🔗 Partager par lien…</button>
+      <hr>
+      <button data-cmd="versions">🕘 Versions…</button>
+      <button data-cmd="snapshot">📌 Créer un point de sauvegarde</button>
+      <hr>
+      <button data-cmd="shot">📷 Capture 3D (PNG)</button>
+      <button data-cmd="svg">🖨 Exporter la vue 2D cotée (SVG)</button>
+      <label class="mi">Importer un projet (.json)<input type="file" id="fImport" accept=".json" hidden></label>
+    </div>
+  </div>
+  <div class="seg"><button id="bUndo" class="ghost" title="Annuler (Ctrl+Z)">↶</button><button id="bRedo" class="ghost" title="Rétablir (Ctrl+Y)">↷</button></div>
+  <div class="sp"></div>
+  <div class="seg"><button data-layout="2d">2D</button><button data-layout="split" class="on">2D + 3D</button><button data-layout="3d">3D</button></div>
+  <button id="bHelp" class="ghost" title="Aide (?)">?</button>
+</header>
+<main>
+  <section id="planWrap">
+    <div class="toolbar">
+      <div class="seg" id="views"><button data-view="top" class="on" title="Vue de dessus (T)">Dessus</button><button data-view="front" title="Vue de face, depuis le sud (F)">Face</button><button data-view="side" title="Vue de côté, depuis l’ouest (L)">Côté</button></div>
+      <div class="seg" id="tools">
+        <button data-tool="select" class="on" title="Sélection (V)">↖ Sélection</button>
+        <button data-tool="beam" title="Barre : poutre, solive, lisse… (B)">▬ Barre</button>
+        <button data-tool="post" title="Poteau vertical (P)">▮ Poteau</button>
+        <button data-tool="panel" title="Panneau : couverture, bardage, plancher (N)">▦ Panneau</button>
+        <button data-tool="dim" title="Coter (C)">↔ Coter</button>
+      </div>
+      <div class="menuwrap"><button id="bGen" class="pri">✨ Assistants ▾</button><div class="menu" id="genMenu"></div></div>
+      <span class="wp" id="wpBox" title="Les points dessinés sont posés sur ce plan de travail"><span id="wpLbl">Niveau Z</span><input id="wp" type="number" step="1"> <span class="u"></span></span>
+      <div class="sp"></div>
+      <div class="seg"><button id="zOut">−</button><button id="zFit" title="Tout voir (0)">Ajuster</button><button id="zIn">+</button></div>
+    </div>
+    <div id="planBox"><svg id="plan"><g id="G"></g></svg><div class="viewtag" id="viewTag"></div><input id="dimEdit" autocomplete="off"></div>
+    <div class="foot">
+      <span id="hint"></span>
+      <label><input type="checkbox" id="lDims" checked> Cotes</label>
+      <label><input type="checkbox" id="lPanels" checked> Panneaux</label>
+      <label><input type="checkbox" id="lGrid" checked> Grille</label>
+      <label>Pas <select id="snap"><option value="0.001">1 mm</option><option value="0.005">5 mm</option><option value="0.01" selected>1 cm</option><option value="0.05">5 cm</option><option value="0.1">10 cm</option></select></label>
+      <label>Unité <select id="unitSel"><option value="cm">cm</option><option value="mm">mm</option></select></label>
+      <span id="coords"></span>
+    </div>
+  </section>
+  <div id="hsplit" class="splitter"></div>
+  <aside>
+    <div id="view3d">
+      <div class="v3bar">
+        <div class="seg"><button data-v="persp" class="on">3D</button><button data-v="top">Dessus</button><button data-v="front">Face</button></div>
+        <div class="seg"><button id="bFrame">Cadrer</button>
+          <div class="menuwrap"><button id="bV3">Affichage ▾</button><div class="menu right v3menu" id="v3menu">
+            <h5>Afficher</h5>
+            <label><input type="checkbox" id="oPanels" checked> Couvertures, bardages, planchers</label>
+            <label><input type="checkbox" id="oXray"> Panneaux transparents</label>
+            <label><input type="checkbox" id="oBlocks" checked> Bâtiment existant</label>
+            <label><input type="checkbox" id="oGround" checked> Terrain</label>
+            <label><input type="checkbox" id="oLen"> Longueurs des barres</label>
+            <label><input type="checkbox" id="oShadow" checked> Ombres</label>
+            <h5>Couleur</h5>
+            <label><input type="radio" name="oColor" value="mat" checked> Par matériau</label>
+            <label><input type="radio" name="oColor" value="role"> Par fonction (poteau, poutre…)</label>
+          </div></div>
+          <button id="bShot" title="Capture">📷</button></div>
+      </div>
+    </div>
+    <div id="vsplit" class="splitter h"></div>
+    <nav class="tabs"><button data-tab="sel" class="on">Sélection</button><button data-tab="bom">Métré & débit</button><button data-tab="gens">Assistants</button><button data-tab="prices">Prix</button></nav>
+    <div id="panel"></div>
+  </aside>
+</main>
+<div id="toast"></div>
+<div id="modal" class="modal" hidden><div class="mbox"><div class="mhead"><b id="mTitle"></b><button id="mClose" class="ghost">✕</button></div><div id="mBody"></div></div></div>
+
+<script src="moovo-core.js"></script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+// =====================================================================
+//  Catalogues : sections, matériaux, panneaux
+// =====================================================================
+const C = MoovoCore;
+const PID = new URLSearchParams(location.search).get('p');
+if (!PID || !C.get(PID)) { location.replace('index.html'); throw new Error('Projet introuvable'); }
+const KEY = C.PFX + PID, BKEY = C.BPFX + PID, PKEY = 'moovo3d-ext-prefs';
+// b = largeur (mm, horizontale), h = hauteur (mm), kgm = masse linéique acier/alu
+const SEC = {
+  b27x145: { l: 'Lame 27×145', fam: 'bois', b: 145, h: 27 }, b21x130: { l: 'Lame de bardage 21×130', fam: 'bois', b: 130, h: 21 },
+  b45x45: { l: 'Tasseau 45×45', fam: 'bois', b: 45, h: 45 }, b45x70: { l: 'Lambourde 45×70', fam: 'bois', b: 45, h: 70 },
+  b45x95: { l: 'Ossature 45×95', fam: 'bois', b: 45, h: 95 }, b45x120: { l: 'Ossature 45×120', fam: 'bois', b: 45, h: 120 },
+  b45x145: { l: 'Chevron / solive 45×145', fam: 'bois', b: 45, h: 145 }, b45x220: { l: 'Solive 45×220', fam: 'bois', b: 45, h: 220 },
+  b63x175: { l: 'Chevron 63×175', fam: 'bois', b: 63, h: 175 }, b75x200: { l: 'Poutre 75×200', fam: 'bois', b: 75, h: 200 },
+  b75x225: { l: 'Poutre 75×225', fam: 'bois', b: 75, h: 225 }, b90x90: { l: 'Poteau 90×90', fam: 'bois', b: 90, h: 90 },
+  b100x100: { l: 'Poteau 100×100', fam: 'bois', b: 100, h: 100 }, b120x120: { l: 'Poteau 120×120', fam: 'bois', b: 120, h: 120 },
+  b150x150: { l: 'Poteau 150×150', fam: 'bois', b: 150, h: 150 }, lc90x240: { l: 'Lamellé-collé 90×240', fam: 'bois', b: 90, h: 240 },
+  ipe80: { l: 'IPE 80', fam: 'acier', b: 46, h: 80, shape: 'I', kgm: 6.0, tw: 3.8, tf: 5.2 }, ipe100: { l: 'IPE 100', fam: 'acier', b: 55, h: 100, shape: 'I', kgm: 8.1, tw: 4.1, tf: 5.7 },
+  ipe120: { l: 'IPE 120', fam: 'acier', b: 64, h: 120, shape: 'I', kgm: 10.4, tw: 4.4, tf: 6.3 }, ipe140: { l: 'IPE 140', fam: 'acier', b: 73, h: 140, shape: 'I', kgm: 12.9, tw: 4.7, tf: 6.9 },
+  ipe160: { l: 'IPE 160', fam: 'acier', b: 82, h: 160, shape: 'I', kgm: 15.8, tw: 5.0, tf: 7.4 }, ipe200: { l: 'IPE 200', fam: 'acier', b: 100, h: 200, shape: 'I', kgm: 22.4, tw: 5.6, tf: 8.5 },
+  ipe240: { l: 'IPE 240', fam: 'acier', b: 120, h: 240, shape: 'I', kgm: 30.7, tw: 6.2, tf: 9.8 },
+  hea120: { l: 'HEA 120', fam: 'acier', b: 120, h: 114, shape: 'I', kgm: 19.9, tw: 5, tf: 8 }, hea160: { l: 'HEA 160', fam: 'acier', b: 160, h: 152, shape: 'I', kgm: 30.4, tw: 6, tf: 9 },
+  hea200: { l: 'HEA 200', fam: 'acier', b: 200, h: 190, shape: 'I', kgm: 42.3, tw: 6.5, tf: 10 },
+  upn100: { l: 'UPN 100', fam: 'acier', b: 50, h: 100, shape: 'U', kgm: 10.6, tw: 6, tf: 8.5 },
+  t40x40: { l: 'Tube carré 40×40×3', fam: 'acier', b: 40, h: 40, shape: 'T', kgm: 3.3, t: 3 }, t60x60: { l: 'Tube carré 60×60×3', fam: 'acier', b: 60, h: 60, shape: 'T', kgm: 5.19, t: 3 },
+  t80x80: { l: 'Tube carré 80×80×4', fam: 'acier', b: 80, h: 80, shape: 'T', kgm: 9.22, t: 4 }, t100x100: { l: 'Tube carré 100×100×4', fam: 'acier', b: 100, h: 100, shape: 'T', kgm: 11.7, t: 4 },
+  t80x40: { l: 'Tube rect. 80×40×3', fam: 'acier', b: 40, h: 80, shape: 'T', kgm: 5.19, t: 3 }, t120x60: { l: 'Tube rect. 120×60×4', fam: 'acier', b: 60, h: 120, shape: 'T', kgm: 10.7, t: 4 },
+  l50x50: { l: 'Cornière 50×50×5', fam: 'acier', b: 50, h: 50, shape: 'L', kgm: 3.77, t: 5 }, r20: { l: 'Rond plein Ø20', fam: 'acier', b: 20, h: 20, shape: 'R', kgm: 2.47 },
+  a60x60: { l: 'Tube alu 60×60×2', fam: 'alu', b: 60, h: 60, shape: 'T', kgm: 1.26, t: 2 }, a100x50: { l: 'Tube alu 100×50×2,5', fam: 'alu', b: 50, h: 100, shape: 'T', kgm: 1.98, t: 2.5 },
+  plot: { l: 'Plot réglable Ø100', fam: 'acc', b: 100, h: 100, shape: 'R', unit: 'u' },
+};
+// unit : m3 (bois) ou kg (métal) ; dens kg/m³
+const MAT = {
+  douglas: { l: 'Douglas', fam: 'bois', unit: 'm3', price: 650, dens: 530, color: '#c99a62' },
+  pin: { l: 'Pin traité classe 4', fam: 'bois', unit: 'm3', price: 560, dens: 520, color: '#b9a46c' },
+  epicea: { l: 'Épicéa C24', fam: 'bois', unit: 'm3', price: 520, dens: 450, color: '#e1c58f' },
+  meleze: { l: 'Mélèze', fam: 'bois', unit: 'm3', price: 980, dens: 600, color: '#c88552' },
+  chene: { l: 'Chêne', fam: 'bois', unit: 'm3', price: 2400, dens: 720, color: '#a77a4b' },
+  glulam: { l: 'Lamellé-collé GL24h', fam: 'bois', unit: 'm3', price: 950, dens: 480, color: '#dbb57d' },
+  s235: { l: 'Acier S235 brut (à peindre)', fam: 'acier', unit: 'kg', price: 2.6, dens: 7850, color: '#6b7280', paint: true },
+  galva: { l: 'Acier galvanisé', fam: 'acier', unit: 'kg', price: 3.6, dens: 7850, color: '#a5adb6' },
+  thermo: { l: 'Acier thermolaqué anthracite', fam: 'acier', unit: 'kg', price: 4.5, dens: 7850, color: '#3b4048' },
+  alu: { l: 'Aluminium', fam: 'alu', unit: 'kg', price: 12, dens: 2700, color: '#c5cad1' },
+  plot: { l: 'Plot PVC réglable', fam: 'acc', unit: 'u', price: 4.5, dens: 0, color: '#3f4752' },
+};
+const PANEL = {
+  bac: { l: 'Bac acier', price: 26, color: '#7b828b', t: .04 }, poly: { l: 'Polycarbonate alvéolaire 16 mm', price: 38, color: '#cfe6f5', t: .016, glass: true },
+  tuile: { l: 'Tuiles + liteaunage', price: 48, color: '#a8553c', t: .05 }, epdm: { l: 'Membrane EPDM', price: 28, color: '#2a2d32', t: .01 },
+  osb: { l: 'Panneau OSB 3 18 mm', price: 14, color: '#d8b37c', t: .018 }, bardage: { l: 'Bardage bois', price: 48, color: '#b0835a', t: .021 },
+  bardacier: { l: 'Bardage acier', price: 32, color: '#8d939a', t: .04 }, lames: { l: 'Lames de terrasse', price: 55, color: '#a87b50', t: .027 },
+  dalle: { l: 'Dalle béton 12 cm (fourni-coulé)', price: 78, color: '#b9b9b6', t: .12 }, verre: { l: 'Verre feuilleté', price: 190, color: '#d6eef8', t: .012, glass: true },
+  toile: { l: 'Toile tendue', price: 40, color: '#efe6d4', t: .005 }, gravier: { l: 'Gravier stabilisé', price: 14, color: '#cfc8ba', t: .06 },
+};
+const ROLES = { poteau: ['Poteau', '#2563eb'], poutre: ['Poutre / sablière', '#0f766e'], chevron: ['Chevron / panne', '#d97706'], solive: ['Solive / lambourde', '#7c3aed'], montant: ['Montant d’ossature', '#0891b2'], lisse: ['Lisse', '#65a30d'], contrev: ['Contreventement', '#dc2626'], lame: ['Lame', '#a16207'], plot: ['Plot / pied', '#475569'], autre: ['Autre', '#6b7280'] };
+
+// =====================================================================
+//  État, sauvegarde, historique
+// =====================================================================
+const uid = () => Math.random().toString(36).slice(2, 9);
+const clone = o => JSON.parse(JSON.stringify(o));
+const r3 = v => Math.round(v * 1000) / 1000;
+const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
+const DEF_PRICES = () => ({ mats: Object.fromEntries(Object.entries(MAT).map(([k, m]) => [k, m.price])), panels: Object.fromEntries(Object.entries(PANEL).map(([k, p]) => [k, p.price])),
+  joint: { bois: 4, acier: 14, alu: 9 }, foot: 45, finishBois: 0, finishAcier: 14, labour: { bois: .25, acier: .4, alu: .3, panel: .3, joint: .2 }, delivery: 90, waste: 8, stock: { bois: '2.5,3,4,5,6', acier: '6,12', alu: '6' } });
+function emptyProject(name) { return { v: 1, kind: 'exterior', name, site: { w: 16, d: 12, ground: '#a9c48b' }, members: [], panels: [], blocks: [], gens: [], dims: [], settings: { level: 0, plane: 0, side: 0, postH: 2.4, sec: 'b100x100', mat: 'douglas', panel: 'bac' }, prices: DEF_PRICES() }; }
+function migrate(st) {
+  st.site ??= { w: 16, d: 12, ground: '#a9c48b' }; st.members ??= []; st.panels ??= []; st.blocks ??= []; st.gens ??= []; st.dims ??= [];
+  st.settings = Object.assign({ level: 0, plane: 0, side: 0, postH: 2.4, sec: 'b100x100', mat: 'douglas', panel: 'bac' }, st.settings || {});
+  const d = DEF_PRICES(); st.prices = Object.assign(d, st.prices || {}); for (const k of ['mats', 'panels', 'joint', 'labour', 'stock']) st.prices[k] = Object.assign(d[k], (st.prices[k] || {}));
+  return st;
+}
+let S;
+function initState() {
+  const raw = C.ls.get(KEY); if (raw) { try { return migrate(JSON.parse(raw)); } catch { C.ls.set(KEY + '-illisible-' + Date.now(), raw); } }
+  const meta = C.get(PID), st = emptyProject(meta.name);
+  if (meta.template && meta.template !== 'empty') addGenerator(st, meta.template);
+  C.ls.set(KEY, JSON.stringify(st)); return st;
+}
+const prefs = Object.assign({ unit: 'cm', snap: '0.01', layout: 'split', aside: 470, v3h: 52, view: 'top', o: { panels: true, xray: false, blocks: true, ground: true, len: false, shadow: true, color: 'mat' }, l: { dims: true, panels: true, grid: true } }, (() => { try { return JSON.parse(C.ls.get(PKEY) || '{}'); } catch { return {}; } })());
+const savePrefs = () => C.ls.set(PKEY, JSON.stringify(prefs));
+let sel = [], tab = 'sel', tool = 'select', view = prefs.view;   // sel = [{k:'m'|'p'|'b'|'d', id}]
+let past = [], future = [], lastSaved = '', lastSaveAt = new Date(), lastBackup = 0, nCommit = 0, fileHandle = null;
+function save() {
+  const ok = C.ls.set(KEY, JSON.stringify(S)); if (ok) { lastSaveAt = new Date(); C.touch(PID, { name: S.name }); }
+  const el = document.getElementById('saveState'); el.textContent = ok ? '✓ Enregistré à ' + lastSaveAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '⚠ Stockage plein : Ctrl+S';
+  el.style.color = ok ? '#15803d' : '#b42318';
+}
+const backups = () => { try { return JSON.parse(C.ls.get(BKEY) || '[]'); } catch { return []; } };
+function backup(label, auto = true) {
+  const l = backups(), data = JSON.stringify(S); if (auto && l[0]?.data === data) return;
+  l.unshift({ t: Date.now(), label, auto, data }); let a = 0; const kept = l.filter(b => !b.auto || ++a <= 20).slice(0, 50);
+  while (!C.ls.set(BKEY, JSON.stringify(kept)) && kept.length > 2) kept.pop(); lastBackup = Date.now(); nCommit = 0;
+}
+function commit() {
+  const now = JSON.stringify(S);
+  if (now !== lastSaved) { past.push(lastSaved); if (past.length > 200) past.shift(); future = []; lastSaved = now; save(); if (++nCommit >= 25 || Date.now() - lastBackup > 300000) backup('Sauvegarde automatique'); }
+  sel = sel.filter(s => find(s)); renderAll();
+}
+function restore(str) { S = migrate(JSON.parse(str)); lastSaved = str; save(); sel = sel.filter(s => find(s)); renderAll(); }
+const undo = () => { if (past.length) { future.push(lastSaved); restore(past.pop()); } };
+const redo = () => { if (future.length) { past.push(lastSaved); restore(future.pop()); } };
+const find = s => s.k === 'm' ? S.members.find(x => x.id === s.id) : s.k === 'p' ? S.panels.find(x => x.id === s.id) : s.k === 'b' ? S.blocks.find(x => x.id === s.id) : s.k === 'd' ? S.dims.find(x => x.id === s.id) : null;
+const isSel = (k, id) => sel.some(s => s.k === k && s.id === id);
+
+// =====================================================================
+//  Unités & formats
+// =====================================================================
+const UNIT = () => prefs.unit, UF = () => prefs.unit === 'mm' ? 1000 : 100;
+const L = v => prefs.unit === 'mm' ? `${Math.round(v * 1000)}` : (Math.round(v * 1000) / 10).toLocaleString('fr-FR', { maximumFractionDigits: 1 });
+const fm = (v, d = 2) => (Number(v) || 0).toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d });
+const eur = v => (Number(v) || 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+const esc = C.esc;
+const step = () => parseFloat(prefs.snap);
+const snapV = v => r3(Math.round(v / step()) * step());
+
+// =====================================================================
+//  Géométrie des barres
+// =====================================================================
+const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]], mul = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
+const dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2], len3 = a => Math.hypot(a[0], a[1], a[2]), nrm = a => { const l = len3(a) || 1; return mul(a, 1 / l); };
+const crs = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const mLen = m => len3(sub(m.b, m.a));
+const sec = m => SEC[m.sec] ?? SEC.b100x100;
+// repère local d'une barre (coordonnées projet : x, y plan, z hauteur) : w = largeur, h = hauteur de section
+function basis(m) {
+  const ax = nrm(sub(m.b, m.a)); let h, w;
+  if (Math.abs(ax[2]) > .99) { w = [1, 0, 0]; h = crs(ax, w); }
+  else { h = nrm(sub([0, 0, 1], mul(ax, ax[2]))); w = crs(h, ax); }
+  const r = (m.rot || 0) * Math.PI / 180, c = Math.cos(r), s = Math.sin(r);
+  return { ax, w: add(mul(w, c), mul(h, s)), h: add(mul(h, c), mul(w, -s)) };
+}
+function corners(m) {
+  const { w, h } = basis(m), s = sec(m), hw = s.b / 2000, hh = s.h / 2000, out = [];
+  for (const p of [m.a, m.b]) for (const i of [-1, 1]) for (const j of [-1, 1]) out.push(add(p, add(mul(w, i * hw), mul(h, j * hh))));
+  return out;
+}
+function panelCorners(p) {
+  const n = nrm(crs(p.u, p.v)), t = p.t ?? PANEL[p.type]?.t ?? .02, base = [p.p0, add(p.p0, p.u), add(add(p.p0, p.u), p.v), add(p.p0, p.v)];
+  return [...base, ...base.map(q => add(q, mul(n, t)))];
+}
+const blockCorners = b => { const o = []; for (const x of [b.x, b.x + b.w]) for (const y of [b.y, b.y + b.d]) for (const z of [b.z || 0, (b.z || 0) + b.h]) o.push([x, y, z]); return o; };
+const panelArea = p => len3(crs(p.u, p.v));
+
+// =====================================================================
+//  Assistants (générateurs paramétriques)
+// =====================================================================
+const GEN = {
+  pergola: { l: 'Pergola bois', d: 'Autoportante ou adossée, poteaux, sablières, chevrons, couverture au choix', p: [
+    ['L', 'Longueur (le long de la façade)', 'len', 4], ['l', 'Profondeur', 'len', 3], ['H', 'Hauteur sous poutre', 'len', 2.4],
+    ['adossee', 'Adossée à un mur existant', 'bool', false], ['secP', 'Section poteaux', 'sec', 'b120x120'], ['secB', 'Section sablières', 'sec', 'b75x200'],
+    ['secC', 'Section chevrons', 'sec', 'b45x145'], ['ent', 'Entraxe des chevrons', 'len', .5], ['dep', 'Débord', 'len', .3], ['mat', 'Essence / matériau', 'mat', 'douglas'],
+    ['cov', 'Couverture', 'panel?', 'none'], ['x0', 'Position X', 'len', 3], ['y0', 'Position Y', 'len', 3]] },
+  carport: { l: 'Carport', d: 'Monopente, 2 files de poteaux, couverture bac acier', p: [
+    ['L', 'Longueur', 'len', 5.5], ['l', 'Largeur', 'len', 3.2], ['Hh', 'Hauteur côté haut', 'len', 2.5], ['Hb', 'Hauteur côté bas', 'len', 2.25],
+    ['nP', 'Poteaux par file', 'int', 3], ['secP', 'Section poteaux', 'sec', 'b120x120'], ['secB', 'Section sablières', 'sec', 'b75x225'], ['secC', 'Section chevrons', 'sec', 'b63x175'],
+    ['ent', 'Entraxe des chevrons', 'len', .6], ['dep', 'Débord', 'len', .35], ['mat', 'Matériau', 'mat', 'douglas'], ['cov', 'Couverture', 'panel?', 'bac'], ['x0', 'Position X', 'len', 3], ['y0', 'Position Y', 'len', 3]] },
+  abri: { l: 'Abri de jardin', d: 'Ossature bois, plancher, toit monopente, bardage, porte', p: [
+    ['L', 'Longueur (façade)', 'len', 3], ['l', 'Profondeur', 'len', 2.4], ['Hf', 'Hauteur mur avant', 'len', 2.3], ['Hb', 'Hauteur mur arrière', 'len', 2.0],
+    ['ent', 'Entraxe des montants', 'len', .6], ['door', 'Largeur de porte', 'len', .9], ['secM', 'Section montants', 'sec', 'b45x95'], ['secC', 'Section chevrons', 'sec', 'b45x145'],
+    ['mat', 'Essence', 'mat', 'pin'], ['cov', 'Couverture', 'panel?', 'epdm'], ['bard', 'Bardage', 'panel?', 'bardage'], ['x0', 'Position X', 'len', 4], ['y0', 'Position Y', 'len', 4]] },
+  terrasse: { l: 'Terrasse bois', d: 'Sur plots réglables : lambourdes et lames', p: [
+    ['L', 'Longueur (sens des lames)', 'len', 6], ['l', 'Largeur', 'len', 4], ['hp', 'Hauteur sous lambourdes', 'len', .12], ['entL', 'Entraxe des lambourdes', 'len', .5],
+    ['secL', 'Section lambourdes', 'sec', 'b45x70'], ['secLa', 'Section lames', 'sec', 'b27x145'], ['joint', 'Joint entre lames', 'len', .005], ['entP', 'Entraxe des plots', 'len', .6],
+    ['mat', 'Essence', 'mat', 'pin'], ['x0', 'Position X', 'len', 3], ['y0', 'Position Y', 'len', 3]] },
+  hangar: { l: 'Hangar / charpente métallique', d: 'Portiques IPE, pannes, contreventements, bac acier', p: [
+    ['L', 'Longueur', 'len', 12], ['l', 'Portée (largeur)', 'len', 8], ['H', 'Hauteur des poteaux', 'len', 4], ['pente', 'Pente du toit (%)', 'num', 15],
+    ['entP', 'Entraxe des portiques', 'len', 5], ['entPa', 'Entraxe des pannes', 'len', 1.5], ['secP', 'Poteaux', 'sec', 'hea160'], ['secT', 'Traverses', 'sec', 'ipe200'],
+    ['secPa', 'Pannes', 'sec', 't120x60'], ['secX', 'Contreventements', 'sec', 'r20'], ['mat', 'Acier', 'mat', 'galva'], ['cov', 'Couverture', 'panel?', 'bac'], ['bard', 'Bardage', 'panel?', 'none'],
+    ['x0', 'Position X', 'len', 2], ['y0', 'Position Y', 'len', 2]] },
+  cloture: { l: 'Clôture / garde-corps', d: 'Poteaux métal, lames bois horizontales', p: [
+    ['L', 'Longueur', 'len', 10], ['H', 'Hauteur', 'len', 1.8], ['ent', 'Entraxe des poteaux', 'len', 2], ['secP', 'Poteaux', 'sec', 't80x80'], ['matP', 'Matériau poteaux', 'mat', 'thermo'],
+    ['secLa', 'Lames', 'sec', 'b21x130'], ['jour', 'Jour entre lames', 'len', .02], ['matL', 'Essence des lames', 'mat', 'douglas'], ['x0', 'Position X', 'len', 2], ['y0', 'Position Y', 'len', 1]] },
+};
+const defParams = type => Object.fromEntries(GEN[type].p.map(([k, , , v]) => [k, v]));
+function addGenerator(st, type, params, gid) {
+  const g = { id: gid || 'g' + uid(), type, name: GEN[type].l + ' ' + ((st.gens.filter(x => x.type === type).length) + (gid ? 0 : 1)), params: Object.assign(defParams(type), params || {}) };
+  const old = st.gens.find(x => x.id === g.id); if (old) { g.name = old.name; st.gens = st.gens.map(x => x.id === g.id ? g : x); } else st.gens.push(g);
+  st.members = st.members.filter(m => m.gen !== g.id); st.panels = st.panels.filter(p => p.gen !== g.id); st.blocks = st.blocks.filter(b => b.gen !== g.id);
+  const out = build(type, g.params);
+  for (const m of out.m) st.members.push({ id: 'm' + uid(), gen: g.id, rot: 0, ...m, a: m.a.map(r3), b: m.b.map(r3) });
+  for (const p of out.p) st.panels.push({ id: 'p' + uid(), gen: g.id, ...p });
+  for (const b of out.b || []) st.blocks.push({ id: 'b' + uid(), gen: g.id, ...b });
+  return g;
+}
+const H_ = k => (SEC[k]?.h ?? 100) / 1000, B_ = k => (SEC[k]?.b ?? 100) / 1000;
+function build(type, P) {
+  const m = [], p = [], b = [];
+  const M = (a, bb, sec, mat, role, o = {}) => m.push({ a, b: bb, sec, mat, role, ...o });
+  const spread = (from, to, ent) => { const n = Math.max(1, Math.ceil((to - from) / ent - 1e-6)), out = []; for (let i = 0; i <= n; i++) out.push(from + (to - from) * i / n); return out; };
+  const { x0 = 0, y0 = 0 } = P;
+  if (type === 'pergola') {
+    const { L: Lg, l, H, secP, secB, secC, ent, dep, mat, cov, adossee } = P, hb = H_(secB), hc = H_(secC), nP = Math.max(2, Math.ceil(Lg / 4) + 1);
+    const xs = spread(x0, x0 + Lg, Lg / (nP - 1)), yF = y0 + l, yB = y0;
+    for (const x of xs) { M([x, yF, 0], [x, yF, H], secP, mat, 'poteau'); if (!adossee) M([x, yB, 0], [x, yB, H], secP, mat, 'poteau'); }
+    M([x0 - dep, yF, H + hb / 2], [x0 + Lg + dep, yF, H + hb / 2], secB, mat, 'poutre');
+    if (adossee) { M([x0 - dep, yB, H + hb / 2], [x0 + Lg + dep, yB, H + hb / 2], secB, mat, 'poutre', { name: 'Muraillère' }); b.push({ name: 'Mur existant', x: x0 - 1, y: yB - .3 - B_(secB) / 2, z: 0, w: Lg + 2, d: .3, h: H + 1.2, color: '#e7e1d6' }); }
+    else M([x0 - dep, yB, H + hb / 2], [x0 + Lg + dep, yB, H + hb / 2], secB, mat, 'poutre');
+    const zc = H + hb + hc / 2;
+    for (const x of spread(x0 - dep + B_(secC) / 2, x0 + Lg + dep - B_(secC) / 2, ent)) M([x, yB - (adossee ? 0 : dep), zc], [x, yF + dep, zc], secC, mat, 'chevron');
+    if (cov !== 'none') p.push({ type: cov, p0: [x0 - dep, yB - (adossee ? 0 : dep), H + hb + hc], u: [Lg + 2 * dep, 0, 0], v: [0, l + dep * (adossee ? 1 : 2), 0] });
+  } else if (type === 'carport') {
+    const { L: Lg, l, Hh, Hb, nP, secP, secB, secC, ent, dep, mat, cov } = P, hb = H_(secB), hc = H_(secC);
+    const xs = spread(x0, x0 + Lg, Lg / Math.max(1, nP - 1));
+    for (const x of xs) { M([x, y0, 0], [x, y0, Hh], secP, mat, 'poteau'); M([x, y0 + l, 0], [x, y0 + l, Hb], secP, mat, 'poteau'); }
+    M([x0 - dep, y0, Hh + hb / 2], [x0 + Lg + dep, y0, Hh + hb / 2], secB, mat, 'poutre'); M([x0 - dep, y0 + l, Hb + hb / 2], [x0 + Lg + dep, y0 + l, Hb + hb / 2], secB, mat, 'poutre');
+    const k = (Hb - Hh) / l, za = Hh + hb + hc / 2, z = y => za + k * (y - y0);
+    for (const x of spread(x0 - dep + B_(secC) / 2, x0 + Lg + dep - B_(secC) / 2, ent)) M([x, y0 - dep, z(y0 - dep)], [x, y0 + l + dep, z(y0 + l + dep)], secC, mat, 'chevron');
+    if (cov !== 'none') p.push({ type: cov, p0: [x0 - dep, y0 - dep, z(y0 - dep) + hc / 2], u: [Lg + 2 * dep, 0, 0], v: [0, l + 2 * dep, k * (l + 2 * dep)] });
+  } else if (type === 'abri') {
+    const { L: Lg, l, Hf, Hb, ent, door, secM, secC, mat, cov, bard } = P, tm = H_(secM), bm = B_(secM), hc = H_(secC), zf = .18;
+    // plancher : solives + OSB
+    for (const x of spread(x0, x0 + Lg, .5)) M([clamp(x, x0 + .0225, x0 + Lg - .0225), y0, .03 + .0725], [clamp(x, x0 + .0225, x0 + Lg - .0225), y0 + l, .03 + .0725], 'b45x145', mat, 'solive', { rot: 0 });
+    p.push({ type: 'osb', p0: [x0, y0, zf], u: [Lg, 0, 0], v: [0, l, 0] });
+    const hAt = y => Hf + (Hb - Hf) * (y - y0) / l, dz = zf + .018;
+    const wall = (ax, ay, bx, by, front) => {
+      const len = Math.hypot(bx - ax, by - ay), ux = (bx - ax) / len, uy = (by - ay) / len, rot = Math.abs(uy) > .5 ? 90 : 0;
+      const pts = spread(0, len, ent).map(s => clamp(s, bm / 2, len - bm / 2)), d0 = (len - door) / 2;
+      M([ax, ay, dz + bm / 2], [bx, by, dz + bm / 2], secM, mat, 'lisse', { rot: 90 });
+      for (const s of pts) {
+        if (front && s > d0 - .01 && s < d0 + door + .01) continue;
+        const x = ax + ux * s, y = ay + uy * s; M([x, y, dz + bm], [x, y, dz + hAt(y) - bm], secM, mat, 'montant', { rot });
+      }
+      if (front) { for (const s of [d0 - bm / 2, d0 + door + bm / 2]) { const x = ax + ux * s, y = ay + uy * s; M([x, y, dz + bm], [x, y, dz + hAt(y) - bm], secM, mat, 'montant', { rot }); }
+        const xa = ax + ux * (d0 - bm), xb = ax + ux * (d0 + door + bm); M([xa, ay, dz + 2.0 + tm / 2], [xb, by, dz + 2.0 + tm / 2], 'b45x145', mat, 'lisse', { name: 'Linteau' }); }
+      const za = dz + hAt(ay) - bm / 2, zb = dz + hAt(by) - bm / 2; M([ax, ay, za], [bx, by, zb], secM, mat, 'lisse', { rot: 90 });
+    };
+    wall(x0, y0, x0 + Lg, y0, true); wall(x0, y0 + l, x0 + Lg, y0 + l, false); wall(x0, y0, x0, y0 + l, false); wall(x0 + Lg, y0, x0 + Lg, y0 + l, false);
+    const k = (Hb - Hf) / l, zr = y => dz + hAt(y) + hc / 2;
+    for (const x of spread(x0, x0 + Lg, ent).map(x => clamp(x, x0 + .0225, x0 + Lg - .0225))) M([x, y0 - .3, zr(y0 - .3)], [x, y0 + l + .3, zr(y0 + l + .3)], secC, mat, 'chevron');
+    p.push({ type: 'osb', p0: [x0 - .3, y0 - .3, zr(y0 - .3) + hc / 2], u: [Lg + .6, 0, 0], v: [0, l + .6, k * (l + .6)] });
+    if (cov !== 'none') p.push({ type: cov, p0: [x0 - .3, y0 - .3, zr(y0 - .3) + hc / 2 + .018], u: [Lg + .6, 0, 0], v: [0, l + .6, k * (l + .6)] });
+    if (bard !== 'none') {
+      const off = .045 / 2 + .06, d0 = (Lg - door) / 2;
+      p.push({ type: bard, p0: [x0, y0 - off, dz], u: [d0, 0, 0], v: [0, 0, Hf] }, { type: bard, p0: [x0 + d0 + door, y0 - off, dz], u: [Lg - d0 - door, 0, 0], v: [0, 0, Hf] }, { type: bard, p0: [x0 + d0, y0 - off, dz + 2.05], u: [door, 0, 0], v: [0, 0, Hf - 2.05] });
+      p.push({ type: bard, p0: [x0, y0 + l + off, dz], u: [Lg, 0, 0], v: [0, 0, Hb] });
+      p.push({ type: bard, p0: [x0 - off, y0, dz], u: [0, l, 0], v: [0, 0, (Hf + Hb) / 2] }, { type: bard, p0: [x0 + Lg + off, y0, dz], u: [0, l, 0], v: [0, 0, (Hf + Hb) / 2] });
+    }
+  } else if (type === 'terrasse') {
+    const { L: Lg, l, hp, entL, secL, secLa, joint, entP, mat } = P, hl = H_(secL), hla = H_(secLa), bla = B_(secLa);
+    const ys = spread(y0 + .05, y0 + l - .05, entL);
+    for (const y of ys) {
+      M([x0, y, hp + hl / 2], [x0 + Lg, y, hp + hl / 2], secL, mat, 'solive', { name: 'Lambourde' });
+      for (const x of spread(x0 + .1, x0 + Lg - .1, entP)) M([x, y, 0], [x, y, hp], 'plot', 'plot', 'plot');
+    }
+    for (let y = y0 + bla / 2; y < y0 + l - bla / 2 + 1e-6; y += bla + joint) M([x0, y, hp + hl + hla / 2], [x0 + Lg, y, hp + hl + hla / 2], secLa, mat, 'lame');
+  } else if (type === 'hangar') {
+    const { L: Lg, l, H, pente, entP, entPa, secP, secT, secPa, secX, mat, cov, bard } = P, hT = H_(secT), hPa = H_(secPa);
+    const k = pente / 100, ym = y0 + l / 2, ridge = H + k * l / 2, xs = spread(x0, x0 + Lg, entP);
+    for (const x of xs) {
+      M([x, y0, 0], [x, y0, H], secP, mat, 'poteau'); M([x, y0 + l, 0], [x, y0 + l, H], secP, mat, 'poteau');
+      M([x, y0, H + hT / 2], [x, ym, ridge + hT / 2], secT, mat, 'poutre', { name: 'Traverse' }); M([x, ym, ridge + hT / 2], [x, y0 + l, H + hT / 2], secT, mat, 'poutre', { name: 'Traverse' });
+    }
+    const zt = y => H + hT + k * (y < ym ? y - y0 : y0 + l - y) + hPa / 2;
+    for (const y of [...spread(y0 + .1, ym - .1, entPa), ...spread(ym + .1, y0 + l - .1, entPa)]) M([x0 - .2, y, zt(y)], [x0 + Lg + .2, y, zt(y)], secPa, mat, 'chevron', { name: 'Panne' });
+    if (xs.length > 1) for (const [xa, xb] of [[xs[0], xs[1]], [xs.at(-2), xs.at(-1)]]) for (const y of [y0, y0 + l]) {
+      M([xa, y, .3], [xb, y, H - .2], secX, mat, 'contrev'); M([xb, y, .3], [xa, y, H - .2], secX, mat, 'contrev');
+    }
+    if (cov !== 'none') { const zz = H + hT + hPa; p.push({ type: cov, p0: [x0 - .2, y0, zz], u: [Lg + .4, 0, 0], v: [0, l / 2, k * l / 2] }, { type: cov, p0: [x0 - .2, ym, zz + k * l / 2], u: [Lg + .4, 0, 0], v: [0, l / 2, -k * l / 2] }); }
+    if (bard !== 'none') { const o = B_(secP) / 2 + .05; p.push({ type: bard, p0: [x0, y0 - o, 0], u: [Lg, 0, 0], v: [0, 0, H] }, { type: bard, p0: [x0, y0 + l + o, 0], u: [Lg, 0, 0], v: [0, 0, H] }); }
+  } else if (type === 'cloture') {
+    const { L: Lg, H, ent, secP, matP, secLa, jour, matL } = P, hla = B_(secLa);
+    for (const x of spread(x0, x0 + Lg, ent)) M([x, y0, -.5], [x, y0, H + .05], secP, matP, 'poteau');
+    const off = B_(secP) / 2 + H_(secLa) / 2;
+    for (let z = .08 + hla / 2; z < H - hla / 2 + 1e-6; z += hla + jour) M([x0, y0 + off, z], [x0 + Lg, y0 + off, z], secLa, matL, 'lame', { rot: 90 });
+  }
+  return { m, p, b };
+}
+
+S = initState(); lastSaved = JSON.stringify(S);
+
+// =====================================================================
+//  Métré : liste de débit, optimisation des barres, prix
+// =====================================================================
+function cutPlan(pieces, stock, kerf = .004) {
+  // premier ajustement décroissant sur une longueur de barre donnée
+  const bars = [];
+  for (const pc of [...pieces].sort((a, b) => b - a)) {
+    if (pc > stock + 1e-9) { bars.push({ len: stock, cuts: [pc], over: true }); continue; }
+    const bar = bars.find(b => !b.over && b.len - b.cuts.reduce((a, c) => a + c + kerf, 0) >= pc - 1e-9);
+    if (bar) bar.cuts.push(pc); else bars.push({ len: stock, cuts: [pc] });
+  }
+  return bars;
+}
+function bestPlan(pieces, stocks) {
+  let best = null;
+  for (const st of stocks) { const max = Math.max(...pieces); if (max > st + 1e-9 && st !== Math.max(...stocks)) continue; const plan = cutPlan(pieces, st), tot = plan.reduce((a, b) => a + (b.over ? Math.ceil(b.cuts[0] / st) * st : b.len), 0); if (!best || tot < best.tot - 1e-9) best = { stock: st, plan, tot }; }
+  return best;
+}
+function bom() {
+  const P = S.prices, groups = new Map();
+  for (const m of S.members) { const k = m.sec + '|' + m.mat; if (!groups.has(k)) groups.set(k, { sec: m.sec, mat: m.mat, pieces: [], members: [] }); const g = groups.get(k); g.pieces.push(mLen(m)); g.members.push(m); }
+  const rows = [];
+  for (const g of groups.values()) {
+    const s = SEC[g.sec] ?? SEC.b100x100, mt = MAT[g.mat] ?? MAT.douglas, fam = s.fam === 'acc' ? 'acc' : mt.fam;
+    const total = g.pieces.reduce((a, b) => a + b, 0), area = s.b * s.h / 1e6;
+    if (fam === 'acc') { rows.push({ ...g, s, mt, fam, n: g.pieces.length, total, buy: g.pieces.length, unit: 'u', pu: P.mats[g.mat] ?? mt.price, cost: g.pieces.length * (P.mats[g.mat] ?? mt.price), weight: 0, vol: 0, plan: null }); continue; }
+    const stocks = String(P.stock[fam] || '6').split(/[,; ]+/).map(Number).filter(v => v > 0);
+    const bp = bestPlan(g.pieces, stocks), buyLen = bp.tot * (1 + (P.waste || 0) / 100 * 0);
+    const kgm = s.kgm ?? area * mt.dens, vol = buyLen * area, weight = buyLen * kgm;
+    const price = P.mats[g.mat] ?? mt.price, puMl = mt.unit === 'm3' ? price * area : price * kgm;
+    rows.push({ ...g, s, mt, fam, n: g.pieces.length, total, buy: buyLen, bars: bp.plan.length, stock: bp.stock, plan: bp.plan, kgm, vol, weight, unit: 'ml', pu: puMl, cost: buyLen * puMl * (1 + (P.waste || 0) / 100) });
+  }
+  rows.sort((a, b) => (a.fam > b.fam ? 1 : -1) || b.cost - a.cost);
+  const pans = new Map(); for (const p of S.panels) { const a = panelArea(p); pans.set(p.type, (pans.get(p.type) || 0) + a); }
+  const panelRows = [...pans].map(([type, area]) => ({ type, area, pu: P.panels[type] ?? PANEL[type]?.price ?? 0, cost: area * (P.panels[type] ?? PANEL[type]?.price ?? 0) * (1 + (P.waste || 0) / 100) }));
+  // assemblages : extrémités de barres qui touchent une autre barre
+  let joints = { bois: 0, acier: 0, alu: 0 };
+  const segDist = (p, m) => { const d = sub(m.b, m.a), t = clamp(dot3(sub(p, m.a), d) / (dot3(d, d) || 1), 0, 1); return len3(sub(p, add(m.a, mul(d, t)))); };
+  for (const m of S.members) { const fam = MAT[m.mat]?.fam; if (!joints.hasOwnProperty(fam)) continue; for (const e of [m.a, m.b]) if (S.members.some(o => o !== m && segDist(e, o) < Math.max(sec(o).b, sec(o).h) / 1000 / 2 + Math.max(sec(m).b, sec(m).h) / 1000 / 2 + .02)) joints[fam]++; }
+  const feet = S.members.filter(m => m.role === 'poteau' && Math.min(m.a[2], m.b[2]) <= .02).length;
+  const finishB = S.members.filter(m => MAT[m.mat]?.fam === 'bois').reduce((a, m) => a + 2 * (sec(m).b + sec(m).h) / 1000 * mLen(m), 0);
+  const finishA = S.members.filter(m => MAT[m.mat]?.paint).reduce((a, m) => a + 2 * (sec(m).b + sec(m).h) / 1000 * mLen(m), 0);
+  const hours = rows.reduce((a, r) => a + (r.fam === 'acc' ? r.n * .1 : r.total * (P.labour[r.fam] ?? .3)), 0) + panelRows.reduce((a, r) => a + r.area * P.labour.panel, 0) + (joints.bois + joints.acier + joints.alu) * P.labour.joint;
+  return { rows, panelRows, joints, feet, finishB, finishA, hours };
+}
+function devisLines() {
+  const B = bom(), P = S.prices, co = C.company(), lines = [];
+  for (const r of B.rows) {
+    if (r.fam === 'acc') { lines.push({ section: 'Fournitures', designation: `${r.s.l}`, qty: r.n, unit: 'u', pu: r.pu }); continue; }
+    lines.push({ section: 'Fournitures', designation: `${r.mt.l} — ${r.s.l} (${r.bars} barre${r.bars > 1 ? 's' : ''} de ${fm(r.stock, 1)} m${r.fam !== 'bois' ? `, ${fm(r.weight, 0)} kg` : `, ${fm(r.vol, 3)} m³`})`, qty: +(r.buy * (1 + (P.waste || 0) / 100)).toFixed(2), unit: 'ml', pu: +r.pu.toFixed(2) });
+  }
+  for (const r of B.panelRows) lines.push({ section: 'Fournitures', designation: PANEL[r.type]?.l ?? r.type, qty: +(r.area * (1 + (P.waste || 0) / 100)).toFixed(2), unit: 'm²', pu: r.pu });
+  for (const fam of ['bois', 'acier', 'alu']) if (B.joints[fam]) lines.push({ section: 'Fournitures', designation: `Quincaillerie et assemblages ${fam} (sabots, équerres, platines, boulonnerie)`, qty: B.joints[fam], unit: 'u', pu: P.joint[fam] });
+  if (B.feet) lines.push({ section: 'Fondations', designation: 'Massif béton + platine / pied de poteau réglable', qty: B.feet, unit: 'u', pu: P.foot });
+  if (P.finishBois && B.finishB) lines.push({ section: 'Finitions', designation: 'Lasure / saturateur bois (2 couches)', qty: +B.finishB.toFixed(2), unit: 'm²', pu: P.finishBois });
+  if (P.finishAcier && B.finishA) lines.push({ section: 'Finitions', designation: 'Peinture antirouille + finition sur acier brut', qty: +B.finishA.toFixed(2), unit: 'm²', pu: P.finishAcier });
+  if (B.hours) lines.push({ section: 'Main d’œuvre', designation: 'Fabrication et pose (estimation à partir du métré)', qty: +B.hours.toFixed(1), unit: 'h', pu: Number(co.hourly) || 45 });
+  if (P.delivery) lines.push({ section: 'Divers', designation: 'Livraison et transport des matériaux', qty: 1, unit: 'forfait', pu: P.delivery });
+  return lines;
+}
+
+// =====================================================================
+//  Vue 2D (dessus / face / côté)
+// =====================================================================
+const svg = document.getElementById('plan'), G = document.getElementById('G');
+const VIEWS = { top: { l: 'Vue de dessus', h: 'Niveau Z', p: q => [q[0], q[1]], d: q => q[2], u: [[1, 0, 0], [0, 1, 0]], ax: 2 },
+  front: { l: 'Vue de face (depuis le sud)', h: 'Plan Y', p: q => [q[0], -q[2]], d: q => q[1], u: [[1, 0, 0], [0, 0, -1]], ax: 1 },
+  side: { l: 'Vue de côté (depuis l’ouest)', h: 'Plan X', p: q => [q[1], -q[2]], d: q => -q[0], u: [[0, 1, 0], [0, 0, -1]], ax: 0 } };
+const vw = { cx: 6, cy: 6, s: .015 };
+const n4 = v => +v.toFixed(4);
+let cursor = null, draw = null, drag = null, down = null, dimEdit = null;
+const EDITS = new Map(); let eSeq = 0;
+function vb() { const r = svg.getBoundingClientRect(); return { x: vw.cx - r.width * vw.s / 2, y: vw.cy - r.height * vw.s / 2, w: r.width * vw.s, h: r.height * vw.s, r }; }
+const toV = e => { const v = vb(); return [v.x + (e.clientX - v.r.left) * vw.s, v.y + (e.clientY - v.r.top) * vw.s]; };
+// coordonnée de vue -> point 3D sur le plan de travail
+function toWorld(q) { const V = VIEWS[view], wp = wpVal(); if (view === 'top') return [q[0], q[1], wp]; if (view === 'front') return [q[0], wp, -q[1]]; return [wp, q[0], -q[1]]; }
+const wpVal = () => view === 'top' ? S.settings.level : view === 'front' ? S.settings.plane : S.settings.side;
+function hull(pts) {
+  const p = [...pts].sort((a, b) => a[0] - b[0] || a[1] - b[1]); if (p.length < 3) return p;
+  const cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]), lo = [], up = [];
+  for (const q of p) { while (lo.length >= 2 && cr(lo.at(-2), lo.at(-1), q) <= 0) lo.pop(); lo.push(q); }
+  for (const q of p.slice().reverse()) { while (up.length >= 2 && cr(up.at(-2), up.at(-1), q) <= 0) up.pop(); up.push(q); }
+  return lo.slice(0, -1).concat(up.slice(0, -1));
+}
+const polyS = (pts, attr) => `<polygon points="${pts.map(q => n4(q[0]) + ',' + n4(q[1])).join(' ')}" ${attr}/>`;
+function fit() {
+  const pts = []; for (const m of S.members) pts.push(...corners(m).map(VIEWS[view].p)); for (const p of S.panels) pts.push(...panelCorners(p).map(VIEWS[view].p));
+  if (view === 'top') pts.push([0, 0], [S.site.w, S.site.d]);
+  if (!pts.length) pts.push([0, 0], [S.site.w, view === 'top' ? S.site.d : -3]);
+  const xs = pts.map(q => q[0]), ys = pts.map(q => q[1]), r = svg.getBoundingClientRect(); if (!r.width) return;
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  vw.cx = (x0 + x1) / 2; vw.cy = (y0 + y1) / 2; vw.s = Math.max((x1 - x0 + 1.6) / r.width, (y1 - y0 + 1.6) / r.height, .002);
+}
+function dimLine(a, b, txt, off, col, edit) {
+  const s = vw.s, Lg = Math.hypot(b[0] - a[0], b[1] - a[1]); if (Lg < .005) return '';
+  const ux = (b[0] - a[0]) / Lg, uy = (b[1] - a[1]) / Lg, nx = -uy * off, ny = ux * off, A = [a[0] + nx, a[1] + ny], Bp = [b[0] + nx, b[1] + ny], tk = 4 * s;
+  const vert = Math.abs(ux) < .5, mx = (A[0] + Bp[0]) / 2, my = (A[1] + Bp[1]) / 2, tx = vert ? mx - 9 * s : mx, ty = vert ? my : my - 8 * s;
+  let eid = ''; if (edit) { eid = 'e' + (++eSeq); EDITS.set(eid, { fn: edit, val: Lg }); }
+  return `<line class="ns" x1="${n4(A[0])}" y1="${n4(A[1])}" x2="${n4(Bp[0])}" y2="${n4(Bp[1])}" stroke="${col}" stroke-width="1.2"/>
+    <path class="ns" d="M${n4(A[0] - uy * tk)},${n4(A[1] + ux * tk)}L${n4(A[0] + uy * tk)},${n4(A[1] - ux * tk)}M${n4(Bp[0] - uy * tk)},${n4(Bp[1] + ux * tk)}L${n4(Bp[0] + uy * tk)},${n4(Bp[1] - ux * tk)}" stroke="${col}" stroke-width="1.2"/>
+    <text class="dimt" ${eid ? `data-k="edim" data-id="${eid}" style="cursor:text;text-decoration:underline dotted;fill:${col}"` : `style="fill:${col};pointer-events:none"`} x="${n4(tx)}" y="${n4(ty)}" font-size="${n4(11 * s)}" stroke-width="${n4(3 * s)}"${vert ? ` transform="rotate(-90 ${n4(tx)} ${n4(ty)})"` : ''}>${txt}</text>`;
+}
+const colorOf = m => prefs.o.color === 'role' ? (ROLES[m.role]?.[1] ?? '#6b7280') : (MAT[m.mat]?.color ?? '#999');
+function render2D() {
+  EDITS.clear();
+  const v = vb(), s = vw.s, V = VIEWS[view];
+  svg.setAttribute('viewBox', `${n4(v.x)} ${n4(v.y)} ${n4(v.w)} ${n4(v.h)}`);
+  let h = '';
+  if (prefs.l.grid) {
+    const st = s < .01 ? .1 : s < .03 ? .5 : 1, x0 = Math.floor(v.x / st) * st, y0 = Math.floor(v.y / st) * st;
+    for (let x = x0; x < v.x + v.w; x += st) h += `<line class="${Math.abs(x % 1) < 1e-6 ? 'gM' : 'g'}" x1="${n4(x)}" y1="${n4(v.y)}" x2="${n4(x)}" y2="${n4(v.y + v.h)}"/>`;
+    for (let y = y0; y < v.y + v.h; y += st) h += `<line class="${Math.abs(y % 1) < 1e-6 ? 'gM' : 'g'}" x1="${n4(v.x)}" y1="${n4(y)}" x2="${n4(v.x + v.w)}" y2="${n4(y)}"/>`;
+  }
+  if (view === 'top') h += `<rect x="0" y="0" width="${S.site.w}" height="${S.site.d}" fill="${S.site.ground}" fill-opacity=".18" stroke="#7a9a5c" stroke-dasharray="6 4" class="ns" stroke-width="1"/>`;
+  else h += `<line x1="${n4(v.x)}" y1="0" x2="${n4(v.x + v.w)}" y2="0" stroke="#7a9a5c" stroke-width="2" class="ns"/><rect x="${n4(v.x)}" y="0" width="${n4(v.w)}" height="${n4(Math.max(0, v.y + v.h))}" fill="#a9c48b" fill-opacity=".12"/>`;
+  // objets triés du plus loin au plus proche
+  const items = [];
+  for (const b of S.blocks) items.push({ k: 'b', o: b, pts: blockCorners(b) });
+  if (prefs.l.panels) for (const p of S.panels) items.push({ k: 'p', o: p, pts: panelCorners(p) });
+  for (const m of S.members) items.push({ k: 'm', o: m, pts: corners(m) });
+  for (const it of items) it.z = Math.min(...it.pts.map(V.d));
+  items.sort((a, b) => view === 'top' ? a.z - b.z : b.z - a.z);
+  for (const it of items) {
+    const pr = hull(it.pts.map(V.p)), on = isSel(it.k, it.o.id);
+    if (it.k === 'm') h += polyS(pr, `class="mem ns" data-k="m" data-id="${it.o.id}" fill="${colorOf(it.o)}" stroke="${on ? '#2563eb' : '#1f2937'}" stroke-width="${on ? 2.5 : .8}" fill-opacity="${on ? 1 : .92}"`);
+    else if (it.k === 'p') { const pt = PANEL[it.o.type]; h += polyS(pr, `class="mem ns" data-k="p" data-id="${it.o.id}" fill="${it.o.color ?? pt?.color ?? '#ccc'}" fill-opacity="${on ? .55 : .3}" stroke="${on ? '#2563eb' : '#64748b'}" stroke-width="${on ? 2.5 : .8}" stroke-dasharray="${on ? '' : '5 3'}"`); }
+    else h += polyS(pr, `class="mem ns" data-k="b" data-id="${it.o.id}" fill="${it.o.color ?? '#e7e1d6'}" fill-opacity=".8" stroke="${on ? '#2563eb' : '#8a8f99'}" stroke-width="${on ? 2.5 : 1}"`);
+  }
+  // cotes : encombrement général + barre sélectionnée
+  if (prefs.l.dims && S.members.length) {
+    const pts = S.members.flatMap(m => corners(m).map(V.p)), xs = pts.map(q => q[0]), ys = pts.map(q => q[1]);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    h += dimLine([x0, y1], [x1, y1], `${L(x1 - x0)}`, 26 * s, '#0f766e') + dimLine([x1, y0], [x1, y1], `${L(y1 - y0)}`, -26 * s, '#0f766e');
+  }
+  for (const d of S.dims) if (d.view === view) {
+    const a = V.p(d.a), b = V.p(d.b), on = isSel('d', d.id);
+    h += `<g data-k="d" data-id="${d.id}" style="cursor:pointer"><line x1="${n4(a[0])}" y1="${n4(a[1])}" x2="${n4(b[0])}" y2="${n4(b[1])}" stroke="transparent" stroke-width="${n4(10 * s)}"/>${dimLine(a, b, L(Math.hypot(b[0] - a[0], b[1] - a[1])), (d.off || 0), on ? '#2563eb' : '#be185d')}</g>`;
+  }
+  const one = sel.length === 1 ? find(sel[0]) : null;
+  if (one && sel[0].k === 'm') {
+    const m = one, a = V.p(m.a), b = V.p(m.b), Lp = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (Lp > .02) h += dimLine(a, b, `${L(mLen(m))}`, 14 * s, '#2563eb', v => { const ax = nrm(sub(m.b, m.a)); m.b = add(m.a, mul(ax, v)).map(r3); });
+    for (const [end, q] of [['a', a], ['b', b]]) h += `<circle data-k="end" data-end="${end}" data-id="${m.id}" cx="${n4(q[0])}" cy="${n4(q[1])}" r="${n4(6 * s)}" fill="#fff" stroke="#2563eb" stroke-width="2" class="ns" style="cursor:crosshair"/>`;
+  }
+  // aperçus des outils
+  if (cursor && tool !== 'select') {
+    const q = snapPt(cursor); h += `<circle cx="${n4(q.v[0])}" cy="${n4(q.v[1])}" r="${n4(4 * s)}" fill="${q.hit ? '#dc2626' : '#2563eb'}"/>`;
+    if (draw) {
+      const a = V.p(draw.a), b = q.v;
+      if (tool === 'panel') h += polyS([[a[0], a[1]], [b[0], a[1]], [b[0], b[1]], [a[0], b[1]]], 'fill="#2563eb" fill-opacity=".2" stroke="#2563eb" class="ns" stroke-width="1"');
+      else h += `<line x1="${n4(a[0])}" y1="${n4(a[1])}" x2="${n4(b[0])}" y2="${n4(b[1])}" stroke="#2563eb" stroke-width="${tool === 'dim' ? 1.5 : 3}" class="ns"/>` + dimLine(a, b, L(Math.hypot(b[0] - a[0], b[1] - a[1])), -12 * s, '#2563eb');
+    }
+  }
+  G.innerHTML = h;
+  document.getElementById('viewTag').textContent = V.l;
+}
+// aimantation : extrémités de barres, coins de panneaux, grille
+function snapPt(q) {
+  const V = VIEWS[view], tol = 10 * vw.s; let best = null, bd = tol;
+  for (const m of S.members) for (const e of [m.a, m.b]) { const p = V.p(e), d = Math.hypot(p[0] - q[0], p[1] - q[1]); if (d < bd) { bd = d; best = e; } }
+  for (const p of S.panels) for (const e of panelCorners(p).slice(0, 4)) { const pp = V.p(e), d = Math.hypot(pp[0] - q[0], pp[1] - q[1]); if (d < bd) { bd = d; best = e; } }
+  if (best) return { w: [...best], v: V.p(best), hit: true };
+  const g = [snapV(q[0]), snapV(q[1])], w = toWorld(g);
+  return { w: w.map(r3), v: g, hit: false };
+}
+
+// --- interactions 2D
+svg.addEventListener('contextmenu', e => e.preventDefault());
+svg.addEventListener('pointerdown', e => {
+  const q = toV(e), el = e.target.closest('[data-k]'), k = el?.dataset.k;
+  if (e.button === 2) { draw = null; render2D(); return; }
+  if (k === 'edim') { e.preventDefault(); openDimEdit(el.dataset.id, e.clientX, e.clientY); return; }
+  down = { x: e.clientX, y: e.clientY, q, el, k, moved: false, shift: e.shiftKey };
+  svg.setPointerCapture(e.pointerId);
+  if (tool === 'select' && el && (k === 'm' || k === 'p' || k === 'b' || k === 'end' || k === 'd')) {
+    const kk = k === 'end' ? 'm' : k, id = el.dataset.id;
+    if (e.shiftKey) { if (isSel(kk, id)) sel = sel.filter(s => !(s.k === kk && s.id === id)); else sel.push({ k: kk, id }); }
+    else if (!isSel(kk, id)) sel = [{ k: kk, id }];
+    tab = 'sel'; renderPanel(); render2D(); dirty3D = true;
+    const objs = sel.map(s => ({ s, o: find(s), orig: clone(find(s)) }));
+    drag = k === 'end' ? { kind: 'end', m: find({ k: 'm', id }), end: el.dataset.end, orig: [...find({ k: 'm', id })[el.dataset.end]], q0: q } : { kind: 'move', objs, q0: q };
+  } else drag = { kind: 'pan', cx: vw.cx, cy: vw.cy, x: e.clientX, y: e.clientY };
+});
+svg.addEventListener('pointermove', e => {
+  const q = toV(e); cursor = q;
+  const w = snapPt(q).w; document.getElementById('coords').textContent = `X ${L(w[0])} · Y ${L(w[1])} · Z ${L(w[2])} ${UNIT()}`;
+  if (down && !down.moved && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 4) down.moved = true;
+  if (drag && down?.moved) {
+    if (drag.kind === 'pan') { vw.cx = drag.cx - (e.clientX - drag.x) * vw.s; vw.cy = drag.cy - (e.clientY - drag.y) * vw.s; render2D(); return; }
+    const V = VIEWS[view], dv = [snapV(q[0] - drag.q0[0]), snapV(q[1] - drag.q0[1])], d3 = add(mul(V.u[0], dv[0]), mul(V.u[1], dv[1]));
+    if (drag.kind === 'end') { const sp = snapPt(q); drag.m[drag.end] = sp.hit ? sp.w : add(drag.orig, d3).map(r3); }
+    else for (const { s, o, orig } of drag.objs) {
+      if (s.k === 'm') { o.a = add(orig.a, d3).map(r3); o.b = add(orig.b, d3).map(r3); }
+      else if (s.k === 'p') o.p0 = add(orig.p0, d3).map(r3);
+      else if (s.k === 'b') { o.x = r3(orig.x + d3[0]); o.y = r3(orig.y + d3[1]); o.z = r3((orig.z || 0) + d3[2]); }
+      else if (s.k === 'd') { o.a = add(orig.a, d3).map(r3); o.b = add(orig.b, d3).map(r3); }
+    }
+    render2D(); dirty3D = true; return;
+  }
+  if (tool !== 'select') render2D();
+});
+svg.addEventListener('pointerup', () => {
+  if (drag && drag.kind !== 'pan' && down?.moved) commit();
+  else if (down && !down.moved) clickTool(down);
+  down = null; drag = null;
+});
+svg.addEventListener('wheel', e => {
+  e.preventDefault(); const q = toV(e), r = svg.getBoundingClientRect();
+  vw.s = clamp(vw.s * Math.exp(e.deltaY * .0015), .0007, .1);
+  vw.cx = q[0] - (e.clientX - r.left - r.width / 2) * vw.s; vw.cy = q[1] - (e.clientY - r.top - r.height / 2) * vw.s; render2D();
+}, { passive: false });
+svg.addEventListener('dblclick', () => { draw = null; render2D(); });
+function clickTool(d) {
+  const sp = snapPt(d.q);
+  if (tool === 'select') { if (!d.el) { sel = []; renderAll(); } return; }
+  if (tool === 'post') {
+    const a = sp.hit ? sp.w : toWorld(sp.v).map(r3);
+    S.members.push({ id: 'm' + uid(), a: [a[0], a[1], view === 'top' ? S.settings.level : a[2]], b: [a[0], a[1], (view === 'top' ? S.settings.level : a[2]) + S.settings.postH], sec: S.settings.sec, mat: S.settings.mat, role: 'poteau', rot: 0 });
+    sel = [{ k: 'm', id: S.members.at(-1).id }]; commit(); return;
+  }
+  if (!draw) { draw = { a: sp.w }; render2D(); return; }
+  let b = sp.w;
+  if (d.shift && !sp.hit) { const V = VIEWS[view], a2 = V.p(draw.a), dv = [sp.v[0] - a2[0], sp.v[1] - a2[1]]; const vv = Math.abs(dv[0]) > Math.abs(dv[1]) ? [sp.v[0], a2[1]] : [a2[0], sp.v[1]]; b = toWorld(vv).map(r3); if (view === 'top') b[2] = draw.a[2]; }
+  if (len3(sub(b, draw.a)) < .01) return;
+  if (tool === 'beam') {
+    const m = { id: 'm' + uid(), a: draw.a, b, sec: S.settings.sec, mat: S.settings.mat, role: Math.abs(nrm(sub(b, draw.a))[2]) > .9 ? 'poteau' : 'poutre', rot: 0 };
+    S.members.push(m); sel = [{ k: 'm', id: m.id }]; draw = { a: b }; commit(); return;   // enchaînement : la barre suivante part du dernier point
+  }
+  if (tool === 'panel') {
+    const V = VIEWS[view], a = draw.a, du = dot3(sub(b, a), V.u[0]), dvv = dot3(sub(b, a), V.u[1]);
+    const p = { id: 'p' + uid(), type: S.settings.panel, p0: [...a], u: mul(V.u[0], du).map(r3), v: mul(V.u[1], dvv).map(r3) };
+    if (Math.abs(du) < .01 || Math.abs(dvv) < .01) { draw = null; return; }
+    S.panels.push(p); sel = [{ k: 'p', id: p.id }]; draw = null; commit(); return;
+  }
+  if (tool === 'dim') { const dd = { id: 'd' + uid(), view, a: draw.a, b, off: 0 }; S.dims.push(dd); sel = [{ k: 'd', id: dd.id }]; draw = null; commit(); }
+}
+// édition des cotes au clavier
+const dimInput = document.getElementById('dimEdit');
+function openDimEdit(eid, cx, cy) {
+  const e = EDITS.get(eid); if (!e) return; const box = document.getElementById('planBox').getBoundingClientRect();
+  dimEdit = e; dimInput.value = L(e.val); dimInput.style.left = Math.max(4, cx - box.left - 60) + 'px'; dimInput.style.top = Math.max(4, cy - box.top - 18) + 'px';
+  dimInput.style.display = 'block'; dimInput.focus(); dimInput.select(); toast('Nouvelle longueur en ' + UNIT() + ' puis Entrée');
+}
+function closeDimEdit(apply) {
+  if (!dimEdit) return; const e = dimEdit; dimEdit = null; dimInput.style.display = 'none'; if (!apply) return;
+  const raw = dimInput.value.trim().replace(',', '.'); let v = parseFloat(raw); if (!isFinite(v)) return;
+  v = /^[+-]/.test(raw) ? e.val + v / UF() : v / UF(); if (v > 0 && Math.abs(v - e.val) > 5e-5) { e.fn(r3(v)); commit(); }
+}
+dimInput.addEventListener('keydown', ev => { ev.stopPropagation(); if (ev.key === 'Enter') closeDimEdit(true); if (ev.key === 'Escape') closeDimEdit(false); });
+dimInput.addEventListener('blur', () => closeDimEdit(true));
+
+// =====================================================================
+//  3D
+// =====================================================================
+const v3 = document.getElementById('view3d');
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+v3.prepend(renderer.domElement);
+const labelR = new CSS2DRenderer(); labelR.domElement.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none'; v3.prepend(labelR.domElement); v3.prepend(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#dfe7ee');
+const cam = new THREE.PerspectiveCamera(45, 1, .05, 500), ctl = new OrbitControls(cam, renderer.domElement);
+ctl.enableDamping = true; ctl.maxPolarAngle = Math.PI / 2 - .02;
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8d9b84, 1.2));
+const sun = new THREE.DirectionalLight(0xffffff, 1.9); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -20, right: 20, top: 20, bottom: -20, near: 1, far: 80 }); sun.shadow.bias = -.0004; sun.shadow.normalBias = .03; scene.add(sun, sun.target);
+let root = new THREE.Group(); scene.add(root); const labels = new THREE.Group(); scene.add(labels);
+const T = p => new THREE.Vector3(p[0], p[2], p[1]);   // projet (x, y, z haut) -> three (x, y haut, z)
+const _m = new Map(); const MAT3 = (c, o = {}) => { const k = c + JSON.stringify(o); if (!_m.has(k)) _m.set(k, new THREE.MeshStandardMaterial({ color: c, roughness: .7, ...o })); return _m.get(k); };
+const _shape = new Map();
+function profile(sk) {
+  if (_shape.has(sk)) return _shape.get(sk);
+  const s = SEC[sk], b = s.b / 1000, h = s.h / 1000, sh = new THREE.Shape(), tw = (s.tw ?? 5) / 1000, tf = (s.tf ?? 7) / 1000, t = (s.t ?? 3) / 1000;
+  if (s.shape === 'I') { sh.moveTo(-b / 2, -h / 2); sh.lineTo(b / 2, -h / 2); sh.lineTo(b / 2, -h / 2 + tf); sh.lineTo(tw / 2, -h / 2 + tf); sh.lineTo(tw / 2, h / 2 - tf); sh.lineTo(b / 2, h / 2 - tf); sh.lineTo(b / 2, h / 2); sh.lineTo(-b / 2, h / 2); sh.lineTo(-b / 2, h / 2 - tf); sh.lineTo(-tw / 2, h / 2 - tf); sh.lineTo(-tw / 2, -h / 2 + tf); sh.lineTo(-b / 2, -h / 2 + tf); }
+  else if (s.shape === 'U') { sh.moveTo(-b / 2, -h / 2); sh.lineTo(b / 2, -h / 2); sh.lineTo(b / 2, -h / 2 + tf); sh.lineTo(-b / 2 + tw, -h / 2 + tf); sh.lineTo(-b / 2 + tw, h / 2 - tf); sh.lineTo(b / 2, h / 2 - tf); sh.lineTo(b / 2, h / 2); sh.lineTo(-b / 2, h / 2); }
+  else if (s.shape === 'L') { sh.moveTo(-b / 2, -h / 2); sh.lineTo(b / 2, -h / 2); sh.lineTo(b / 2, -h / 2 + t); sh.lineTo(-b / 2 + t, -h / 2 + t); sh.lineTo(-b / 2 + t, h / 2); sh.lineTo(-b / 2, h / 2); }
+  else if (s.shape === 'T') { sh.moveTo(-b / 2, -h / 2); sh.lineTo(b / 2, -h / 2); sh.lineTo(b / 2, h / 2); sh.lineTo(-b / 2, h / 2); const ho = new THREE.Path(); ho.moveTo(-b / 2 + t, -h / 2 + t); ho.lineTo(-b / 2 + t, h / 2 - t); ho.lineTo(b / 2 - t, h / 2 - t); ho.lineTo(b / 2 - t, -h / 2 + t); sh.holes.push(ho); }
+  else if (s.shape === 'R') sh.absarc(0, 0, b / 2, 0, Math.PI * 2, false);
+  else { sh.moveTo(-b / 2, -h / 2); sh.lineTo(b / 2, -h / 2); sh.lineTo(b / 2, h / 2); sh.lineTo(-b / 2, h / 2); }
+  _shape.set(sk, sh); return sh;
+}
+const o3 = Object.assign({ panels: true, xray: false, blocks: true, ground: true, len: false, shadow: true, color: 'mat' }, prefs.o);
+let dirty3D = true, view3 = 'persp';
+function build3D() {
+  root.traverse(o => o.geometry?.dispose()); scene.remove(root); root = new THREE.Group(); scene.add(root); labels.clear();
+  if (renderer.shadowMap.enabled !== o3.shadow) { renderer.shadowMap.enabled = o3.shadow; _m.forEach(m => { m.needsUpdate = true; }); }
+  if (o3.ground) {
+    const g = new THREE.Mesh(new THREE.PlaneGeometry(S.site.w, S.site.d).rotateX(-Math.PI / 2), MAT3(S.site.ground, { roughness: 1 }));
+    g.position.set(S.site.w / 2, -.003, S.site.d / 2); g.receiveShadow = true; root.add(g);
+    const out = new THREE.Mesh(new THREE.PlaneGeometry(200, 200).rotateX(-Math.PI / 2), MAT3('#cfd8cc', { roughness: 1 })); out.position.set(S.site.w / 2, -.01, S.site.d / 2); out.receiveShadow = true; root.add(out);
+  }
+  for (const m of S.members) {
+    const Lg = mLen(m); if (Lg < 1e-4) continue;
+    const s = sec(m), on = isSel('m', m.id), col = on ? '#3b82f6' : colorOf(m);
+    const geo = s.shape && s.shape !== 'rect' || s.fam === 'acc' ? new THREE.ExtrudeGeometry(profile(m.sec), { depth: Lg, bevelEnabled: false, curveSegments: 16 }) : new THREE.BoxGeometry(s.b / 1000, s.h / 1000, Lg).translate(0, 0, Lg / 2);
+    const mesh = new THREE.Mesh(geo, MAT3(col, MAT[m.mat]?.fam === 'bois' ? { roughness: .85 } : { roughness: .45, metalness: .35 }));
+    const { ax, w, h } = basis(m), M4 = new THREE.Matrix4().makeBasis(T(w), T(h), T(ax));
+    // T() échange y et z : on corrige l'orientation pour garder un repère direct
+    if (M4.determinant() < 0) M4.makeBasis(T(w).negate(), T(h), T(ax));
+    mesh.applyMatrix4(M4); mesh.position.copy(T(m.a));
+    mesh.castShadow = mesh.receiveShadow = true; mesh.userData.pick = { k: 'm', id: m.id }; root.add(mesh);
+    if (o3.len || on) { const d = document.createElement('div'); d.className = 'lbl3'; d.textContent = L(Lg) + ' ' + UNIT(); const lb = new CSS2DObject(d); lb.position.copy(T(add(m.a, mul(sub(m.b, m.a), .5)))); labels.add(lb); }
+  }
+  if (o3.panels) for (const p of S.panels) {
+    const pt = PANEL[p.type] ?? PANEL.osb, t = p.t ?? pt.t, on = isSel('p', p.id), n = nrm(crs(p.u, p.v)), lu = len3(p.u), lv = len3(p.v); if (lu < 1e-4 || lv < 1e-4) continue;
+    const mat = new THREE.MeshStandardMaterial({ color: on ? '#93c5fd' : (p.color ?? pt.color), roughness: .7, transparent: o3.xray || pt.glass, opacity: pt.glass ? .45 : o3.xray ? .35 : 1, depthWrite: !(o3.xray || pt.glass), side: THREE.DoubleSide });
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(lu, lv, t), mat), M4 = new THREE.Matrix4().makeBasis(T(nrm(p.u)), T(nrm(p.v)), T(n));
+    if (M4.determinant() < 0) M4.makeBasis(T(nrm(p.u)).negate(), T(nrm(p.v)), T(n));
+    mesh.applyMatrix4(M4); mesh.position.copy(T(add(add(p.p0, mul(p.u, .5)), add(mul(p.v, .5), mul(n, t / 2)))));
+    mesh.castShadow = !pt.glass; mesh.receiveShadow = true; mesh.userData.pick = { k: 'p', id: p.id }; root.add(mesh);
+  }
+  if (o3.blocks) for (const b of S.blocks) {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), MAT3(isSel('b', b.id) ? '#93c5fd' : (b.color ?? '#e7e1d6'), { roughness: .95 }));
+    mesh.position.set(b.x + b.w / 2, (b.z || 0) + b.h / 2, b.y + b.d / 2); mesh.castShadow = mesh.receiveShadow = true; mesh.userData.pick = { k: 'b', id: b.id }; root.add(mesh);
+  }
+  const bb = bounds(); sun.position.set(bb.cx + 10, 22, bb.cz + 14); sun.target.position.set(bb.cx, 0, bb.cz);
+}
+function bounds() {
+  const pts = S.members.flatMap(m => [m.a, m.b]).concat(S.panels.map(p => p.p0)); if (!pts.length) pts.push([0, 0, 0], [S.site.w, S.site.d, 2]);
+  const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]), zs = pts.map(p => p[2]);
+  return { cx: (Math.min(...xs) + Math.max(...xs)) / 2, cz: (Math.min(...ys) + Math.max(...ys)) / 2, cy: Math.max(...zs) / 2, span: Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), Math.max(...zs), 3) };
+}
+function setView3(v) {
+  view3 = v; document.querySelectorAll('[data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  const b = bounds(); ctl.target.set(b.cx, b.cy, b.cz);
+  if (v === 'top') cam.position.set(b.cx, b.span * 2 + 4, b.cz + .01);
+  else if (v === 'front') cam.position.set(b.cx, b.cy + .5, b.cz + b.span * 1.8 + 3);
+  else cam.position.set(b.cx + b.span * 1.1 + 2, b.span * .9 + 2, b.cz + b.span * 1.3 + 3);
+  ctl.update();
+}
+function frameSel() {
+  const pts = sel.map(find).filter(Boolean).flatMap(o => o.a ? [o.a, o.b] : o.p0 ? panelCorners(o) : blockCorners(o));
+  if (!pts.length) return setView3(view3);
+  const c = pts.reduce((a, p) => add(a, p), [0, 0, 0]).map(v => v / pts.length), r = Math.max(...pts.map(p => len3(sub(p, c))), .5);
+  const dir = new THREE.Vector3().subVectors(cam.position, ctl.target).normalize(); ctl.target.copy(T(c)); cam.position.copy(T(c)).addScaledVector(dir, r * 3 + 1.5); ctl.update();
+}
+function resize3D() { const r = v3.getBoundingClientRect(); if (!r.width || !r.height) return; renderer.setSize(r.width, r.height); labelR.setSize(r.width, r.height); cam.aspect = r.width / r.height; cam.updateProjectionMatrix(); }
+new ResizeObserver(resize3D).observe(v3);
+const ray = new THREE.Raycaster(); let d3 = null;
+renderer.domElement.addEventListener('pointerdown', e => { d3 = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener('pointerup', e => {
+  if (!d3 || Math.hypot(e.clientX - d3[0], e.clientY - d3[1]) > 5) return; d3 = null;
+  const r = renderer.domElement.getBoundingClientRect(); ray.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1), cam);
+  const hit = ray.intersectObject(root, true).find(h => h.object.userData.pick); const pk = hit?.object.userData.pick;
+  if (!pk) sel = e.shiftKey ? sel : []; else if (e.shiftKey) { if (isSel(pk.k, pk.id)) sel = sel.filter(s => !(s.k === pk.k && s.id === pk.id)); else sel.push(pk); } else sel = [pk];
+  tab = 'sel'; renderAll();
+});
+
+// =====================================================================
+//  Panneau latéral
+// =====================================================================
+const panel = document.getElementById('panel');
+const secOpts = cur => ['bois', 'acier', 'alu', 'acc'].map(f => `<optgroup label="${{ bois: 'Bois', acier: 'Acier', alu: 'Aluminium', acc: 'Accessoires' }[f]}">${Object.entries(SEC).filter(([, s]) => s.fam === f).map(([k, s]) => `<option value="${k}"${k === cur ? ' selected' : ''}>${s.l}</option>`).join('')}</optgroup>`).join('');
+const matOpts = (cur, fam) => Object.entries(MAT).filter(([, m]) => !fam || m.fam === fam || (fam === 'acier' && m.fam === 'alu')).map(([k, m]) => `<option value="${k}"${k === cur ? ' selected' : ''}>${m.l}</option>`).join('');
+const panOpts = (cur, none) => (none ? `<option value="none"${cur === 'none' ? ' selected' : ''}>Aucun(e)</option>` : '') + Object.entries(PANEL).map(([k, p]) => `<option value="${k}"${k === cur ? ' selected' : ''}>${p.l}</option>`).join('');
+const fld = (label, path, val, type = 'text', cls = '') => `<label class="f ${cls}"><span>${label}</span><input data-p="${path}" type="${type}" ${type === 'number' ? 'step="any"' : ''} value="${esc(val)}"></label>`;
+const lenF = (label, path, v, cls = '') => fld(label + ` (${UNIT()})`, path, prefs.unit === 'mm' ? Math.round(v * 1000) : Math.round(v * 1000) / 10, 'number', cls) .replace('data-p=', 'data-len="1" data-p=');
+const selF = (label, path, opts, cls = '') => `<label class="f ${cls}"><span>${label}</span><select data-p="${path}">${opts}</select></label>`;
+function renderPanel() {
+  if (panel.contains(document.activeElement) && document.activeElement.matches('input,select')) return;
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+  panel.innerHTML = tab === 'bom' ? bomPanel() : tab === 'gens' ? gensPanel() : tab === 'prices' ? pricesPanel() : selPanel();
+}
+function selPanel() {
+  if (!sel.length) return projectPanel();
+  if (sel.length > 1) {
+    const ms = sel.filter(s => s.k === 'm').map(find), tot = ms.reduce((a, m) => a + mLen(m), 0);
+    return `<h3>${sel.length} éléments sélectionnés</h3><div class="muted">${ms.length} barre(s) · ${fm(tot)} m au total</div>
+      ${ms.length ? `<div class="grid2">${selF('Section pour toutes', 'multi.sec', `<option value="">—</option>` + secOpts(''))}${selF('Matériau pour tous', 'multi.mat', `<option value="">—</option>` + matOpts(''))}</div>` : ''}
+      ${moveBlock()}<div class="row"><button data-act="arrayDlg">Répéter (réseau)…</button><button data-act="dup">Dupliquer</button><button data-act="del" class="danger">Supprimer</button></div>`;
+  }
+  const s = sel[0], o = find(s); if (!o) return projectPanel();
+  const gen = o.gen ? S.gens.find(g => g.id === o.gen) : null;
+  const genNote = gen ? `<div class="note">Fait partie de <b>${esc(gen.name)}</b>. <button data-act="editGen" data-id="${gen.id}">Modifier les paramètres</button> <button data-act="detach">Détacher</button></div>` : '';
+  if (s.k === 'm') {
+    const m = o, sc = sec(m), mt = MAT[m.mat], Lg = mLen(m), kg = (sc.kgm ?? sc.b * sc.h / 1e6 * (mt?.dens ?? 500)) * Lg;
+    return `<h3>${esc(m.name || ROLES[m.role]?.[0] || 'Barre')}</h3><div class="muted">${esc(sc.l)} · ${esc(mt?.l)} · ${L(Lg)} ${UNIT()} · ${fm(kg, 1)} kg</div>${genNote}
+      <div class="grid2">${fld('Nom', 'm.name', m.name || '', 'text')}${selF('Fonction', 'm.role', Object.entries(ROLES).map(([k, r]) => `<option value="${k}"${k === m.role ? ' selected' : ''}>${r[0]}</option>`).join(''))}
+        ${selF('Section', 'm.sec', secOpts(m.sec), 'full')}${selF('Matériau', 'm.mat', matOpts(m.mat, sc.fam === 'acc' ? 'acc' : null))}${lenF('Longueur', 'm.len', Lg)}
+        ${fld('Rotation de la section (°)', 'm.rot', m.rot || 0, 'number')}</div>
+      <h4>Extrémité A</h4><div class="grid3">${lenF('X', 'm.a.0', m.a[0])}${lenF('Y', 'm.a.1', m.a[1])}${lenF('Z', 'm.a.2', m.a[2])}</div>
+      <h4>Extrémité B</h4><div class="grid3">${lenF('X', 'm.b.0', m.b[0])}${lenF('Y', 'm.b.1', m.b[1])}${lenF('Z', 'm.b.2', m.b[2])}</div>
+      ${moveBlock()}
+      <div class="row"><button data-act="arrayDlg">Répéter (réseau)…</button><button data-act="dup">Dupliquer</button><button data-act="swap">Inverser A/B</button><button data-act="vertical">Rendre vertical</button><button data-act="level">Mettre de niveau</button><button data-act="del" class="danger">Supprimer</button></div>`;
+  }
+  if (s.k === 'p') {
+    const p = o, pt = PANEL[p.type];
+    return `<h3>${esc(pt?.l ?? 'Panneau')}</h3><div class="muted">${fm(panelArea(p))} m²</div>${genNote}
+      <div class="grid2">${selF('Type', 'p.type', panOpts(p.type), 'full')}${lenF('Épaisseur', 'p.t', p.t ?? pt?.t ?? .02)}${fld('Couleur', 'p.color', p.color ?? pt?.color ?? '#cccccc', 'color')}</div>
+      <h4>Origine</h4><div class="grid3">${lenF('X', 'p.p0.0', p.p0[0])}${lenF('Y', 'p.p0.1', p.p0[1])}${lenF('Z', 'p.p0.2', p.p0[2])}</div>
+      <h4>Côté 1 (vecteur)</h4><div class="grid3">${lenF('X', 'p.u.0', p.u[0])}${lenF('Y', 'p.u.1', p.u[1])}${lenF('Z', 'p.u.2', p.u[2])}</div>
+      <h4>Côté 2 (vecteur)</h4><div class="grid3">${lenF('X', 'p.v.0', p.v[0])}${lenF('Y', 'p.v.1', p.v[1])}${lenF('Z', 'p.v.2', p.v[2])}</div>
+      ${moveBlock()}<div class="row"><button data-act="dup">Dupliquer</button><button data-act="del" class="danger">Supprimer</button></div>`;
+  }
+  if (s.k === 'b') {
+    const b = o;
+    return `<h3>${esc(b.name || 'Bâtiment existant')}</h3><div class="muted">Volume de contexte (non chiffré)</div>${genNote}
+      <div class="grid3">${fld('Nom', 'b.name', b.name || '', 'text', 'full')}${lenF('X', 'b.x', b.x)}${lenF('Y', 'b.y', b.y)}${lenF('Z', 'b.z', b.z || 0)}${lenF('Longueur', 'b.w', b.w)}${lenF('Profondeur', 'b.d', b.d)}${lenF('Hauteur', 'b.h', b.h)}${fld('Couleur', 'b.color', b.color || '#e7e1d6', 'color')}</div>
+      <div class="row"><button data-act="dup">Dupliquer</button><button data-act="del" class="danger">Supprimer</button></div>`;
+  }
+  if (s.k === 'd') return `<h3>Cote : ${L(len3(sub(o.b, o.a)))} ${UNIT()}</h3><div class="muted">Glisse-la pour la déplacer.</div><div class="row"><button data-act="del" class="danger">Supprimer</button></div>`;
+  return projectPanel();
+}
+const moveBlock = () => `<h4>Déplacer de</h4><div class="grid3">${lenF('ΔX', 'mv.0', 0)}${lenF('ΔY', 'mv.1', 0)}${lenF('ΔZ', 'mv.2', 0)}</div>`;
+function projectPanel() {
+  const B = bom(), nb = S.members.length, tot = S.members.reduce((a, m) => a + mLen(m), 0);
+  return `<h3>${esc(S.name)}</h3><div class="muted">Clique une barre, un panneau ou un volume pour le modifier. Les cotes soulignées se modifient au clavier.</div>
+    <div class="tiles" style="margin-top:10px"><div class="tile"><b>${nb}</b><span>barres · ${fm(tot, 1)} m</span></div><div class="tile"><b>${fm(B.panelRows.reduce((a, r) => a + r.area, 0), 1)} m²</b><span>panneaux</span></div></div>
+    <div class="row"><button class="pri" data-act="devis">📄 Générer le devis</button><button data-act="addBlock">＋ Bâtiment existant</button></div>
+    <h4>Valeurs par défaut des nouvelles barres</h4>
+    <div class="grid2">${selF('Section', 's.sec', secOpts(S.settings.sec), 'full')}${selF('Matériau', 's.mat', matOpts(S.settings.mat))}${lenF('Hauteur des poteaux', 's.postH', S.settings.postH)}${selF('Panneaux dessinés', 's.panel', panOpts(S.settings.panel), 'full')}</div>
+    <h4>Terrain</h4><div class="grid3">${lenF('Longueur', 'site.w', S.site.w)}${lenF('Profondeur', 'site.d', S.site.d)}${fld('Couleur', 'site.ground', S.site.ground, 'color')}</div>
+    <div class="note"><b>Dessiner :</b> outil <b>Barre</b>, clique le départ puis l’arrivée (Maj = droit). Les barres s’enchaînent ; double-clic pour arrêter. Les points se posent sur le <b>plan de travail</b> (champ en haut), ou s’aimantent aux extrémités existantes. Utilise les vues <b>Face</b> et <b>Côté</b> pour les hauteurs.</div>`;
+}
+function gensPanel() {
+  return `<h3>Assistants</h3><div class="muted">Crée une structure complète en quelques valeurs. Elle reste modifiable : paramètres ou barre par barre.</div>
+    <div class="gens" style="margin-top:12px">${Object.entries(GEN).map(([k, g]) => `<button data-act="newGen" data-type="${k}"><b>${g.l}</b><span>${g.d}</span></button>`).join('')}</div>
+    ${S.gens.length ? `<h4>Dans ce projet</h4><table><tbody>${S.gens.map(g => `<tr><td>${esc(g.name)}<div class="muted">${S.members.filter(m => m.gen === g.id).length} barres</div></td><td class="n"><button data-act="editGen" data-id="${g.id}">Modifier</button> <button data-act="delGen" data-id="${g.id}" class="danger">✕</button></td></tr>`).join('')}</tbody></table>` : ''}`;
+}
+function bomPanel() {
+  const B = bom(), P = S.prices; let tot = 0;
+  const rows = B.rows.map(r => { tot += r.cost; return `<tr><td><b>${esc(r.s.l)}</b><div class="muted">${esc(r.mt.l)} · ${r.n} pièce${r.n > 1 ? 's' : ''} · ${fm(r.total)} m${r.fam !== 'acc' ? ` · ${r.fam === 'bois' ? fm(r.vol, 3) + ' m³' : fm(r.weight, 0) + ' kg'}` : ''}</div>
+      ${r.plan ? `<details><summary>${r.bars} barre${r.bars > 1 ? 's' : ''} de ${fm(r.stock, 1)} m — plan de débit</summary>${r.plan.map(b => `<div class="bar" title="${b.cuts.map(c => L(c)).join(' + ')}">${b.cuts.map(c => `<span class="${r.fam !== 'bois' ? 'st' : ''}" style="flex:${c}">${L(c)}</span>`).join('')}<i style="flex:${Math.max(0, b.len - b.cuts.reduce((a, c) => a + c + .004, 0))}"></i></div>`).join('')}</details>` : ''}</td>
+      <td class="n">${r.unit === 'u' ? r.n + ' u' : fm(r.buy, 1) + ' m'}</td><td class="n">${eur(r.cost)}</td></tr>`; }).join('');
+  const prow = B.panelRows.map(r => { tot += r.cost; return `<tr><td>${esc(PANEL[r.type]?.l ?? r.type)}</td><td class="n">${fm(r.area)} m²</td><td class="n">${eur(r.cost)}</td></tr>`; }).join('');
+  const lines = devisLines(), ht = lines.reduce((a, l) => a + l.qty * l.pu, 0);
+  return `<div class="tiles"><div class="tile"><b>${eur(tot)}</b><span>matériaux (avec ${P.waste} % de chute)</span></div><div class="tile"><b>${fm(B.hours, 1)} h</b><span>main d’œuvre estimée</span></div>
+      <div class="tile total"><b>${eur(ht)} HT</b><span>estimation complète (fournitures, assemblages, fondations, finitions, pose, livraison)</span></div></div>
+    <div class="row"><button class="pri" data-act="devis">📄 Générer le devis</button><button data-act="csv">📋 Liste de débit CSV</button></div>
+    <h4>Bois, acier, accessoires</h4><table><thead><tr><th>Élément</th><th class="n">À acheter</th><th class="n">Prix</th></tr></thead><tbody>${rows || '<tr><td colspan="3" class="muted">Aucune barre.</td></tr>'}</tbody></table>
+    ${prow ? `<h4>Panneaux</h4><table><tbody>${prow}</tbody></table>` : ''}
+    <h4>Estimations</h4><table><tbody>
+      <tr><td>Assemblages bois / acier / alu</td><td class="n">${B.joints.bois} / ${B.joints.acier} / ${B.joints.alu}</td></tr>
+      <tr><td>Pieds de poteaux (massifs, platines)</td><td class="n">${B.feet}</td></tr>
+      <tr><td>Surface bois (lasure) / acier à peindre</td><td class="n">${fm(B.finishB, 1)} / ${fm(B.finishA, 1)} m²</td></tr></tbody></table>
+    <p class="muted">Les barres sont optimisées parmi les longueurs du commerce (onglet Prix). Les quantités sont à valider sur place ; ce métré ne remplace pas un calcul de structure.</p>`;
+}
+function pricesPanel() {
+  const P = S.prices, inp = (path, v) => `<input type="number" step="any" data-p="${path}" value="${v}">`;
+  return `<h3>Prix & hypothèses</h3><div class="muted">Tes prix d’achat HT. Enregistrés dans ce projet.</div>
+    <h4>Matériaux</h4><table><tbody>${Object.entries(MAT).map(([k, m]) => `<tr><td>${m.l}</td><td class="n">${inp('price.mats.' + k, P.mats[k])} €/${m.unit === 'm3' ? 'm³' : m.unit}</td></tr>`).join('')}</tbody></table>
+    <h4>Panneaux</h4><table><tbody>${Object.entries(PANEL).map(([k, p]) => `<tr><td>${p.l}</td><td class="n">${inp('price.panels.' + k, P.panels[k])} €/m²</td></tr>`).join('')}</tbody></table>
+    <h4>Pose & divers</h4><table><tbody>
+      <tr><td>Assemblage bois / acier / alu</td><td class="n">${inp('price.joint.bois', P.joint.bois)} ${inp('price.joint.acier', P.joint.acier)} ${inp('price.joint.alu', P.joint.alu)} €</td></tr>
+      <tr><td>Pied de poteau (massif + platine)</td><td class="n">${inp('price.foot', P.foot)} €/u</td></tr>
+      <tr><td>Lasure bois (0 = non)</td><td class="n">${inp('price.finishBois', P.finishBois)} €/m²</td></tr>
+      <tr><td>Peinture acier brut</td><td class="n">${inp('price.finishAcier', P.finishAcier)} €/m²</td></tr>
+      <tr><td>Temps de pose bois / acier / alu</td><td class="n">${inp('price.labour.bois', P.labour.bois)} ${inp('price.labour.acier', P.labour.acier)} ${inp('price.labour.alu', P.labour.alu)} h/ml</td></tr>
+      <tr><td>Temps panneaux / assemblage</td><td class="n">${inp('price.labour.panel', P.labour.panel)} h/m² ${inp('price.labour.joint', P.labour.joint)} h/u</td></tr>
+      <tr><td>Livraison</td><td class="n">${inp('price.delivery', P.delivery)} €</td></tr>
+      <tr><td>Chute / casse</td><td class="n">${inp('price.waste', P.waste)} %</td></tr></tbody></table>
+    <h4>Longueurs du commerce (m)</h4><div class="grid3">${['bois', 'acier', 'alu'].map(f => `<label class="f"><span>${f}</span><input data-p="price.stock.${f}" value="${esc(P.stock[f])}"></label>`).join('')}</div>
+    <p class="muted">Le taux horaire se règle dans la fiche entreprise (fenêtre du devis ou page d’accueil).</p>`;
+}
+function setPath(o, path, v) { const k = path.split('.'); let x = o; for (let i = 0; i < k.length - 1; i++) x = x[isNaN(k[i]) ? k[i] : +k[i]]; x[isNaN(k.at(-1)) ? k.at(-1) : +k.at(-1)] = v; }
+panel.addEventListener('change', e => {
+  const t = e.target, p = t.dataset.p; if (!p) return;
+  let v = t.type === 'number' ? parseFloat(String(t.value).replace(',', '.')) : t.value;
+  if (t.type === 'number' && !isFinite(v)) return renderPanel();
+  if (t.dataset.len) v = r3(v / UF());
+  const [head, ...rest] = p.split('.'), path = rest.join('.'), o = sel.length === 1 ? find(sel[0]) : null;
+  if (head === 'm' || head === 'p' || head === 'b') {
+    if (path === 'len') { const ax = nrm(sub(o.b, o.a)); o.b = add(o.a, mul(ax, Math.max(.01, v))).map(r3); }
+    else setPath(o, path, path === 'rot' ? (v || 0) : v);
+  } else if (head === 'mv') { const d = [0, 0, 0]; d[+path] = v; for (const s of sel) { const x = find(s); if (x.a) { x.a = add(x.a, d).map(r3); x.b = add(x.b, d).map(r3); } else if (x.p0) x.p0 = add(x.p0, d).map(r3); else { x.x += d[0]; x.y += d[1]; x.z = (x.z || 0) + d[2]; } } }
+  else if (head === 'multi') { if (v) for (const s of sel) { const x = find(s); if (x?.a) x[path] = v; } }
+  else if (head === 's') S.settings[path] = v;
+  else if (head === 'site') S.site[path] = v;
+  else if (head === 'price') setPath(S.prices, path, v);
+  t.blur(); commit();
+});
+panel.addEventListener('click', e => { const b = e.target.closest('[data-act]'); if (b) act(b.dataset.act, b.dataset); });
+function act(a, ds = {}) {
+  const objs = sel.map(find).filter(Boolean);
+  if (a === 'del') { for (const s of sel) { if (s.k === 'm') S.members = S.members.filter(x => x.id !== s.id); if (s.k === 'p') S.panels = S.panels.filter(x => x.id !== s.id); if (s.k === 'b') S.blocks = S.blocks.filter(x => x.id !== s.id); if (s.k === 'd') S.dims = S.dims.filter(x => x.id !== s.id); } sel = []; commit(); }
+  else if (a === 'dup') { const ns = []; for (const s of sel) { const o = clone(find(s)); o.id = s.k + uid(); delete o.gen; const d = [.3, .3, 0]; if (o.a) { o.a = add(o.a, d); o.b = add(o.b, d); } else if (o.p0) o.p0 = add(o.p0, d); else { o.x += .3; o.y += .3; } (s.k === 'm' ? S.members : s.k === 'p' ? S.panels : s.k === 'b' ? S.blocks : S.dims).push(o); ns.push({ k: s.k, id: o.id }); } sel = ns; commit(); }
+  else if (a === 'swap') { const m = objs[0]; [m.a, m.b] = [m.b, m.a]; commit(); }
+  else if (a === 'vertical') { const m = objs[0]; m.b = [m.a[0], m.a[1], r3(m.a[2] + mLen(m))]; commit(); }
+  else if (a === 'level') { const m = objs[0]; const ax = sub(m.b, m.a), hl = Math.hypot(ax[0], ax[1]) || 1, Lg = mLen(m); m.b = [r3(m.a[0] + ax[0] / hl * Lg), r3(m.a[1] + ax[1] / hl * Lg), m.a[2]]; commit(); }
+  else if (a === 'detach') { for (const o of objs) delete o.gen; commit(); }
+  else if (a === 'arrayDlg') arrayDialog();
+  else if (a === 'newGen') genDialog(ds.type);
+  else if (a === 'editGen') { const g = S.gens.find(x => x.id === ds.id); if (g) genDialog(g.type, g); }
+  else if (a === 'delGen') { if (!confirm('Supprimer cette structure et toutes ses barres ?')) return; S.members = S.members.filter(m => m.gen !== ds.id); S.panels = S.panels.filter(p => p.gen !== ds.id); S.blocks = S.blocks.filter(b => b.gen !== ds.id); S.gens = S.gens.filter(g => g.id !== ds.id); sel = []; commit(); }
+  else if (a === 'devis') openDevis();
+  else if (a === 'csv') exportCSV();
+  else if (a === 'addBlock') { const b = { id: 'b' + uid(), name: 'Bâtiment existant', x: 1, y: 1, z: 0, w: 8, d: .3, h: 3, color: '#e7e1d6' }; S.blocks.push(b); sel = [{ k: 'b', id: b.id }]; commit(); }
+}
+// --- fenêtres : assistant, réseau
+function openModal(title, html) { document.getElementById('mTitle').textContent = title; document.getElementById('mBody').innerHTML = html; document.getElementById('modal').hidden = false; }
+const closeModal = () => { document.getElementById('modal').hidden = true; };
+document.getElementById('mClose').onclick = closeModal;
+document.getElementById('modal').addEventListener('pointerdown', e => { if (e.target.id === 'modal') closeModal(); });
+function genDialog(type, existing) {
+  const G0 = GEN[type], pr = existing ? existing.params : defParams(type);
+  const fieldOf = ([k, lbl, t, def]) => {
+    const v = pr[k] ?? def;
+    if (t === 'len') return `<label class="f"><span>${lbl} (${UNIT()})</span><input data-g="${k}" data-t="len" type="number" step="any" value="${prefs.unit === 'mm' ? Math.round(v * 1000) : Math.round(v * 1000) / 10}"></label>`;
+    if (t === 'num' || t === 'int') return `<label class="f"><span>${lbl}</span><input data-g="${k}" data-t="${t}" type="number" step="${t === 'int' ? 1 : 'any'}" value="${v}"></label>`;
+    if (t === 'bool') return `<label class="chk" style="grid-column:1/-1"><input data-g="${k}" data-t="bool" type="checkbox"${v ? ' checked' : ''}> ${lbl}</label>`;
+    if (t === 'sec') return `<label class="f"><span>${lbl}</span><select data-g="${k}">${secOpts(v)}</select></label>`;
+    if (t === 'mat') return `<label class="f"><span>${lbl}</span><select data-g="${k}">${matOpts(v)}</select></label>`;
+    if (t === 'panel?') return `<label class="f"><span>${lbl}</span><select data-g="${k}">${panOpts(v, true)}</select></label>`;
+  };
+  openModal((existing ? 'Modifier — ' : '') + G0.l, `<p class="muted" style="margin-top:0">${G0.d}. Les valeurs proposées sont courantes ; adapte-les à ton chantier. Ce n’est pas une note de calcul : fais valider les sections par un bureau d’études si besoin.</p>
+    <div class="grid2">${G0.p.map(fieldOf).join('')}</div>
+    ${existing ? '<div class="warn">Regénérer remplace les barres de cette structure (tes modifications barre par barre seront perdues).</div>' : ''}
+    <div class="row" style="justify-content:flex-end"><button id="gCancel">Annuler</button><button class="pri" id="gOk">${existing ? 'Regénérer' : 'Créer la structure'}</button></div>`);
+  document.getElementById('gCancel').onclick = closeModal;
+  document.getElementById('gOk').onclick = () => {
+    const params = {}; document.querySelectorAll('#mBody [data-g]').forEach(i => { const t = i.dataset.t; params[i.dataset.g] = t === 'bool' ? i.checked : t === 'len' ? r3(parseFloat(i.value.replace(',', '.')) / UF()) : t === 'num' || t === 'int' ? Number(i.value) : i.value; });
+    const g = addGenerator(S, type, params, existing?.id); sel = S.members.filter(m => m.gen === g.id).map(m => ({ k: 'm', id: m.id })).slice(0, 0);
+    closeModal(); commit(); fit(); render2D(); setView3(view3); toast(existing ? 'Structure regénérée' : 'Structure créée : ' + g.name);
+  };
+}
+function arrayDialog() {
+  openModal('Répéter la sélection', `<p class="muted" style="margin-top:0">Crée des copies régulièrement espacées (solives, chevrons, poteaux…).</p>
+    <div class="grid2"><label class="f"><span>Nombre de copies</span><input id="aN" type="number" value="5" min="1" step="1"></label><span></span>
+    <label class="f"><span>Pas en X (${UNIT()})</span><input id="aX" type="number" step="any" value="${prefs.unit === 'mm' ? 600 : 60}"></label>
+    <label class="f"><span>Pas en Y (${UNIT()})</span><input id="aY" type="number" step="any" value="0"></label>
+    <label class="f"><span>Pas en Z (${UNIT()})</span><input id="aZ" type="number" step="any" value="0"></label></div>
+    <div class="row" style="justify-content:flex-end"><button id="aOk" class="pri">Créer les copies</button></div>`);
+  document.getElementById('aOk').onclick = () => {
+    const n = Math.max(1, +document.getElementById('aN').value | 0), d = ['aX', 'aY', 'aZ'].map(id => (parseFloat(document.getElementById(id).value) || 0) / UF());
+    for (let i = 1; i <= n; i++) for (const s of sel) { const o = clone(find(s)); o.id = s.k + uid(); delete o.gen; const dd = mul(d, i); if (o.a) { o.a = add(o.a, dd).map(r3); o.b = add(o.b, dd).map(r3); } else if (o.p0) o.p0 = add(o.p0, dd).map(r3); else { o.x += dd[0]; o.y += dd[1]; } (s.k === 'm' ? S.members : s.k === 'p' ? S.panels : S.blocks).push(o); }
+    closeModal(); commit(); toast(n + ' copie(s) créée(s)');
+  };
+}
+// --- devis, CSV
+function openDevis() {
+  const lines = devisLines(); if (!lines.length) return toast('Rien à chiffrer : crée une structure avec un assistant ou dessine des barres.');
+  renderer.render(scene, cam); const img = renderer.domElement.toDataURL('image/jpeg', .85);
+  const B = bom(), annex = `<h2>Liste de débit</h2><table><thead><tr><th>Section</th><th>Matériau</th><th class="n">Pièces</th><th>Longueurs</th><th class="n">Barres</th></tr></thead><tbody>${B.rows.map(r => `<tr><td>${esc(r.s.l)}</td><td>${esc(r.mt.l)}</td><td class="n">${r.n}</td><td>${[...new Set(r.pieces.map(p => L(p)))].slice(0, 12).join(', ')} ${UNIT()}</td><td class="n">${r.plan ? `${r.bars} × ${fm(r.stock, 1)} m` : '—'}</td></tr>`).join('')}</tbody></table>`;
+  C.devisDialog({ projectName: S.name, objet: 'Fourniture et pose — ' + S.name, lines, state: S.devis, defaultTva: 20, onSave: st => { S.devis = st; save(); }, images: [{ title: 'Vue 3D du projet', src: img }], annexHtml: annex });
+}
+function exportCSV() {
+  const rows = [['Repère', 'Fonction', 'Section', 'Matériau', `Longueur (${UNIT()})`, 'Xa', 'Ya', 'Za', 'Xb', 'Yb', 'Zb']];
+  S.members.forEach((m, i) => rows.push([`B${i + 1}`, ROLES[m.role]?.[0] ?? '', sec(m).l, MAT[m.mat]?.l ?? '', L(mLen(m)), ...m.a.map(L), ...m.b.map(L)]));
+  rows.push([]); rows.push(['Récapitulatif', '', 'Section', 'Matériau', 'Pièces', 'Total (m)', 'Barres', 'Longueur barre (m)']);
+  for (const r of bom().rows) rows.push(['', '', r.s.l, r.mt.l, r.n, fm(r.total), r.bars ?? '', r.stock ?? '']);
+  const csv = '﻿' + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\n');
+  download(new Blob([csv], { type: 'text/csv' }), slug(S.name) + '-liste-de-debit.csv');
+}
+
+// =====================================================================
+//  Application : outils, vues, fichiers, raccourcis
+// =====================================================================
+let toastT; function toast(m, ms = 2600) { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms); }
+const slug = n => (n || 'projet').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase();
+function download(data, name) { const a = document.createElement('a'); a.href = typeof data === 'string' && data.startsWith('data:') ? data : URL.createObjectURL(data instanceof Blob ? data : new Blob([data])); a.download = name; a.click(); }
+const HINTS = { select: 'Clic : sélectionner · Maj+clic : ajouter · glisser : déplacer · ronds bleus : déplacer une extrémité · glisser le fond : se déplacer',
+  beam: 'Clique le départ puis l’arrivée de la barre (Maj = horizontale/verticale) · s’aimante aux extrémités · double-clic ou Échap pour arrêter',
+  post: 'Clique pour poser un poteau (hauteur dans l’onglet Sélection quand rien n’est sélectionné)', panel: 'Clique deux coins opposés du panneau sur le plan de travail', dim: 'Clique deux points pour poser une cote' };
+function setTool(t) { tool = t; draw = null; document.querySelectorAll('[data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === t)); document.getElementById('hint').textContent = HINTS[t]; svg.style.cursor = t === 'select' ? 'default' : 'crosshair'; render2D(); }
+document.querySelectorAll('[data-tool]').forEach(b => b.onclick = () => setTool(b.dataset.tool));
+function setView(v) {
+  view = v; prefs.view = v; savePrefs(); document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === v));
+  document.getElementById('wpLbl').textContent = VIEWS[v].h; syncWp(); fit(); render2D();
+}
+function syncWp() { const el = document.getElementById('wp'); el.value = prefs.unit === 'mm' ? Math.round(wpVal() * 1000) : Math.round(wpVal() * 1000) / 10; document.querySelector('#wpBox .u').textContent = UNIT(); }
+document.getElementById('wp').addEventListener('change', e => { const v = r3((parseFloat(e.target.value.replace(',', '.')) || 0) / UF()); if (view === 'top') S.settings.level = v; else if (view === 'front') S.settings.plane = v; else S.settings.side = v; commit(); });
+document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => setView(b.dataset.view));
+document.querySelectorAll('[data-v]').forEach(b => b.onclick = () => setView3(b.dataset.v));
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => { tab = b.dataset.tab; renderPanel(); });
+document.getElementById('zIn').onclick = () => { vw.s /= 1.25; render2D(); }; document.getElementById('zOut').onclick = () => { vw.s *= 1.25; render2D(); }; document.getElementById('zFit').onclick = () => { fit(); render2D(); };
+document.getElementById('bFrame').onclick = frameSel;
+const shot = () => { renderer.render(scene, cam); download(renderer.domElement.toDataURL('image/png'), slug(S.name) + '-3d.png'); };
+document.getElementById('bShot').onclick = shot;
+// options
+for (const [id, k] of [['oPanels', 'panels'], ['oXray', 'xray'], ['oBlocks', 'blocks'], ['oGround', 'ground'], ['oLen', 'len'], ['oShadow', 'shadow']]) { const el = document.getElementById(id); el.checked = !!o3[k]; el.onchange = () => { o3[k] = el.checked; prefs.o = o3; savePrefs(); dirty3D = true; }; }
+document.querySelectorAll('[name=oColor]').forEach(r => { r.checked = r.value === o3.color; r.onchange = () => { o3.color = prefs.o.color = r.value; savePrefs(); dirty3D = true; render2D(); }; });
+for (const [id, k] of [['lDims', 'dims'], ['lPanels', 'panels'], ['lGrid', 'grid']]) { const el = document.getElementById(id); el.checked = !!prefs.l[k]; el.onchange = () => { prefs.l[k] = el.checked; savePrefs(); render2D(); }; }
+document.getElementById('snap').value = prefs.snap; document.getElementById('snap').onchange = e => { prefs.snap = e.target.value; savePrefs(); };
+document.getElementById('unitSel').value = prefs.unit; document.getElementById('unitSel').onchange = e => { prefs.unit = e.target.value; savePrefs(); syncWp(); renderAll(); };
+// menus
+const menus = [['bProj', 'projMenu'], ['bGen', 'genMenu'], ['bV3', 'v3menu']];
+document.getElementById('genMenu').innerHTML = Object.entries(GEN).map(([k, g]) => `<button data-gen="${k}">${g.l}</button>`).join('');
+for (const [b, m] of menus) document.getElementById(b).addEventListener('click', e => { e.stopPropagation(); const el = document.getElementById(m), o = !el.classList.contains('open'); menus.forEach(([, x]) => document.getElementById(x).classList.remove('open')); el.classList.toggle('open', o); });
+document.addEventListener('pointerdown', e => { if (!e.target.closest('.menuwrap')) menus.forEach(([, x]) => document.getElementById(x).classList.remove('open')); });
+document.getElementById('genMenu').addEventListener('click', e => { const b = e.target.closest('[data-gen]'); if (b) { document.getElementById('genMenu').classList.remove('open'); genDialog(b.dataset.gen); } });
+async function saveFile() {
+  const data = JSON.stringify(S, null, 2);
+  if (window.showSaveFilePicker) { try { fileHandle ??= await window.showSaveFilePicker({ suggestedName: slug(S.name) + '.json', types: [{ description: 'Projet Moovo 3D', accept: { 'application/json': ['.json'] } }] }); const w = await fileHandle.createWritable(); await w.write(data); await w.close(); toast('💾 Enregistré dans ' + fileHandle.name); return; } catch (e) { if (e.name === 'AbortError') return; } }
+  download(new Blob([data], { type: 'application/json' }), slug(S.name) + '.json'); toast('💾 Fichier téléchargé');
+}
+function openVersions() {
+  const l = backups();
+  openModal('Versions', `<p class="muted" style="margin-top:0">Une version est gardée automatiquement toutes les 5 minutes de travail.</p><table><tbody>${l.map((b, i) => `<tr><td>${new Date(b.t).toLocaleString('fr-FR')}<div class="muted">${esc(b.label)}</div></td><td class="n"><button data-v="${i}">Restaurer</button></td></tr>`).join('') || '<tr><td class="muted">Aucune version.</td></tr>'}</tbody></table>`);
+  document.querySelectorAll('#mBody [data-v]').forEach(b => b.onclick = () => { if (!confirm('Restaurer cette version ?')) return; backup('Avant restauration', false); S = migrate(JSON.parse(l[+b.dataset.v].data)); sel = []; commit(); closeModal(); fit(); render2D(); });
+}
+async function share() {
+  try { const link = await C.shareLink(S); openModal('Partager', `<p class="muted" style="margin-top:0">Le lien contient tout le projet. La personne qui l’ouvre en reçoit une copie.</p><textarea readonly style="width:100%;height:110px;font:12px monospace">${esc(link)}</textarea><div class="row"><button class="pri" id="cp">Copier</button></div>`); document.getElementById('cp').onclick = async () => toast(await C.copyText(link) ? 'Lien copié' : 'Sélectionne le texte'); }
+  catch { toast('Partage par lien indisponible : utilise Ctrl+S.'); }
+}
+function exportSVG() {
+  const str = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${svg.getAttribute('viewBox')}" width="${svg.clientWidth}" height="${svg.clientHeight}"><style>.ns{vector-effect:non-scaling-stroke}.g{stroke:#eceef1}.gM{stroke:#d3d8df}.dimt{font-weight:600;text-anchor:middle;dominant-baseline:middle;paint-order:stroke;stroke:#fff}</style><rect x="-1e4" y="-1e4" width="2e4" height="2e4" fill="#fff"/>${G.innerHTML}</svg>`;
+  download(new Blob([str], { type: 'image/svg+xml' }), slug(S.name) + '-' + view + '.svg');
+}
+document.getElementById('projMenu').addEventListener('click', e => {
+  const b = e.target.closest('[data-cmd]'); if (!b) return; document.getElementById('projMenu').classList.remove('open');
+  ({ save: saveFile, devis: openDevis, csv: exportCSV, share, versions: openVersions, snapshot: () => { const n = prompt('Nom du point de sauvegarde :', 'Avant modification'); if (n !== null) { backup(n || 'Point de sauvegarde', false); toast('📌 Point de sauvegarde créé'); } }, shot, svg: exportSVG })[b.dataset.cmd]?.();
+});
+document.getElementById('fImport').onchange = async e => { const f = e.target.files[0]; if (!f) return; e.target.value = ''; try { const d = JSON.parse(await f.text()); if (!Array.isArray(d.members)) throw 0; backup('Avant import', false); S = migrate(d); sel = []; commit(); fit(); setView3('persp'); } catch { toast('Fichier non reconnu'); } };
+document.getElementById('bUndo').onclick = undo; document.getElementById('bRedo').onclick = redo;
+document.getElementById('bHelp').onclick = () => openModal('Aide', `<table><tbody>
+  <tr><td><kbd>T</kbd> <kbd>F</kbd> <kbd>L</kbd></td><td>Vues dessus / face / côté</td></tr><tr><td><kbd>V</kbd> <kbd>B</kbd> <kbd>P</kbd> <kbd>N</kbd> <kbd>C</kbd></td><td>Sélection, Barre, Poteau, Panneau, Coter</td></tr>
+  <tr><td>Maj + clic</td><td>Sélection multiple · barre bien droite</td></tr><tr><td>Flèches · Maj · Alt</td><td>Déplacer de 1 cm · 10 cm · 1 mm dans la vue</td></tr>
+  <tr><td><kbd>Ctrl+D</kbd> · <kbd>Suppr</kbd></td><td>Dupliquer · supprimer</td></tr><tr><td><kbd>Ctrl+Z</kbd> / <kbd>Ctrl+Y</kbd> · <kbd>Ctrl+S</kbd></td><td>Annuler / rétablir · enregistrer un fichier</td></tr>
+  <tr><td>Clic sur une cote soulignée</td><td>Taper la longueur exacte</td></tr><tr><td><kbd>0</kbd> · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></td><td>Tout voir · disposition 2D / 2D+3D / 3D</td></tr></tbody></table>
+  <p class="muted">Le métré et le devis sont des estimations pour préparer un chiffrage : vérifie les sections et les assemblages selon les règles de l’art (DTU, Eurocodes) ou avec un bureau d’études.</p>`);
+function setLayout(l) { prefs.layout = l; savePrefs(); document.body.className = 'layout-' + l; document.querySelectorAll('[data-layout]').forEach(b => b.classList.toggle('on', b.dataset.layout === l)); setTimeout(() => { resize3D(); render2D(); }, 30); }
+document.querySelectorAll('[data-layout]').forEach(b => b.onclick = () => setLayout(b.dataset.layout));
+function splitter(id, fn) { const el = document.getElementById(id); el.addEventListener('pointerdown', e => { e.preventDefault(); el.setPointerCapture(e.pointerId); const mv = ev => { fn(ev); applySizes(); resize3D(); render2D(); }; const up = () => { el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); savePrefs(); }; el.addEventListener('pointermove', mv); el.addEventListener('pointerup', up); }); }
+function applySizes() { document.documentElement.style.setProperty('--aside', prefs.aside + 'px'); document.documentElement.style.setProperty('--v3h', prefs.v3h + '%'); }
+splitter('hsplit', ev => { prefs.aside = clamp(innerWidth - ev.clientX, 320, innerWidth - 360); });
+splitter('vsplit', ev => { const r = document.querySelector('aside').getBoundingClientRect(); prefs.v3h = clamp((ev.clientY - r.top) / r.height * 100, 15, 85); });
+const pn = document.getElementById('projName'); pn.value = S.name;
+pn.addEventListener('change', () => { S.name = pn.value.trim() || 'Projet'; document.title = S.name + ' · Moovo 3D'; commit(); }); pn.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') pn.blur(); });
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase(), mod = e.ctrlKey || e.metaKey;
+  if (mod && k === 's') { e.preventDefault(); saveFile(); return; }
+  if (e.target.closest('input,select,textarea')) return;
+  if (mod && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+  if (mod && k === 'y') { e.preventDefault(); redo(); return; }
+  if (mod && k === 'd') { e.preventDefault(); if (sel.length) act('dup'); return; }
+  if (mod) return;
+  if (k === 'escape') { if (!document.getElementById('modal').hidden) closeModal(); else if (draw) draw = null; else if (tool !== 'select') setTool('select'); else { sel = []; renderAll(); } render2D(); return; }
+  if (k === 'delete' || k === 'backspace') { if (sel.length) { e.preventDefault(); act('del'); } return; }
+  const tk = { v: 'select', b: 'beam', p: 'post', n: 'panel', c: 'dim' }[k]; if (tk) return setTool(tk);
+  const vk = { t: 'top', f: 'front', l: 'side' }[k]; if (vk) return setView(vk);
+  if (k === '0') { fit(); render2D(); return; }
+  if (k === '1' || k === '2' || k === '3') return setLayout({ 1: '2d', 2: 'split', 3: '3d' }[k]);
+  if (k === '?') return document.getElementById('bHelp').click();
+  const st = e.shiftKey ? .1 : e.altKey ? .001 : .01, mv = { arrowleft: [-st, 0], arrowright: [st, 0], arrowup: [0, -st], arrowdown: [0, st] }[k];
+  if (mv && sel.length) { e.preventDefault(); const V = VIEWS[view], d = add(mul(V.u[0], mv[0]), mul(V.u[1], mv[1])); for (const s of sel) { const o = find(s); if (o.a) { o.a = add(o.a, d).map(r3); o.b = add(o.b, d).map(r3); } else if (o.p0) o.p0 = add(o.p0, d).map(r3); else { o.x = r3(o.x + d[0]); o.y = r3(o.y + d[1]); o.z = r3((o.z || 0) + d[2]); } } commit(); }
+});
+
+// =====================================================================
+//  Boucle
+// =====================================================================
+function renderAll() { render2D(); renderPanel(); dirty3D = true; document.getElementById('bUndo').disabled = !past.length; document.getElementById('bRedo').disabled = !future.length; }
+function loop() { if (dirty3D) { build3D(); dirty3D = false; } ctl.update(); renderer.render(scene, cam); labelR.render(scene, cam); requestAnimationFrame(loop); }
+document.title = S.name + ' · Moovo 3D';
+applySizes(); setLayout(prefs.layout); setTool('select'); save(); backup('Ouverture du projet');
+document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === view));
+document.getElementById('wpLbl').textContent = VIEWS[view].h; syncWp();
+requestAnimationFrame(() => { fit(); renderAll(); resize3D(); setView3('persp'); loop(); });
+</script>
+</body>
+</html>

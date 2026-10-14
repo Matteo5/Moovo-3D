@@ -1,0 +1,7 @@
+# Données personnelles et anciennes versions : restent en local
+appartement-claire-kiki.json
+archives/
+.impeccable/
+node_modules/
+.DS_Store
+Thumbs.db

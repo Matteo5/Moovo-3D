@@ -679,8 +679,11 @@ svg.addEventListener('pointerdown', e => {
   if (k === 'edim') { e.preventDefault(); openDimEdit(el.dataset.id, e.clientX, e.clientY); return; }
   down = { x: e.clientX, y: e.clientY, q, el, k, moved: false, shift: e.shiftKey, tol: e.pointerType === 'touch' ? 10 : 4 };   // un doigt bouge toujours un peu : sinon un simple toucher devient un glissement
   svg.setPointerCapture(e.pointerId);
+  const kk0 = k === 'end' ? 'm' : k;
+  // au doigt : un premier toucher sélectionne, on ne déplace que ce qui est déjà sélectionné (sinon glisser fait défiler la vue)
+  if (e.pointerType === 'touch' && tool === 'select' && el && ['m', 'p', 'b', 'd'].includes(kk0) && !isSel(kk0, el.dataset.id)) { down.tapSel = { k: kk0, id: el.dataset.id }; drag = { kind: 'pan', cx: vw.cx, cy: vw.cy, x: e.clientX, y: e.clientY }; return; }
   if (tool === 'select' && el && (k === 'm' || k === 'p' || k === 'b' || k === 'end' || k === 'd')) {
-    const kk = k === 'end' ? 'm' : k, id = el.dataset.id;
+    const kk = kk0, id = el.dataset.id;
     if (e.shiftKey) { if (isSel(kk, id)) sel = sel.filter(s => !(s.k === kk && s.id === id)); else sel.push({ k: kk, id }); }
     else if (!isSel(kk, id)) sel = [{ k: kk, id }];
     tab = 'sel'; renderPanel(); render2D(); dirty3D = true;
@@ -707,7 +710,8 @@ svg.addEventListener('pointermove', e => {
   if (tool !== 'select') render2D();
 });
 svg.addEventListener('pointerup', () => {
-  if (drag && drag.kind !== 'pan' && down?.moved) commit();
+  if (drag && drag.kind !== 'pan' && down?.moved) { commit(); if (down.tol > 4) window.MoovoLib.hintDone('drag'); }
+  else if (down?.tapSel && !down.moved) { sel = [down.tapSel]; tab = 'sel'; renderPanel(); render2D(); dirty3D = true; window.MoovoLib.hintDone('tap'); navigator.vibrate?.(8); }
   else if (down && !down.moved) clickTool(down);
   down = null; drag = null;
 });
@@ -890,7 +894,8 @@ function renderPanel() {
   window.MoovoLib.mobile()?.refresh();
   if (panel.contains(document.activeElement) && document.activeElement.matches('input,select')) return;
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
-  panel.innerHTML = tab === 'bom' ? bomPanel() : tab === 'gens' ? gensPanel() : tab === 'prices' ? pricesPanel() : selPanel();
+  const html = tab === 'bom' ? bomPanel() : tab === 'gens' ? gensPanel() : tab === 'prices' ? pricesPanel() : selPanel();
+  panel.innerHTML = window.MoovoLib.mobile()?.on() ? window.MoovoLib.touchCopy(html) : html;   // au doigt : « touche » plutôt que « clique »
 }
 function selPanel() {
   if (!sel.length) return projectPanel();
@@ -1229,6 +1234,10 @@ window.MoovoLib.mobileShell({
   layers: ['lDims', 'lPanels', 'lGrid', 'snap', 'unitSel'],
   relocate: ['genMenu', 'v3menu'], sheets: ['genMenu', 'projMenu', 'v3menu'], closeMenus: () => menus.forEach(([, x]) => document.getElementById(x).classList.remove('open')),
   onAdd: () => document.getElementById('bGen').click(), selectTool: () => setTool('select'), hasSel: () => sel.length > 0,
+  hint: () => tool !== 'select' ? null
+    : !S.members.length && !S.panels.length ? { key: 'start', text: '✨ Projet vide : touche ✨ Assistants en bas, donne quelques dimensions, la structure se dessine toute seule.' }
+    : !sel.length ? { key: 'tap', text: '👆 Touche une barre, un poteau ou un panneau : ses réglages s’affichent dans ✏️ Modifier.' }
+    : { key: 'drag', text: '✋ C’est sélectionné : glisse-le du doigt pour le déplacer, ✏️ Modifier pour le régler.' },
   toolLabel: () => ({ beam: '▬ Barre : touche le départ puis l’arrivée', post: '▮ Poteau : touche où le poser', panel: '▦ Panneau : touche deux coins opposés', dim: '↔ Cote : touche deux points' })[tool] ?? null,
   onView: () => setTimeout(() => { resize3D(); render2D(); renderPanel(); dirty3D = true; }, 30),
   onToggle: on => { if (on && prefs.layout !== 'split') setLayout('split'); setTimeout(() => { resize3D(); render2D(); }, 50); },

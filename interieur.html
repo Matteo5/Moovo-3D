@@ -1733,10 +1733,13 @@ svg.addEventListener('pointerdown', e => {
   const p = toPlan(e), el = e.target.closest('[data-kind]'), kind = el?.dataset.kind;
   if (e.button === 2) { if (draw) { draw = null; schedule(false); } return; }
   if (kind === 'edim') { e.preventDefault(); e.stopPropagation(); openDimEdit(el.dataset.id, e.clientX, e.clientY); return; }
-  down = { x: e.clientX, y: e.clientY, p, el, kind, moved: false, free: e.shiftKey, tol: e.pointerType === 'touch' ? 10 : 4 };   // un doigt bouge toujours un peu : sinon un simple toucher devient un glissement
+  down = { x: e.clientX, y: e.clientY, p, el, kind, moved: false, free: e.shiftKey, touch: e.pointerType === 'touch', tol: e.pointerType === 'touch' ? 10 : 4 };   // un doigt bouge toujours un peu : sinon un simple toucher devient un glissement
   svg.setPointerCapture(e.pointerId);
+  // au doigt : un premier toucher sélectionne, on ne déplace que ce qui est déjà sélectionné (sinon glisser fait défiler le plan)
+  const tapFirst = e.pointerType === 'touch' && tool === 'select' && el && kind !== 'room' && kind !== 'corner' && !isSelected(kind, el);
+  if (tapFirst) down.tapSel = true;
   if (tool === 'bgmove' && S.bgMeta) bgDrag = { p, x: S.bgMeta.x, y: S.bgMeta.y };
-  else if (tool === 'select' && el && kind !== 'room') startDrag(kind, el, p);
+  else if (tool === 'select' && el && kind !== 'room' && !tapFirst) startDrag(kind, el, p);
   else pan = { cx: view.cx, cy: view.cy, x: e.clientX, y: e.clientY };
 });
 svg.addEventListener('pointermove', e => {
@@ -1750,7 +1753,8 @@ svg.addEventListener('pointermove', e => {
 });
 svg.addEventListener('pointerup', () => {
   if (bgDrag) { bgDrag = null; down = null; commit(); return; }
-  if (drag) { if (down?.moved) commit(); }
+  if (drag) { if (down?.moved) { commit(); if (down.touch) ML.hintDone?.('drag'); } }
+  else if (down?.tapSel && !down.moved) { startDrag(down.kind, down.el, down.p); drag = null; navigator.vibrate?.(8); }
   else if (down && !down.moved) clickTool(down.p, down.el, down.kind);
   down = drag = pan = null;
 });
@@ -1782,10 +1786,12 @@ function updateSelbar() {
   if (!b) { selbar.hidden = true; return; }
   const o = resolveSel(), B = (c, ic, l, cls = '') => `<button data-sb="${c}" class="${cls}" title="${l}">${ic}<span>${l}</span></button>`;
   let html = '';
+  const mob = !!ML.mobile()?.on();   // au doigt : libellés courts et un accès direct au panneau « Modifier »
   if (sel.kind === 'item') html = B('rotate', '↻', 'Pivoter') + B('dup', '⧉', 'Dupliquer') + B('color', '🎨', 'Couleur') + B('del', '🗑', 'Supprimer', 'danger');
-  else if (sel.kind === 'opening') html = (o.type === 'door' ? B('cycleDoor', '↻', 'Sens d’ouverture') : '') + B('dup', '⧉', 'Dupliquer') + B('del', '🗑', 'Supprimer', 'danger');
-  else if (sel.kind === 'wall') html = B('door', '🚪', 'Porte ici') + B('window', '🪟', 'Fenêtre ici') + B('split', '✂', 'Couper') + B('accent', '🎨', 'Accent') + B('del', '🗑', '', 'danger');
-  else if (sel.kind === 'room') { const r = o !== true ? o : null; if (!r?.tags?.[0]) { selbar.hidden = true; return; } html = B('styles', '🎨', 'Ambiance') + B('rename', '✏️', 'Renommer') + B('addHere', '＋', 'Meuble ici'); }
+  else if (sel.kind === 'opening') html = (o.type === 'door' ? B('cycleDoor', '↻', mob ? 'Sens' : 'Sens d’ouverture') : '') + B('dup', '⧉', 'Dupliquer') + B('del', '🗑', 'Supprimer', 'danger');
+  else if (sel.kind === 'wall') html = B('door', '🚪', mob ? 'Porte' : 'Porte ici') + B('window', '🪟', mob ? 'Fenêtre' : 'Fenêtre ici') + B('split', '✂', 'Couper') + B('accent', '🎨', mob ? 'Couleur' : 'Accent') + B('del', '🗑', mob ? 'Suppr.' : '', 'danger');
+  else if (sel.kind === 'room') { const r = o !== true ? o : null; if (!r?.tags?.[0]) { selbar.hidden = true; return; } html = B('styles', '🎨', 'Ambiance') + B('rename', mob ? '🏷' : '✏️', 'Renommer') + B('addHere', '＋', 'Meuble ici'); }
+  if (mob) html += B('details', '✏️', 'Modifier', 'go');
   selbar.innerHTML = html;
   const v = vb(), sx = ((b.x0 + b.x1) / 2 - v.x) / view.s, top = (b.y0 - v.y) / view.s, bot = (b.y1 - v.y) / view.s, W = v.r.width, H = v.r.height;
   if (sx < 0 || sx > W || bot < 0 || top > H) { selbar.hidden = true; return; }
@@ -1797,6 +1803,8 @@ function updateSelbar() {
 selbar.addEventListener('pointerdown', e => e.stopPropagation());
 selbar.addEventListener('click', e => {
   const b = e.target.closest('[data-sb]'); if (!b) return; const c = b.dataset.sb;
+  if (sel?.kind === 'room') ML.hintDone?.('room');
+  if (c === 'details') { tab = 'sel'; ML.mobile()?.show('panel'); renderPanel(); return; }
   if (['rotate', 'dup', 'del', 'cycleDoor', 'split'].includes(c)) return act(c);
   if (c === 'color' || c === 'accent' || c === 'styles') { tab = 'sel'; if (ML.mobile()?.on()) ML.mobile().show('panel'); renderPanel(); setTimeout(() => { const t = c === 'accent' ? panel.querySelector('select[data-key^="accent."]') : c === 'styles' ? panel.querySelector('.styles') : panel.querySelector('.cpick'); t?.scrollIntoView({ block: 'center', behavior: 'smooth' }); if (c === 'color') t?.click(); else if (c === 'accent') t?.focus(); }, 30); return; }
   if (c === 'door' || c === 'window') { const w = resolveSel(), f = frame(w), p = at(w, f, sel.at ?? f.L / 2, 0); setTool(c); clickTool(p, null, null); setTool('select'); return; }
@@ -1822,7 +1830,12 @@ svg.addEventListener('wheel', e => {
   schedule(false);
 }, { passive: false });
 
-function setSel(s) { sel = s; tab = 'sel'; renderPanel(); render2D(); dirty3D = true; }
+function setSel(s) { sel = s; tab = 'sel'; renderPanel(); render2D(); dirty3D = true; if (s) ML.hintDone?.('tap'); ML.mobile()?.refresh(); }
+// l'élément touché est-il déjà la sélection en cours ? (poignées et extrémités comptent pour leur mur ou leur objet)
+function isSelected(kind, el) {
+  const k = { wall: 'wall', wend: 'wall', apex: 'wall', opening: 'opening', item: 'item', handle: 'item', dim: 'dim' }[kind];
+  return !!(k && sel?.kind === k && sel.id === el.dataset.id);
+}
 function startDrag(kind, el, p) {
   const id = el.dataset.id;
   if (kind === 'wall' || kind === 'wend' || kind === 'apex') {
@@ -2199,22 +2212,24 @@ function renderPanel() {
   if (panel.contains(document.activeElement) && document.activeElement.matches('input,select')) return;
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
   if (!A) return;
-  if (tab === 'rooms') { panel.innerHTML = roomsPanel(); return; }
-  if (tab === 'works') { panel.innerHTML = worksPanel(); return; }
-  if (tab === 'elec') { panel.innerHTML = elecPanel(); return; }
   const obj = resolveSel();
-  if (sel?.kind === 'wall' && obj) panel.innerHTML = wallPanel(obj);
-  else if (sel?.kind === 'opening' && obj) panel.innerHTML = openingPanel(obj);
-  else if (sel?.kind === 'item' && obj) panel.innerHTML = itemPanel(obj);
+  let html;
+  if (tab === 'rooms') html = roomsPanel();
+  else if (tab === 'works') html = worksPanel();
+  else if (tab === 'elec') html = elecPanel();
+  else if (sel?.kind === 'wall' && obj) html = wallPanel(obj);
+  else if (sel?.kind === 'opening' && obj) html = openingPanel(obj);
+  else if (sel?.kind === 'item' && obj) html = itemPanel(obj);
   else if (sel?.kind === 'dim' && obj) {
     const L = Math.hypot(obj.b[0] - obj.a[0], obj.b[1] - obj.a[1]);
-    panel.innerHTML = `<h3>Cote : ${cmTxt(L)} ${UNIT()}</h3>
+    html = `<h3>Cote : ${cmTxt(L)} ${UNIT()}</h3>
       <div class="muted">Δx ${cmTxt(Math.abs(obj.b[0] - obj.a[0]))} ${UNIT()} · Δy ${cmTxt(Math.abs(obj.b[1] - obj.a[1]))} ${UNIT()}. Glisse la cote pour l’écarter du mur.</div>
       <p class="muted">Une cote posée reste à sa place : si tu déplaces un mur ensuite, refais la cote (elle ne suit pas).</p>
       <div class="row"><button data-act="del" class="danger">Supprimer cette cote</button><button data-act="clearDims">Effacer toutes les cotes (${S.dims.length})</button></div>`;
   }
-  else if (sel?.kind === 'room') panel.innerHTML = roomPanel(obj && obj !== true ? obj : null);
-  else panel.innerHTML = generalPanel();
+  else if (sel?.kind === 'room') html = roomPanel(obj && obj !== true ? obj : null);
+  else html = generalPanel();
+  panel.innerHTML = ML.mobile()?.on() ? ML.touchCopy(html) : html;   // au doigt : « touche » plutôt que « clique », pas de raccourcis clavier
 }
 function wallPanel(w) {
   const f = frame(w), horiz = isH(f), vert = isV(f);
@@ -3981,6 +3996,11 @@ ML.mobileShell({
   relocate: ['catalog', 'v3menu'], sheets: ['catalog', 'projMenu', 'v3menu'], closeMenus: () => closeMenus(),
   onAdd: () => document.getElementById('bCatalog').click(), selectTool: () => setTool('select'), hasSel: () => !!sel,
   toolLabel: () => tool === 'select' ? null : tool === 'kit' && kitPlacing ? `✨ ${KITS[kitPlacing].label} : touche où le poser` : tool === 'place' && placing ? `${CAT[placing].label} : touche un mur` : TOOL_TIP[tool] ?? null,
+  hint: () => tool !== 'select' ? null
+    : !S.walls.length ? { key: 'start', text: '🧱 Plan vide : 🛠 Outils → Mur, puis touche chaque angle de la pièce. Ou importe un plan de fond.' }
+    : !sel ? { key: 'tap', text: '👆 Touche un meuble, un mur ou une pièce : tout ce que tu peux en faire s’affiche.' }
+    : ['item', 'wall', 'opening'].includes(sel.kind) ? { key: 'drag', text: '✋ C’est sélectionné : glisse-le du doigt pour le déplacer.' }
+    : sel.kind === 'room' ? { key: 'room', text: '🎨 Ambiance repeint toute la pièce d’un coup. ✏️ Modifier règle murs, sol et travaux.' } : null,
   onView: v => { setTimeout(() => { if (v === '3d') resize3D(); if (v === 'panel') renderPanel(); schedule(false); }, 30); },
   onToggle: on => { if (on && prefs.layout !== 'split') setLayout('split'); setTimeout(() => { resize3D(); schedule(false); }, 50); },
 });

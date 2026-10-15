@@ -504,7 +504,7 @@
   body.mshell[data-mview="panel"] #panel{display:block!important;flex:1;overflow:auto!important;padding-bottom:24px}
   body.mshell .tabs button{white-space:nowrap;padding:12px 10px}
   body.mshell #mnav{display:flex;flex:none;background:#fff;border-top:1px solid #e1e5eb;padding:4px 4px calc(4px + env(safe-area-inset-bottom));z-index:40}
-  #mnav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;border:0;background:transparent;font:500 11px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#5d6678;padding:5px 2px;border-radius:10px;position:relative;min-height:50px}
+  #mnav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;border:0;background:transparent;font:500 12px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#5d6678;padding:5px 2px;border-radius:10px;position:relative;min-height:50px}
   #mnav button .i{font-size:20px;line-height:1.1}
   #mnav button.on{color:#2563eb;background:#eef3ff}
   #mnav button.add .i{width:40px;height:40px;border-radius:14px;background:linear-gradient(135deg,#2563eb,#6d4fd8);color:#fff;display:flex;align-items:center;justify-content:center;font-size:24px;margin-top:-14px;box-shadow:0 6px 16px #2563eb55}
@@ -549,6 +549,18 @@
     #mzoom button{width:38px;height:38px}
     body.mshell .menu.open.msheet,body.mshell .msheet.open{bottom:calc(46px + env(safe-area-inset-bottom))!important;max-height:80dvh}
   }
+  /* les messages passent au-dessus de la barre du bas au lieu de la masquer */
+  body.mshell #toast{bottom:calc(76px + env(safe-area-inset-bottom))}
+  /* conseil du moment (pastille claire, texte sur plusieurs lignes) */
+  body.mshell #mchip.tip{width:min(420px,calc(100% - 20px));background:#fff;color:#1b1f27;border:1px solid #dbe1ea;padding:8px 8px 8px 14px;font-weight:500;line-height:1.35;box-shadow:0 8px 24px #0f172a29}
+  body.mshell #mchip.tip span{white-space:normal;overflow:visible;flex:1}
+  body.mshell #mchip button{min-height:36px}
+  body.mshell #mchip.tip button{background:#2563eb;color:#fff}
+  /* barre d'actions de la sélection : chaque bouton dit ce qu'il fait */
+  body.mshell #selbar{gap:0;padding:4px;border-radius:14px;overflow-x:auto;scrollbar-width:none}
+  body.mshell #selbar button{flex-direction:column;justify-content:center;gap:2px;min-width:54px;min-height:50px;padding:5px 6px;font-size:18px;line-height:1}
+  body.mshell #selbar button span{display:block!important;font-size:11px;font-weight:600;white-space:nowrap}
+  body.mshell #selbar button.go{background:#2563eb}
   /* guide de démarrage sur téléphone : tient dans l'écran, boutons pleine largeur, « Passer » dessous */
   body.mshell .tour{padding:calc(12px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom))}
   body.mshell .tour .tbox{max-height:100%;overflow-y:auto;overscroll-behavior:contain;padding:18px 18px 14px}
@@ -573,7 +585,8 @@
     zoom.addEventListener('click', e => { const b = e.target.closest('[data-z]'); if (b) document.querySelector(cfg.zoom[b.dataset.z])?.click(); });
     const chip = document.createElement('div'); chip.id = 'mchip'; chip.innerHTML = '<span></span><button>Terminer</button>'; box.appendChild(chip);
     chip.addEventListener('pointerdown', e => e.stopPropagation());
-    chip.querySelector('button').onclick = () => { cfg.selectTool(); refresh(); };
+    // la pastille sert à deux choses : l'outil en cours (bouton Terminer) ou un conseil du moment (bouton Compris)
+    chip.querySelector('button').onclick = () => { const k = chip.dataset.hint; if (k) hintDone(k); else cfg.selectTool(); refresh(); };
     // feuille « Outils »
     const wrap = document.createElement('div'); wrap.className = 'menuwrap'; wrap.style.cssText = 'position:static';
     const sheet = document.createElement('div'); sheet.className = 'menu mtools msheet'; sheet.id = 'mtools'; wrap.appendChild(sheet); document.body.appendChild(wrap);
@@ -614,15 +627,39 @@
       if (!document.body.classList.contains('mshell')) return;
       nav.querySelectorAll('[data-mv]').forEach(b => b.classList.toggle('on', b.dataset.mv === view));
       nav.querySelector('[data-mv="panel"]').classList.toggle('has', !!cfg.hasSel?.() && view !== 'panel');
-      const t = cfg.toolLabel?.(); chip.classList.toggle('on', !!t && view === 'plan'); if (t) chip.querySelector('span').textContent = t;
+      const t = cfg.toolLabel?.(), h = t ? null : cfg.hint?.(), show2 = (t || (h && !hintSeen(h.key))) && view === 'plan';
+      chip.classList.toggle('on', !!show2); chip.classList.toggle('tip', !t && !!show2);
+      if (show2) { chip.dataset.hint = t ? '' : h.key; chip.querySelector('span').textContent = t || h.text; chip.querySelector('button').textContent = t ? 'Terminer' : 'Compris'; }
     }
+    onHint = refresh;
     const apply = () => { const on = mq.matches; document.body.classList.toggle('mshell', on); relocate(on); if (on) { document.body.dataset.mview = view; cfg.onView?.(view); } else delete document.body.dataset.mview; cfg.onToggle?.(on); refresh(); };
     mq.addEventListener('change', apply); apply();
     MS = { show, refresh, on: () => document.body.classList.contains('mshell'), view: () => view };
     return MS;
   }
 
+  // conseils de prise en main sur téléphone : affichés jusqu'à ce que le geste soit fait une fois (ou « Compris »)
+  const HINTS_KEY = 'moovo3d-hints';
+  let onHint = null;
+  const hintsGet = () => { try { return JSON.parse(localStorage.getItem(HINTS_KEY) || '{}') || {}; } catch { return {}; } };
+  const hintSeen = k => !!hintsGet()[k];
+  function hintDone(k) { const h = hintsGet(); if (h[k]) return; h[k] = 1; try { localStorage.setItem(HINTS_KEY, JSON.stringify(h)); } catch {} onHint?.(); }
+
+  // textes d'aide pensés souris → version tactile (téléphone) ; du plus précis au plus général
+  const TOUCH_COPY = [
+    [/[Cc]lique directement sur le mur/g, 'touche directement le mur'],
+    [/Clique la cloison à pousser et fais-la glisser/g, 'Touche la cloison à pousser, puis fais-la glisser'],
+    [/double-clic sur la porte dans le plan/g, 'bouton ↻ Sens au-dessus de la porte'],
+    [/\(double-clic sur la porte\)/g, '(bouton ↻ Sens au-dessus de la porte)'],
+    [/\(et Ctrl\+Z annule\)/g, '(et ↶ en haut annule)'],
+    [/Clique (?:sur|dans) /g, 'Touche '], [/clique (?:sur|dans) /g, 'touche '],
+    [/\bClique\b/g, 'Touche'], [/\bclique\b/g, 'touche'], [/\bcliquer\b/g, 'toucher'],
+    [/\ben un clic\b/g, 'en un geste'], [/\bd’un clic\b/g, 'd’un geste'],
+    [/ ?\((?:touche |raccourci )?(?:Ctrl|Maj|Échap)[^)]*\)/g, ''],
+  ];
+  const touchCopy = s => TOUCH_COPY.reduce((t, [re, by]) => t.replace(re, by), s);
+
   const tipOfDay = () => TIPS.general[Math.floor(Date.now() / 864e5) % TIPS.general.length];
 
-  window.MoovoLib = { mobileShell, mobile: () => MS, attachPinch, EXT_STYLES, PANEL_DRAW, EXT_TIPS, EXT_TOUR, PALETTES, MATERIALS, WALL_FINISHES, WALL_DRAW, WALL_DEFAULT_COLOR, SHEENS, FLOORS_EXTRA, FLOOR_DRAW, FLOOR_TIPS, STYLES, TIPS, GLOSSARY, colorInfo, colorName, pickerHTML, openPicker, closePicker, tipOfDay, rng };
+  window.MoovoLib = { mobileShell, mobile: () => MS, attachPinch, hintDone, hintSeen, touchCopy, EXT_STYLES, PANEL_DRAW, EXT_TIPS, EXT_TOUR, PALETTES, MATERIALS, WALL_FINISHES, WALL_DRAW, WALL_DEFAULT_COLOR, SHEENS, FLOORS_EXTRA, FLOOR_DRAW, FLOOR_TIPS, STYLES, TIPS, GLOSSARY, colorInfo, colorName, pickerHTML, openPicker, closePicker, tipOfDay, rng };
 })();

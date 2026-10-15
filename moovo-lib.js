@@ -653,7 +653,7 @@
     [/\(double-clic sur la porte\)/g, '(bouton ↻ Sens au-dessus de la porte)'],
     [/\(et Ctrl\+Z annule\)/g, '(et ↶ en haut annule)'],
     [/Clique (?:sur|dans) /g, 'Touche '], [/clique (?:sur|dans) /g, 'touche '],
-    [/\bClique\b/g, 'Touche'], [/\bclique\b/g, 'touche'], [/\bcliquer\b/g, 'toucher'],
+    [/\bClique\b/g, 'Touche'], [/\bclique\b/g, 'touche'], [/\bcliquer\b/g, 'toucher'], [/\bcliqué(e?)\b/g, 'touché$1'],
     [/\ben un clic\b/g, 'en un geste'], [/\bd’un clic\b/g, 'd’un geste'],
     [/ ?\((?:touche |raccourci )?(?:Ctrl|Maj|Échap)[^)]*\)/g, ''],
   ];

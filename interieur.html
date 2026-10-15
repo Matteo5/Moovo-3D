@@ -196,6 +196,13 @@
   #catList button{display:flex;gap:8px;align-items:center;text-align:left;white-space:normal;padding:6px 8px;font-size:12.5px}
   #catList .kitb{flex-direction:column;align-items:flex-start;gap:2px;background:#f6f9ff;border-color:#d6e2fb}
   #catList .kitb span{font-size:11.5px;color:var(--muted)}
+  #catList .kitb{position:relative} #catList .kitb b{display:flex;gap:6px;align-items:center}
+  #catList .kitb i{position:absolute;top:3px;right:4px;font-style:normal;color:var(--muted);padding:4px 8px;border-radius:6px;line-height:1}
+  #catList .kitb i:hover{background:#0000000f;color:var(--danger)}
+  .optiles{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .optiles button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;white-space:normal;padding:8px 10px;min-height:52px}
+  .optiles button b{font-size:13px} .optiles button span{font-size:11.5px;color:var(--muted);font-weight:400}
+  .optiles button.danger span{color:inherit;opacity:.8}
   #catList .chip{width:16px;height:16px;border-radius:4px;flex:none;border:1px solid #0002}
   /* modale */
   .modal{position:fixed;inset:0;background:#0f172a66;display:flex;align-items:flex-start;justify-content:center;z-index:100;padding:6vh 16px}
@@ -437,7 +444,16 @@ const OPS = {
   baie:    { label: 'Baie / porte-fenêtre', w: 1.80, h: 2.15, sill: 0 },
   opening: { label: 'Passage (sans porte)', w: .90, h: 2.10, sill: 0 },
   placard: { label: 'Placard coulissant', w: 1.20, h: 2.30, sill: 0 },
+  open:    { label: 'Ouverture large (mur ouvert)', w: 2.00, h: 2.20, sill: 0 },
+  arch:    { label: 'Passage en arche', w: 1.00, h: 2.20, sill: 0 },
+  passe:   { label: 'Passe-plat', w: 1.20, h: .60, sill: 1.05 },
 };
+// Linteau / poutre au-dessus d'une ouverture (mur porteur) : rendu 3D et chiffrage
+const LINTELS = { none: 'Aucun (cloison non porteuse)', hidden: 'IPN / linteau noyé dans le mur (invisible)', ipn: 'IPN acier apparent', beton: 'Linteau béton apparent', bois: 'Poutre bois apparente' };
+const LINTEL_MAT = { ipn: ['#4b5563', { metalness: .55, roughness: .4 }], beton: ['#a8a7a1', { roughness: .95 }], bois: ['#8a6440', { roughness: .8 }] };
+const lintelOf = o => o.lintel ?? (wallById(o.wall)?.kind === 'ext' && ['open', 'arch', 'baie', 'passe'].includes(o.type) ? 'hidden' : 'none');
+// hauteur de profilé indicative : portée / 15 (mur qui porte un plancher), minimum 140, arrondie aux profils courants (à faire valider par un bureau d'études)
+const ipnSize = L => [140, 160, 180, 200, 220, 240, 270, 300, 330, 360].find(h => h >= L * 1000 / 15) ?? 360;
 const CAT = {
   bed:        { label: 'Lit',               w: 1.60, d: 2.00, price: 500,  color: '#8fa7c4' },
   sofa:       { label: 'Canapé',            w: 2.20, d: .90,  price: 800,  color: '#6d7b8c' },
@@ -562,6 +578,80 @@ Object.assign(CAT, {
   planter:     { label: 'Jardinière',                  w: 1.00, d: .40, h: .45, price: 70, color: '#55595f', cg: 'Extérieur & balcon' },
   outdoorSet:  { label: 'Table de jardin + 4 chaises', w: 1.20, d: .80, price: 300, color: '#2f3234', chairs: true, cg: 'Extérieur & balcon' },
 });
+// =====================================================================
+//  Meubles sur mesure : un caisson paramétrable (colonnes, niveaux, façades, piètement, poignées)
+// =====================================================================
+CAT.custom = { label: 'Meuble sur mesure', w: 1.20, d: .45, h: .80, price: 0, color: '#e9e4db', cg: 'Sur mesure' };
+const CUSTOM_DEF = { model: 'caisson', cols: 2, rows: 1, fronts: 'portes', base: 'pieds', handles: 'barre', back: true, shape: 'rect' };
+const CUSTOM_MODELS = [['caisson', 'Rangement fermé (buffet, commode, placard…)'], ['etagere', 'Étagère / bibliothèque ouverte'], ['banc', 'Banc / banquette coffre'], ['table', 'Table / bureau'], ['bloc', 'Bloc plein (tête de lit, habillage…)']];
+const CUSTOM_FRONTS = [['portes', 'Portes'], ['tiroirs', 'Tiroirs'], ['vitrees', 'Portes vitrées'], ['mixte', 'Portes + une case ouverte'], ['portesBas', 'Portes en bas, vitrées au-dessus'], ['ouvert', 'Tout ouvert']];
+const CUSTOM_BASES = [['pieds', 'Sur pieds'], ['socle', 'Socle (plinthe)'], ['suspendu', 'Suspendu au mur'], ['aucun', 'Posé au sol']];
+const CUSTOM_HANDLES = [['barre', 'Barres'], ['bouton', 'Boutons'], ['aucune', 'Sans (ouverture par pression)']];
+const CUSTOM_PRESETS = {
+  biblio:   { label: 'Bibliothèque', desc: '4 colonnes, 5 niveaux', w: 1.60, d: .35, h: 2.20, color: '#f3f1ec', cfg: { model: 'etagere', cols: 4, rows: 5, base: 'socle' } },
+  buffet:   { label: 'Buffet 3 portes', desc: 'Sur pieds, 180 cm', w: 1.80, d: .45, h: .80, color: '#c19a6b', cfg: { model: 'caisson', cols: 3, rows: 1, fronts: 'portes', base: 'pieds' } },
+  commode:  { label: 'Commode 4 tiroirs', desc: '100 × 50 × 90 cm', w: 1.00, d: .50, h: .90, color: '#f4f4f2', cfg: { model: 'caisson', cols: 1, rows: 4, fronts: 'tiroirs', base: 'socle' } },
+  tvLow:    { label: 'Meuble TV suspendu', desc: '3 cases, flotte à 25 cm', w: 2.00, d: .40, h: .40, elev: .25, color: '#1f2328', color2: '#c19a6b', cfg: { model: 'caisson', cols: 3, rows: 1, fronts: 'mixte', base: 'suspendu', handles: 'aucune' } },
+  placard:  { label: 'Placard / dressing', desc: '3 portes, 2,40 m de haut', w: 2.00, d: .60, h: 2.40, color: '#f3f1ec', cfg: { model: 'caisson', cols: 3, rows: 1, fronts: 'portes', base: 'socle' } },
+  haut:     { label: 'Meuble haut', desc: 'Suspendu, 2 portes', w: .80, d: .35, h: .70, elev: 1.45, color: '#f3f1ec', cfg: { model: 'caisson', cols: 2, rows: 1, fronts: 'portes', base: 'suspendu' } },
+  niche:    { label: 'Étagère murale', desc: '3 cases, sans fond', w: 1.20, d: .25, h: .40, elev: 1.30, color: '#c19a6b', cfg: { model: 'etagere', cols: 3, rows: 1, base: 'suspendu', back: false } },
+  vaisselier: { label: 'Vaisselier', desc: 'Vitré en haut, portes en bas', w: 1.20, d: .45, h: 1.90, color: '#e9e4db', cfg: { model: 'caisson', cols: 2, rows: 3, fronts: 'portesBas', base: 'pieds' } },
+  banc:     { label: 'Banquette coffre', desc: 'Assise + rangement', w: 1.40, d: .45, h: .45, color: '#f3f1ec', color2: '#9b7b62', cfg: { model: 'banc', cols: 2, rows: 1, fronts: 'portes', base: 'socle', handles: 'aucune' } },
+  bureau:   { label: 'Bureau', desc: 'Plateau 140 × 70', w: 1.40, d: .70, h: .75, color: '#c19a6b', cfg: { model: 'table', base: 'pieds' } },
+  table:    { label: 'Table', desc: 'Rectangulaire ou ronde', w: 1.80, d: .90, h: .75, color: '#8a6a4a', cfg: { model: 'table', base: 'pieds' } },
+  ilot:     { label: 'Îlot de cuisine', desc: '4 portes, 200 × 90', w: 2.00, d: .90, h: .90, color: '#1f2328', color2: '#f3f1ec', cfg: { model: 'caisson', cols: 4, rows: 1, fronts: 'portes', base: 'socle' } },
+  tete:     { label: 'Tête de lit', desc: 'Panneau 180 × 110', w: 1.80, d: .08, h: 1.10, color: '#9b7b62', cfg: { model: 'bloc', base: 'aucun' } },
+};
+const customCfg = it => ({ ...CUSTOM_DEF, ...(it.cfg ?? {}) });
+// estimation en fabrication sur mesure : surface de panneaux, façades, quincaillerie, arrondie à 10 €
+function customPrice(it) {
+  const c = customCfg(it), H = itemH(it, .8), r10 = v => Math.round(v / 10) * 10;
+  if (c.model === 'table') return r10(it.w * it.d * 260 + 140);
+  if (c.model === 'bloc') return r10(it.w * H * 180 + 60);
+  const cols = clamp(Math.round(c.cols) || 1, 1, 10), rows = clamp(Math.round(c.rows) || 1, 1, 12);
+  const panels = 2 * H * it.d + 2 * it.w * it.d + (c.back !== false ? it.w * H : 0) + (cols - 1) * H * it.d + (rows - 1) * it.w * it.d;
+  const cells = c.model === 'etagere' || c.fronts === 'ouvert' ? 0 : cols * rows - (c.fronts === 'mixte' ? 1 : 0);
+  return r10(panels * 95 + cells * (c.fronts === 'tiroirs' ? 115 : c.fronts === 'vitrees' ? 140 : 75) + (c.model === 'banc' ? it.w * 120 : 0) + 80);
+}
+// « Mes meubles » : modèles enregistrés par la personne, dans ce navigateur
+const MINE_KEY = 'moovo3d-myfurn';
+const mineGet = () => { try { return JSON.parse(localStorage.getItem(MINE_KEY) || '[]') || []; } catch { return []; } };
+const mineSet = l => { try { localStorage.setItem(MINE_KEY, JSON.stringify(l)); } catch { toast('Stockage du navigateur plein : impossible d’enregistrer ce meuble.'); } };
+function addCustom(spec) {
+  const it = I_('custom', spec.label ?? spec.name ?? CAT.custom.label, 0, 0, spec.w, spec.d, { h: spec.h ?? null, elev: spec.elev ?? 0, color: spec.color ?? null, color2: spec.color2 ?? null, look: spec.look ?? null, cfg: { ...CUSTOM_DEF, ...clone(spec.cfg ?? {}) } });
+  it.price = spec.price ?? customPrice(it);
+  it.x = r2(view.cx - it.w / 2); it.y = r2(view.cy - it.d / 2);
+  S.items.push(it); setTool('select'); sel = { kind: 'item', id: it.id }; tab = 'sel'; commit();
+  toast(`✏️ ${it.name} posé. Règle colonnes, façades, piètement et couleurs dans le panneau : la 3D suit en direct.`, 5000);
+}
+// Catalogue : nouveautés (meubles, aménagements intégrés, structure, extérieur)
+Object.assign(CAT, {
+  sofaBed:      { label: 'Canapé convertible',              w: 2.00, d: .95, price: 900, color: '#8d9096', cg: 'Séjour' },
+  meridienne:   { label: 'Méridienne',                      w: 1.80, d: .80, h: .80, price: 600, color: '#c9b8a3', cg: 'Séjour' },
+  shelfLadder:  { label: 'Étagère échelle',                 w: .60, d: .40, h: 1.80, price: 90, color: '#c19a6b', cg: 'Séjour' },
+  bioFire:      { label: 'Cheminée bioéthanol murale',      w: .90, d: .18, h: .45, elev: .90, price: 600, color: '#1f2328', cg: 'Séjour' },
+  bedStorage:   { label: 'Lit coffre 160×200',              w: 1.60, d: 2.00, price: 700, color: '#d9cfbf', cg: 'Chambre' },
+  murphyBed:    { label: 'Lit escamotable (armoire-lit)',   w: 1.60, d: .45, h: 2.20, price: 1500, color: '#f3f1ec', cg: 'Chambre' },
+  loftBed:      { label: 'Lit mezzanine 90×190',            w: .97, d: 2.00, h: 1.80, price: 400, color: '#f4f4f2', cg: 'Chambre' },
+  canopyBed:    { label: 'Lit à baldaquin 160×200',         w: 1.70, d: 2.10, h: 2.10, price: 1100, color: '#1f2328', cg: 'Chambre' },
+  deskWall:     { label: 'Bureau mural rabattable',         w: .90, d: .45, h: .04, elev: .75, price: 180, color: '#c19a6b', cg: 'Bureau' },
+  cornerUnit:   { label: 'Meuble bas d’angle',              w: .90, d: .90, h: .90, price: 350, color: '#f3f1ec', cg: 'Cuisine' },
+  pantry:       { label: 'Garde-manger (colonne)',          w: .60, d: .60, h: 2.10, price: 500, color: '#f3f1ec', cg: 'Cuisine' },
+  tableHigh:    { label: 'Table haute / mange-debout',      w: 1.20, d: .60, h: 1.05, price: 250, color: '#8a6a4a', cg: 'Cuisine' },
+  mirrorCabinet:{ label: 'Armoire de toilette (miroir)',    w: .80, d: .15, h: .70, elev: 1.15, price: 220, color: '#f4f4f2', cg: 'Salle de bain' },
+  vesselBasin:  { label: 'Vasque à poser',                  w: .45, d: .35, h: .15, elev: .85, price: 150, color: '#fbfbfb', cg: 'Salle de bain' },
+  washerTower:  { label: 'Colonne lave-linge + sèche-linge', w: .60, d: .62, h: 1.75, price: 900, color: '#f4f5f6', cg: 'Salle de bain' },
+  bathScreen:   { label: 'Baignoire avec pare-bain',        w: 1.70, d: .70, price: 600, wet: true, cg: 'Salle de bain' },
+  stairsL:      { label: 'Escalier quart tournant',         w: 1.90, d: 2.60, price: 4500, color: '#c19a6b', cg: 'Construction' },
+  stairsSpiral: { label: 'Escalier hélicoïdal (colimaçon)', w: 1.40, d: 1.40, price: 3500, color: '#2b2f35', cg: 'Construction' },
+  mezzanine:    { label: 'Mezzanine (plateforme + garde-corps)', w: 3.00, d: 2.00, price: 4000, color: '#c19a6b', cg: 'Construction' },
+  claustra:     { label: 'Claustra bois (séparation ajourée)', w: 1.20, d: .06, h: 2.40, price: 450, color: '#c19a6b', cg: 'Construction' },
+  beam:         { label: 'Poutre apparente',                w: 3.00, d: .20, h: .25, price: 400, color: '#7a5a3a', group: 'Plafond', ceil: true },
+  radiatorCol:  { label: 'Radiateur à colonnes (design)',   w: .50, d: .10, h: 1.80, elev: .10, price: 600, group: 'Chauffage & ventilation', color: '#2b2f35' },
+  parasol:      { label: 'Parasol',                         w: 3.00, d: 3.00, h: 2.40, price: 200, color: '#efe7da', cg: 'Extérieur & balcon' },
+  bbq:          { label: 'Barbecue / plancha',              w: 1.20, d: .55, h: .90, price: 450, color: '#2b2f35', cg: 'Extérieur & balcon' },
+  spa:          { label: 'Spa 4 places',                    w: 2.00, d: 2.00, h: .85, price: 5000, color: '#6b5a4a', cg: 'Extérieur & balcon' },
+});
 // Tailles standard proposées dans le panneau de l'objet : [largeur, profondeur, libellé]
 const SIZES = {
   bed: [[.9, 1.9, '90×190'], [1.4, 1.9, '140×190'], [1.6, 2.0, '160×200'], [1.8, 2.0, '180×200']],
@@ -579,8 +669,9 @@ const SIZES = {
   island: [[1.2, .9, '120×90'], [1.8, .9, '180×90'], [2.4, 1.0, '240×100']],
   stairs: [[.8, 3.0, '80 cm'], [.9, 3.2, '90 cm'], [1.0, 3.4, '1 m']],
 };
-for (const k of ['bed90', 'bed140', 'bed180']) SIZES[k] = SIZES.bed;
-for (const k of ['loveseat']) SIZES[k] = SIZES.sofa;
+for (const k of ['bed90', 'bed140', 'bed180', 'bedStorage', 'canopyBed']) SIZES[k] = SIZES.bed;
+for (const k of ['bathScreen']) SIZES[k] = SIZES.bath;
+for (const k of ['loveseat', 'sofaBed']) SIZES[k] = SIZES.sofa;
 // Ensembles prêts à poser : [type, x, y, rot, options], x/y = coin haut-gauche de l'emprise, dos des meubles vers le haut (y = 0)
 const KITS = {
   salon:     { label: 'Coin salon', desc: 'Canapé, fauteuil, table basse, tapis, meuble TV', W: 3.6, D: 3.4, items: [['rug', .8, .95, 0, { w: 2.0, d: 1.4 }], ['sofa', .7, 0, 0], ['coffeeTable', 1.25, 1.35, 0], ['armchair', 0, 1.1, 270], ['tv', 1.0, 2.95, 180], ['lamp', 0, 0, 0], ['plant', 3.15, 0, 0]] },
@@ -617,7 +708,7 @@ const CAT_GROUP = t => CAT[t]?.group ?? CAT[t]?.cg ?? ({
   shower: 'Salle de bain', bath: 'Salle de bain', vanity: 'Salle de bain', wc: 'Salle de bain', washer: 'Salle de bain', dryer: 'Salle de bain', towel: 'Salle de bain', glass: 'Salle de bain',
   halfwall: 'Construction', gaine: 'Construction',
 }[t] ?? 'Divers');
-const MOUNT = new Set(['shelf', 'wallCabinet', 'hood', 'tvWall', 'mirror', 'artwork', 'curtain', 'backsplash']);
+const MOUNT = new Set(['shelf', 'wallCabinet', 'hood', 'tvWall', 'mirror', 'artwork', 'curtain', 'backsplash', 'bioFire', 'mirrorCabinet', 'deskWall']);
 // Matières de crédence : revêtements texturés de la bibliothèque + verre laqué et inox
 const SPLASH = [['subway', 'Carrelage métro'], ['zellige', 'Zellige'], ['concrete', 'Béton ciré'], ['stone', 'Pierre'], ['lime', 'Tadelakt'], ['glass', 'Verre laqué'], ['inox', 'Inox brossé'], ['marble', 'Marbre']];   // objets posés contre un mur en hauteur
 // Sols
@@ -1232,6 +1323,10 @@ function works() {
   if (built > .01) out.lines.push({ label: 'Cloisons neuves', qty: `${fm(built)} ml · ${fm(builtArea)} m²`, key: 'wall', unit: '€/m²', total: builtArea * P.wall, sec: 'Cloisons & plâtrerie', qn: builtArea, un: 'm²', pu: P.wall });
   if (verr > .01) out.lines.push({ label: 'Verrière', qty: `${fm(verrMl)} ml · ${fm(verr)} m²`, key: 'verriere', unit: '€/m²', total: verr * (P.verriere ?? 650), sec: 'Menuiseries', qn: verr, un: 'm²', pu: P.verriere ?? 650 });
   if (cutIn.length) out.lines.push({ label: 'Ouvertures percées dans un mur existant', qty: `${cutIn.length} u`, key: 'newOpening', unit: '€/u', total: cutIn.length * P.newOpening, sec: 'Gros œuvre', qn: cutIn.length, un: 'u', pu: P.newOpening });
+  // poutres sous les nouvelles ouvertures avec linteau (murs porteurs) : étaiement, IPN, appuis, reprises
+  const beams = newOps.filter(o => lintelOf(o) !== 'none'), beamMl = beams.reduce((a, o) => a + o.width + .4, 0);
+  if (beams.length) out.lines.push({ label: `Ouverture en mur porteur : étaiement, poutre IPN ${beams.map(o => ipnSize(o.width)).join(' / ')}, appuis et reprises`, qty: `${beams.length} u · ${fm(beamMl)} ml de poutre`, key: 'porteur', unit: '€/ml', total: beamMl * (P.porteur ?? 1100), sec: 'Gros œuvre', qn: beamMl, un: 'ml', pu: P.porteur ?? 1100 });
+  if (newOps.some(o => o.type === 'passe')) { const n = newOps.filter(o => o.type === 'passe').length; out.lines.push({ label: 'Tablettes de passe-plat', qty: `${n} u`, key: 'tablette', unit: '€/u', total: n * (P.tablette ?? 120), sec: 'Menuiseries', qn: n, un: 'u', pu: P.tablette ?? 120 }); }
   if (newDoors.length) out.lines.push({ label: 'Blocs-portes neufs', qty: `${newDoors.length} u`, key: 'door', unit: '€/u', total: newDoors.length * P.door, sec: 'Menuiseries', qn: newDoors.length, un: 'u', pu: P.door });
   if (closed.length) out.lines.push({ label: 'Ouvertures rebouchées', qty: `${closed.length} u`, key: 'closeOpening', unit: '€/u', total: closed.length * P.closeOpening, sec: 'Cloisons & plâtrerie', qn: closed.length, un: 'u', pu: P.closeOpening });
   out.rooms = A.rooms.filter(r => r.tags[0]).map(r => ({ r, st: roomStats(r) }));
@@ -1370,7 +1465,7 @@ function computeAlerts() {
   for (const it of fl) { const f = F.get(it); if (it._r == null && !A.regionAt(f.x + f.w / 2, f.y + f.h / 2)) out.push({ it, lvl: 'info', t: `« ${it.name} » est hors des murs. Sur le palier, il risque de vexer les voisins.` }); }
   return out;
 }
-const ROUND2D = new Set(['rugRound', 'roundTable', 'coffeeRound', 'pouf', 'plantTall', 'plantSmall', 'waterHeater', 'barStool', 'officeChair', 'coatRack']);
+const ROUND2D = new Set(['rugRound', 'roundTable', 'coffeeRound', 'pouf', 'plantTall', 'plantSmall', 'waterHeater', 'barStool', 'officeChair', 'coatRack', 'parasol', 'vesselBasin']);
 function itemSym(it) {
   const c = CAT[it.type] ?? {}, w = it.w, d = it.d, x = -w / 2, y = -d / 2, s = view.s;
   const base = it.type === 'rug' ? (it.color ?? '#d8cfbf') : (it.color ?? ({ shower: '#d6e6f2', bath: '#e7eef3', gaine: '#aeb3ba', halfwall: '#b9bec6', glass: '#bfe3f5', counter: '#eeeae3', fridge: '#e9ecef', washer: '#e3e6ea', dryer: '#e3e6ea', wc: '#f6f6f6', vanity: '#dcc3a0', sink: '#c6ccd2', hob: '#2b2b2e' }[it.type] ?? c.color ?? '#d9d2c5'));
@@ -1389,6 +1484,10 @@ function itemSym(it) {
   switch (it.type) {
     case 'roundTable': if (it.chairs) { const r = Math.min(w, d) / 2, n = Math.max(2, Math.min(8, Math.round(2 * Math.PI * r / .6))); for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; g += `<rect x="${n4(Math.cos(a) * (r + .2) - .2)}" y="${n4(Math.sin(a) * (r + .2) - .2)}" width=".4" height=".4" fill="#9ca3af" fill-opacity=".6" ${st}/>`; } } break;
     case 'plantTall': case 'plantSmall': case 'planter': g += `<circle r="${n4(Math.min(w, d) * .38)}" fill="#6aa56f" ${th}/>`; break;
+    case 'stairsSpiral': { const R = Math.min(w, d) / 2, n = 13; g = `<circle r="${n4(R)}" fill="${base}" fill-opacity=".9" ${st}/><circle r=".05" fill="#374151"/>`; for (let i = 0; i < n; i++) { const a = i * Math.PI * 1.65 / n; g += `<line x1="0" y1="0" x2="${n4(Math.cos(a) * R)}" y2="${n4(-Math.sin(a) * R)}" ${th}/>`; } break; }
+    case 'stairsL': { const wf = Math.min(.9, w / 2, d / 2); g = `<path d="M${n4(x)},${n4(-y)}V${n4(y)}H${n4(-x)}V${n4(y + wf)}H${n4(x + wf)}V${n4(-y)}Z" fill="${base}" ${st}/>`; for (let z = y + wf + .26; z < -y; z += .26) g += `<line x1="${n4(x)}" y1="${n4(z)}" x2="${n4(x + wf)}" y2="${n4(z)}" ${th}/>`; for (let s = x + wf + .26; s < -x; s += .26) g += `<line x1="${n4(s)}" y1="${n4(y)}" x2="${n4(s)}" y2="${n4(y + wf)}" ${th}/>`; break; }
+    case 'custom': { const c = customCfg(it); if (['caisson', 'etagere', 'banc'].includes(c.model)) { const n = clamp(Math.round(c.cols) || 1, 1, 10); for (let i = 1; i < n; i++) g += `<line x1="${n4(x + i * w / n)}" y1="${n4(y)}" x2="${n4(x + i * w / n)}" y2="${n4(-y)}" ${th}/>`; } if (c.shape === 'rond' && c.model === 'table') g = `<ellipse cx="0" cy="0" rx="${n4(w / 2)}" ry="${n4(d / 2)}" fill="${base}" fill-opacity=".95" ${st}/>`; break; }
+    case 'beam': g = `<rect x="${n4(x)}" y="${n4(y)}" width="${n4(w)}" height="${n4(d)}" fill="${base}" fill-opacity=".35" ${st} stroke-dasharray="8 3 2 3"/>`; break;
     case 'stairs': { const n = Math.max(2, Math.round(S.H / .175)); for (let i = 1; i < n; i++) g += `<line x1="${n4(x)}" y1="${n4(-y - i * d / n)}" x2="${n4(-x)}" y2="${n4(-y - i * d / n)}" ${th}/>`; g += `<path class="ns" d="M0,${n4(-y - .1)}L0,${n4(y + .2)}M${n4(-.08)},${n4(y + .32)}L0,${n4(y + .2)}L${n4(.08)},${n4(y + .32)}" stroke="#1f2937" stroke-width="1.4" fill="none"/>`; break; }
     case 'sofaCorner': { const sd = Math.min(.95, d * .6); g = `<path d="M${n4(x)},${n4(y)}H${n4(-x)}V${n4(-y)}H${n4(-x - sd)}V${n4(y + sd)}H${n4(x)}Z" fill="${base}" ${st}/><path d="M${n4(x)},${n4(y + .22)}H${n4(-x - .22)}V${n4(-y)}" ${th}/>`; break; }
     case 'deskCorner': { const dw = Math.min(.7, d * .55); g = `<path d="M${n4(x)},${n4(y)}H${n4(-x)}V${n4(y + dw)}H${n4(x + dw)}V${n4(-y)}H${n4(x)}Z" fill="${base}" ${st}/>`; break; }
@@ -1515,9 +1614,19 @@ function render2D() {
     } else if (o.type === 'placard') {
       const m = o.at + o.width / 2;
       for (const [a, b, k] of [[o.at, m + .03, .2], [m - .03, o.at + o.width, -.2]]) { const p1 = at(w, f, a, k * w.t), p2 = at(w, f, b, k * w.t); h += `<line class="ns" x1="${n4(p1[0])}" y1="${n4(p1[1])}" x2="${n4(p2[0])}" y2="${n4(p2[1])}" stroke="${col}" stroke-width="2"/>`; }
+    } else if (o.type === 'passe') {
+      // passe-plat : tablette (double trait) à mi-hauteur
+      for (const k of [-.3, .3]) { const p1 = at(w, f, o.at, k * w.t), p2 = at(w, f, o.at + o.width, k * w.t); h += `<line class="ns" x1="${n4(p1[0])}" y1="${n4(p1[1])}" x2="${n4(p2[0])}" y2="${n4(p2[1])}" stroke="${sl ? 'var(--accent)' : '#a0794f'}" stroke-width="1.5"/>`; }
+      h += `<title>${esc(o.label ?? OPS.passe.label)} · ${cmTxt(o.width)} × ${cmTxt(o.height)} ${UNIT()}, tablette à ${cmTxt(o.sill || 0)} ${UNIT()}</title>` + opWidthLabel(w, f, o);
     } else {
       const p1 = at(w, f, o.at, 0), p2 = at(w, f, o.at + o.width, 0);
       h += `<line class="ns" x1="${n4(p1[0])}" y1="${n4(p1[1])}" x2="${n4(p2[0])}" y2="${n4(p2[1])}" stroke="${col}" stroke-width="1" stroke-dasharray="2 3"/>`;
+      if (o.type === 'open' || o.type === 'arch') h += `<title>${esc(o.label ?? OPS[o.type].label)} · ${cmTxt(o.width)} × ${cmTxt(o.height)} ${UNIT()}</title>` + opWidthLabel(w, f, o);
+    }
+    // poutre / linteau : trait mixte épais au-dessus de l'ouverture, 20 cm d'appui de chaque côté (convention des plans de structure)
+    if (lintelOf(o) !== 'none' && !isArc(w)) {
+      const q1 = at(w, f, Math.max(0, o.at - .2), 0), q2 = at(w, f, Math.min(f.L, o.at + o.width + .2), 0);
+      h += `<line class="ns" x1="${n4(q1[0])}" y1="${n4(q1[1])}" x2="${n4(q2[0])}" y2="${n4(q2[1])}" stroke="${sl ? 'var(--accent)' : '#b91c1c'}" stroke-width="2.5" stroke-dasharray="9 3 2 3" opacity=".85"/>`;
     }
     h += '</g>';
   }
@@ -1789,7 +1898,7 @@ function updateSelbar() {
   const mob = !!ML.mobile()?.on();   // au doigt : libellés courts et un accès direct au panneau « Modifier »
   if (sel.kind === 'item') html = B('rotate', '↻', 'Pivoter') + B('dup', '⧉', 'Dupliquer') + B('color', '🎨', 'Couleur') + B('del', '🗑', 'Supprimer', 'danger');
   else if (sel.kind === 'opening') html = (o.type === 'door' ? B('cycleDoor', '↻', mob ? 'Sens' : 'Sens d’ouverture') : '') + B('dup', '⧉', 'Dupliquer') + B('del', '🗑', 'Supprimer', 'danger');
-  else if (sel.kind === 'wall') html = B('door', '🚪', mob ? 'Porte' : 'Porte ici') + B('window', '🪟', mob ? 'Fenêtre' : 'Fenêtre ici') + B('split', '✂', 'Couper') + B('accent', '🎨', mob ? 'Couleur' : 'Accent') + B('del', '🗑', mob ? 'Suppr.' : '', 'danger');
+  else if (sel.kind === 'wall') html = B('door', '🚪', mob ? 'Porte' : 'Porte ici') + B('window', '🪟', mob ? 'Fenêtre' : 'Fenêtre ici') + B('openMenu', '🔨', 'Ouvrir') + (mob ? '' : B('split', '✂', 'Couper')) + B('accent', '🎨', mob ? 'Couleur' : 'Accent') + B('del', '🗑', mob ? 'Suppr.' : '', 'danger');
   else if (sel.kind === 'room') { const r = o !== true ? o : null; if (!r?.tags?.[0]) { selbar.hidden = true; return; } html = B('styles', '🎨', 'Ambiance') + B('rename', mob ? '🏷' : '✏️', 'Renommer') + B('addHere', '＋', 'Meuble ici'); }
   if (mob) html += B('details', '✏️', 'Modifier', 'go');
   selbar.innerHTML = html;
@@ -1805,6 +1914,7 @@ selbar.addEventListener('click', e => {
   const b = e.target.closest('[data-sb]'); if (!b) return; const c = b.dataset.sb;
   if (sel?.kind === 'room') ML.hintDone?.('room');
   if (c === 'details') { tab = 'sel'; ML.mobile()?.show('panel'); renderPanel(); return; }
+  if (c === 'openMenu') { tab = 'sel'; ML.mobile()?.on() && ML.mobile().show('panel'); renderPanel(); setTimeout(() => panel.querySelector('#openWallBox')?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 150); return; }
   if (['rotate', 'dup', 'del', 'cycleDoor', 'split'].includes(c)) return act(c);
   if (c === 'color' || c === 'accent' || c === 'styles') { tab = 'sel'; if (ML.mobile()?.on()) ML.mobile().show('panel'); renderPanel(); setTimeout(() => { const t = c === 'accent' ? panel.querySelector('select[data-key^="accent."]') : c === 'styles' ? panel.querySelector('.styles') : panel.querySelector('.cpick'); t?.scrollIntoView({ block: 'center', behavior: 'smooth' }); if (c === 'color') t?.click(); else if (c === 'accent') t?.focus(); }, 30); return; }
   if (c === 'door' || c === 'window') { const w = resolveSel(), f = frame(w), p = at(w, f, sel.at ?? f.L / 2, 0); setTool(c); clickTool(p, null, null); setTool('select'); return; }
@@ -2245,6 +2355,18 @@ function wallPanel(w) {
       ${vert ? field('Position horizontale x (cm)', 'wall', 'posX', 'cm', w.a[0]) : ''}
       ${selectF('Type', 'wall', 'kind', w.kind, [['int', 'Cloison'], ['ext', 'Extérieur / porteur']])}
     </div>
+    ${isArc(w) ? '' : `<h4 id="openWallBox">Ouvrir ce mur</h4>
+    <p class="muted" style="margin:0 0 6px">Au point cliqué sur le mur. Largeur, hauteur et position restent modifiables ensuite.</p>
+    <div class="optiles">
+      <button data-act="openWall" data-k="open"><b>🔨 Ouverture large</b><span>2 m sans porte, retombée en haut</span></button>
+      <button data-act="openWall" data-k="openFull"><b>↔ Toute la longueur</b><span>garde 15 cm de mur de chaque côté</span></button>
+      <button data-act="openWall" data-k="arch"><b>⌒ Passage en arche</b><span>1 m, arrondi en haut</span></button>
+      <button data-act="openWall" data-k="passe"><b>🍽 Passe-plat</b><span>120 × 60 cm avec tablette</span></button>
+      <button data-act="openWall" data-k="half"><b>▁ Mur à mi-hauteur</b><span>cuisine semi-ouverte, 1,10 m</span></button>
+      <button data-act="openWall" data-k="verriere"><b>▦ Verrière atelier</b><span>mur bas + vitrage jusqu’au plafond</span></button>
+      <button data-act="openWall" data-k="demolish" class="danger"><b>🧨 Abattre tout le mur</b><span>les murs voisins restent en place</span></button>
+    </div>
+    ${w.kind === 'ext' ? `<div class="warn">🏗 Mur porteur : toute ouverture reçoit une poutre (IPN) avec 20 cm d’appui de chaque côté, posée sous étaiement. Le devis l’ajoute. Fais dimensionner la poutre par un bureau d’études, et en copropriété, demande l’accord de l’assemblée générale.</div>` : ''}`}
     <h4>Hauteur &amp; verrière</h4>
     ${check('Mur bas (pas jusqu’au plafond)', 'wall', 'low', isLow(w))}
     ${isLow(w) ? `<div class="grid2">${field('Hauteur du mur (cm)', 'wall', 'h', 'cm', w.h)}</div>
@@ -2314,8 +2436,41 @@ function openingPanel(o) {
       <div class="row" style="margin-top:0"><button data-act="cycleDoor" class="on">↻ Changer le sens (4 positions)</button></div>
       <div class="row"><button data-act="flipSide">Ouvrir de l’autre côté du mur <kbd>I</kbd></button><button data-act="flipHinge">Gonds de l’autre côté <kbd>G</kbd></button></div>
       <p class="muted">Raccourci : double-clic sur la porte dans le plan.</p>` : ''}
+    ${['open', 'arch'].includes(o.type) ? `<div class="row"><button data-act="opFullH">⇕ Jusqu’au plafond (sans retombée)</button><button data-act="opFullW">↔ Toute la longueur du mur</button></div>` : ''}
+    ${o.type !== 'placard' ? `<h4>Structure au-dessus</h4>
+      <div class="grid2">${selectF('Linteau / poutre', 'opening', 'lintel', lintelOf(o), Object.entries(LINTELS), 'full')}</div>
+      ${lintelOf(o) !== 'none' ? `<p class="muted">Portée ${cmTxt(o.width)} ${UNIT()} : profilé d’environ <b>IPN ${ipnSize(o.width)}</b>, 20 cm d’appui de chaque côté, posé sous étaiement. Valeur indicative : un bureau d’études la confirme selon les charges.</p>`
+        : w.kind === 'ext' ? '<div class="warn">Ce mur est marqué porteur : sans linteau, l’ouverture n’est pas réalisable en vrai.</div>' : ''}` : ''}
     <div class="row"><button data-act="dup">Dupliquer</button><button data-act="del" class="danger">Supprimer</button></div>
-    ${tipBox(ML.TIPS[o.type] ?? ML.TIPS.door)}`;
+    ${tipBox(OPEN_TIPS[o.type] ?? ML.TIPS[o.type] ?? ML.TIPS.door)}`;
+}
+const OPEN_TIPS = {
+  open: 'Une retombée de 20 à 40 cm en haut d’une grande ouverture cache la poutre et garde une séparation visuelle entre les pièces. Jusqu’au plafond, l’espace paraît d’un seul tenant.',
+  arch: 'Une arche adoucit un passage étroit. Un rayon égal à la moitié de la largeur donne un plein cintre classique.',
+  passe: 'Tablette vers 1,05 m côté cuisine (hauteur d’un plan de travail + 15 cm). Prévois une prise et un éclairage au-dessus si elle sert de comptoir.',
+};
+// « Ouvrir ce mur » : crée l'ouverture choisie au point cliqué, sans chevaucher les ouvertures déjà posées
+function openWall(k) {
+  const w = resolveSel(); if (sel?.kind !== 'wall' || !w) return;
+  if (isArc(w)) { toast('Redresse d’abord ce mur : les ouvertures se posent sur les murs droits.'); return; }
+  const f = frame(w), porteur = w.kind === 'ext';
+  if (k === 'half' || k === 'verriere') { w.h = 1.10; w.glassAbove = k === 'verriere'; commit(); toast(k === 'verriere' ? '▦ Verrière posée sur un mur de 1,10 m. Hauteur réglable dans le panneau.' : '▁ Mur abaissé à 1,10 m : les deux pièces se voient, le plan de travail peut s’y adosser.', 4500); return; }
+  if (k === 'demolish') { act('del'); if (porteur) toast('🏗 Mur porteur abattu : prévoir une poutre sur toute la portée et une étude de structure. ↶ pour annuler.', 6000); return; }
+  const type = k === 'openFull' ? 'open' : k, def = OPS[type], click = sel.at ?? f.L / 2;
+  if (k === 'openFull') S.openings = S.openings.filter(o => o.wall !== w.id);   // tout le mur s'ouvre : les anciennes ouvertures disparaissent
+  // plages libres entre les ouvertures existantes (5 cm de marge)
+  const occ = S.openings.filter(o => o.wall === w.id).map(o => [o.at - .05, o.at + o.width + .05]).sort((a, b) => a[0] - b[0]);
+  const gaps = []; let s0 = k === 'openFull' ? .15 : .05;
+  for (const [a, b] of occ) { if (a > s0) gaps.push([s0, a]); s0 = Math.max(s0, b); }
+  if (f.L - (k === 'openFull' ? .15 : .05) > s0) gaps.push([s0, f.L - (k === 'openFull' ? .15 : .05)]);
+  const gap = gaps.find(g => click >= g[0] && click <= g[1]) ?? gaps.sort((a, b) => (b[1] - b[0]) - (a[1] - a[0]))[0];
+  if (!gap || gap[1] - gap[0] < .4) { toast('Pas assez de place libre sur ce mur pour cette ouverture.'); return; }
+  const width = k === 'openFull' ? gap[1] - gap[0] : Math.min(def.w, gap[1] - gap[0]);
+  const a0 = clamp(click - width / 2, gap[0], gap[1] - width);
+  const o = O_('o-' + uid(), w.id, type, r2(a0), r2(width), porteur ? { lintel: 'hidden' } : {});
+  S.openings.push(o); clampOpening(o); sel = { kind: 'opening', id: o.id }; tab = 'sel'; commit();
+  toast(porteur ? `🏗 Ouverture dans un mur porteur : poutre d’environ IPN ${ipnSize(o.width)} prévue (à valider par un bureau d’études). Le devis compte l’étaiement et la poutre.`
+    : `🔨 ${OPS[type].label} : ${cmTxt(o.width)} ${UNIT()}. Règle largeur, hauteur et position dans le panneau.`, 5500);
 }
 const NORMS = {
   socket: 'Axe à 5 cm minimum du sol (en pratique 25 à 30 cm). Aucune prise dans les volumes 0, 1 et 2 de la salle de bain (60 cm autour de la douche ou de la baignoire).',
@@ -2349,9 +2504,12 @@ function itemPanel(it) {
       ${field(coff ? 'Retombée sous plafond (cm)' : 'Hauteur (cm, vide = standard)', 'item', 'h', 'cmOpt', it.h ?? '')}
       ${heightFields}
       ${field('Prix à prévoir (€)', 'item', 'price', 'num', it.price)}
-      ${field('Couleur', 'item', 'color', 'color', it.color ?? c.color ?? '#d9d2c5')}
+      ${field(it.type === 'custom' ? 'Couleur du caisson' : 'Couleur', 'item', 'color', 'color', it.color ?? c.color ?? '#d9d2c5')}
+      ${c.sym ? '' : selectF('Aspect / matière', 'item', 'look', it.look ?? '', LOOKS, it.type === 'custom' ? '' : 'full')}
+      ${it.type === 'custom' ? field('Couleur des façades', 'item', 'color2', 'color', it.color2 ?? it.color ?? c.color) : ''}
     </div>
     ${it.color ? '<div class="row" style="margin-top:6px"><button data-act="resetColor">Couleur d’origine</button></div>' : ''}
+    ${it.type === 'custom' ? customPanel(it) : ''}
     ${SIZES[it.type] ? `<h4>Tailles standard</h4><div class="row" style="margin-top:0">${SIZES[it.type].map(([w2, d2, l]) => `<button data-act="setSize" data-w="${w2}" data-d="${d2}" class="${Math.abs(it.w - w2) < .005 && Math.abs(it.d - d2) < .005 ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}
     ${ALERTS.filter(a => a.it === it).map(a => `<div class="warn">${a.lvl === 'warn' ? '⚠️' : 'ℹ️'} ${esc(a.t)}</div>`).join('')}
     ${norm}
@@ -2362,9 +2520,33 @@ function itemPanel(it) {
     ${it.type === 'halfwall' ? check(`Verrière au-dessus, jusqu’au plafond (${cmTxt(S.H - itemH(it, 1.2))} ${UNIT()})`, 'item', 'glassAbove', !!it.glassAbove) : ''}
     <div class="row"><button data-act="rotate">↻ Pivoter (R)</button><button data-act="dup">Dupliquer</button><button data-act="del" class="danger">Supprimer</button></div>`;
 }
+// Aspect d'un objet en 3D : on garde sa couleur, on change la façon dont il renvoie la lumière
+const LOOKS = [['', 'Standard'], ['mat', 'Mat'], ['satine', 'Satiné'], ['laque', 'Laqué brillant'], ['metal', 'Métal'], ['verre', 'Verre teinté'], ['velours', 'Tissu / velours']];
+const LOOK_PROPS = { mat: { roughness: .95, metalness: 0 }, satine: { roughness: .5, metalness: 0 }, laque: { roughness: .1, metalness: .05 }, metal: { roughness: .28, metalness: .9 }, verre: { roughness: .04, metalness: 0, transparent: true, opacity: .45, depthWrite: false }, velours: { roughness: 1, metalness: 0, sheen: 1 } };
+const _looks = new Map();
+function lookMat(m, look) {
+  const k = m.uuid + look;
+  if (!_looks.has(k)) { const c = m.clone(); for (const [p, v] of Object.entries(LOOK_PROPS[look] ?? {})) if (p in c) c[p] = v; c.needsUpdate = true; _looks.set(k, c); }
+  return _looks.get(k);
+}
+function customPanel(it) {
+  const c = customCfg(it), shelf = ['caisson', 'etagere', 'banc'].includes(c.model), est = customPrice(it);
+  return `<h4>Mon meuble sur mesure</h4>
+    <div class="grid2">
+      ${selectF('Type de meuble', 'item', 'cfg.model', c.model, CUSTOM_MODELS, 'full')}
+      ${shelf ? field('Colonnes', 'item', 'cfg.cols', 'num', c.cols) + field('Niveaux', 'item', 'cfg.rows', 'num', c.rows) : ''}
+      ${c.model === 'caisson' || c.model === 'banc' ? selectF('Façades', 'item', 'cfg.fronts', c.fronts, CUSTOM_FRONTS) + selectF('Poignées', 'item', 'cfg.handles', c.handles, CUSTOM_HANDLES) : ''}
+      ${c.model === 'table' ? selectF('Plateau', 'item', 'cfg.shape', c.shape, [['rect', 'Rectangulaire'], ['rond', 'Rond / ovale']]) : ''}
+      ${c.model !== 'bloc' ? selectF('Piètement', 'item', 'cfg.base', c.base, c.model === 'table' ? [['pieds', 'Pieds noirs'], ['aucun', 'Pieds assortis']] : CUSTOM_BASES) : ''}
+    </div>
+    ${shelf ? check('Panneau de fond', 'item', 'cfg.back', c.back !== false) : ''}
+    <p class="muted">Fabrication sur mesure estimée à <b>${fm(est, 0)} €</b> (panneaux, façades, quincaillerie, hors pose).</p>
+    <div class="row">${Math.abs((it.price || 0) - est) > 1 ? `<button data-act="useCustomPrice">Utiliser ce prix</button>` : ''}<button data-act="saveMine">⭐ Ajouter à « Mes meubles »</button></div>
+    ${tipBox(c.model === 'etagere' ? 'Pour une bibliothèque, garde des niveaux de 30 à 35 cm (livres de poche) à 40 cm (beaux livres) et au plus 80 cm de large par case, sinon les tablettes fléchissent.' : c.model === 'table' ? 'Compte 60 cm de largeur par convive et 75 cm de hauteur. Un bureau gagne à faire 70 cm de profondeur pour garder l’écran à bonne distance.' : 'Un meuble suspendu dégage le sol et agrandit visuellement la pièce. Au-delà de 80 cm de large, une porte coulissante ou deux portes valent mieux qu’une seule.')}`;
+}
 // Ambiance : murs, sol, plafond et couleurs du mobilier de la pièce
-const STYLE_FABRIC = new Set(['sofa', 'sofaCorner', 'loveseat', 'armchair', 'bed', 'bed90', 'bed140', 'bed180', 'curtain', 'rug', 'rugRound', 'officeChair']);
-const STYLE_WOOD = new Set(['table', 'roundTable', 'coffeeTable', 'coffeeRound', 'desk', 'deskCorner', 'sideboard', 'nightstand', 'bookcase', 'shelf', 'bench', 'tv', 'box', 'wardrobe', 'dresser', 'console', 'dressing', 'vanity', 'doubleVanity', 'vanityTable', 'bunk', 'stairs']);
+const STYLE_FABRIC = new Set(['sofa', 'sofaBed', 'meridienne', 'bedStorage', 'sofaCorner', 'loveseat', 'armchair', 'bed', 'bed90', 'bed140', 'bed180', 'curtain', 'rug', 'rugRound', 'officeChair']);
+const STYLE_WOOD = new Set(['table', 'shelfLadder', 'deskWall', 'tableHigh', 'claustra', 'roundTable', 'coffeeTable', 'coffeeRound', 'desk', 'deskCorner', 'sideboard', 'nightstand', 'bookcase', 'shelf', 'bench', 'tv', 'box', 'wardrobe', 'dresser', 'console', 'dressing', 'vanity', 'doubleVanity', 'vanityTable', 'bunk', 'stairs']);
 const STYLE_ACCENT = new Set(['pouf', 'artwork', 'mirror', 'lamp', 'barStool', 'chair', 'coatRack', 'mirrorFloor']);
 function applyStyle(r, key) {
   const st = ML.STYLES[key], t = r.tags[0];
@@ -2624,8 +2806,16 @@ function onFieldChange(e) {
         const acc = w.accent[sd] ??= { paintColor: '#1f5a63', sheen: 'velours', tag: rg?.tags[0]?.id ?? null }; if (k === 'wallFinish') { acc.wallFinish = v === 'paint' ? null : v; if (ML.WALL_DEFAULT_COLOR[v]) acc.paintColor = ML.WALL_DEFAULT_COLOR[v]; } else acc[k] = v; }
     }
     else w[key] = v;
-  } else if (target === 'opening') { obj[key] = v; clampOpening(obj); }
-  else if (target === 'item') { obj[key] = v; if (key === 'w' || key === 'd') obj[key] = Math.max(.02, v); }
+  } else if (target === 'opening') { obj[key] = v; if (key === 'type' && OPS[v]) { obj.height = OPS[v].h; obj.sill = OPS[v].sill; } clampOpening(obj); }
+  else if (target === 'item') {
+    if (key.startsWith('cfg.')) {
+      obj.cfg ??= { ...CUSTOM_DEF };
+      if (key === 'cfg.cols' || key === 'cfg.rows') v = clamp(Math.round(v), 1, key === 'cfg.cols' ? 10 : 12);
+      setPath(obj, key, v);
+      // passer en suspendu sans hauteur : on le monte à une hauteur logique ; revenir au sol : on le repose
+      if (key === 'cfg.base') obj.elev = v === 'suspendu' ? (obj.elev || (itemH(obj, .8) <= .5 ? .25 : itemH(obj, .8) <= 1 ? 1.45 : .1)) : 0;
+    } else { obj[key] = key === 'look' && !v ? null : v; if (key === 'w' || key === 'd') obj[key] = Math.max(.02, v); }
+  }
   else if (target === 'tag') {
     const tg = obj?.tags?.[0];
     if (tg) {
@@ -2661,6 +2851,15 @@ panel.addEventListener('click', e => {
     if (a === 'applyStyle') { const r = resolveSel(); if (r && r !== true && r.tags?.[0]) { applyStyle(r, b.dataset.style); commit(); toast(`Ambiance « ${ML.STYLES[b.dataset.style].label} » appliquée. ${ML.STYLES[b.dataset.style].wink ?? ''}`, 3800); } return; }
     if (a === 'setSize') { const it = resolveSel(); if (it) { const f0 = fp(it), cx = f0.x + f0.w / 2, cy = f0.y + f0.h / 2; it.w = +b.dataset.w; it.d = +b.dataset.d; const f1 = fp(it); it.x = r2(cx - f1.w / 2); it.y = r2(cy - f1.h / 2); commit(); } return; }
     if (a === 'startTour') return startTour();
+    if (a === 'openWall') return openWall(b.dataset.k);
+    if (a === 'useCustomPrice') { const it = resolveSel(); if (it) { it.price = customPrice(it); commit(); } return; }
+    if (a === 'saveMine') {
+      const it = resolveSel(); if (!it) return;
+      const l = mineGet().filter(m => m.name !== it.name);
+      l.unshift({ name: it.name, w: it.w, d: it.d, h: it.h, elev: it.elev || 0, color: it.color, color2: it.color2 ?? null, look: it.look ?? null, price: it.price, cfg: clone(customCfg(it)) });
+      mineSet(l.slice(0, 40)); renderCatalog(); toast(`⭐ « ${it.name} » ajouté à Mes meubles : il t’attend en haut du catalogue (+ Ajouter).`, 4500); return;
+    }
+    if (a === 'opFullH' || a === 'opFullW') { const o = resolveSel(), w = o && wallById(o.wall); if (w) { if (a === 'opFullH') o.height = r2(wallH(w) - (o.sill || 0)); else { o.at = .15; o.width = r2(frame(w).L - .3); } clampOpening(o); commit(); } return; }
     if (a === 'clearDims') { S.dims = []; sel = null; commit(); return; }
     if (a === 'round') { const w = resolveSel(), o = wallById(b.dataset.other); if (w && o) roundCorner(w, b.dataset.end, o, b.dataset.oend, roundR); return; }
     if (a === 'newtag') {
@@ -2835,6 +3034,146 @@ const B3 = {
   },
 };
 B3.dryer = B3.washer;
+// nouveautés du catalogue
+const cylA = (g, r, h, x, y0, z, m, seg = 16, r2_ = r) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(r, r2_, h, seg), m); o.position.set(x, y0 + h / 2, z); g.add(o); return o; };
+Object.assign(B3, {
+  sofaBed: (g, it, Hc) => B3.sofa(g, it, Hc),
+  bedStorage: (g, it, Hc) => { B3.bed(g, it, Hc); add3(g, it.w - .1, .02, .01, 0, .12, it.d / 2 + .005, M('#9aa0a6', { metalness: .6, roughness: .35 })); },
+  meridienne: (g, it) => {
+    const f = M(it.color ?? '#c9b8a3'), h = itemH(it, .8);
+    add3(g, it.w, .40, it.d, 0, .08, 0, f); add3(g, it.w, .12, it.d - .06, 0, .48, .03, M(it.color ?? '#c9b8a3', { roughness: 1 }));
+    add3(g, it.w * .65, h - .48, .16, it.w * .175, .48, -it.d / 2 + .08, f); add3(g, .18, h - .48 + .05, it.d, -it.w / 2 + .09, .48, 0, f);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) cylA(g, .02, .08, sx * (it.w / 2 - .06), 0, sz * (it.d / 2 - .06), M('#2b2f35'));
+  },
+  shelfLadder: (g, it, Hc) => {
+    // montants penchés contre le mur (pied devant, tête au mur), tablettes de moins en moins profondes
+    const m = M(it.color ?? '#c19a6b'), h = Math.min(itemH(it, 1.8), Hc), run = Math.max(.05, it.d - .06), ang = Math.atan2(run, h), len = Math.hypot(h, run);
+    for (const sx of [-1, 1]) { const s = new THREE.Mesh(new THREE.BoxGeometry(.03, len, .04), m); s.position.set(sx * (it.w / 2 - .015), h / 2, 0); s.rotation.x = -ang; g.add(s); }
+    for (let i = 0; i < 5; i++) { const t = i / 4, y = .12 + t * (h - .3), zf = it.d / 2 - .03 - (y / h) * run, dd = Math.max(.08, zf + it.d / 2); add3(g, it.w - .05, .02, dd, 0, y, zf - dd / 2, m); }
+  },
+  bioFire: (g, it) => {
+    const e = it.elev || 0, h = itemH(it, .45);
+    add3(g, it.w, h, it.d, 0, e, 0, M(it.color ?? '#1f2328', { roughness: .4, metalness: .3 }));
+    add3(g, it.w - .1, h * .5, .01, 0, e + h * .2, it.d / 2 + .003, M('#ff9a3c', { emissive: 0xff7a1a, emissiveIntensity: .9, roughness: .5 }));
+  },
+  murphyBed: (g, it, Hc) => {
+    const h = Math.min(itemH(it, 2.2), Hc), body = M(it.color ?? '#f3f1ec');
+    add3(g, it.w, h, it.d, 0, 0, 0, body);
+    add3(g, it.w - .06, h - .1, .02, 0, .05, it.d / 2 + .01, M(it.color2 ?? it.color ?? '#e9e4db'));
+    add3(g, .4, .02, .03, 0, h * .55, it.d / 2 + .03, M('#9aa0a6', { metalness: .7, roughness: .3 }));
+  },
+  loftBed: (g, it, Hc) => {
+    const h = Math.min(itemH(it, 1.8), Hc - .6), m = M(it.color ?? '#f4f4f2'), deck = h - .35;
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) add3(g, .06, h, .06, sx * (it.w / 2 - .03), 0, sz * (it.d / 2 - .03), m);
+    add3(g, it.w, .06, it.d, 0, deck, 0, m); add3(g, it.w - .1, .16, it.d - .1, 0, deck + .06, 0, M('#e9eef3', { roughness: 1 }));
+    add3(g, .03, .3, it.d * .7, it.w / 2 - .015, deck + .06, -it.d * .15, m); add3(g, .03, .3, it.d * .7, -it.w / 2 + .015, deck + .06, 0, m);
+    for (let y = .3; y < deck; y += .3) add3(g, .03, .03, .4, it.w / 2 + .02, y, it.d / 2 - .3, m);
+    for (const sz of [it.d / 2 - .1, it.d / 2 - .5]) add3(g, .04, deck + .3, .04, it.w / 2 + .02, 0, sz, m);
+  },
+  canopyBed: (g, it, Hc) => {
+    B3.bed(g, it, Hc);
+    const h = Math.min(itemH(it, 2.1), Hc - .05), m = M(it.color ?? '#1f2328', { roughness: .5 }), t = .04;
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) add3(g, t, h, t, sx * (it.w / 2 - t / 2), 0, sz * (it.d / 2 - t / 2), m);
+    for (const sz of [-1, 1]) add3(g, it.w, t, t, 0, h - t, sz * (it.d / 2 - t / 2), m);
+    for (const sx of [-1, 1]) add3(g, t, t, it.d, sx * (it.w / 2 - t / 2), h - t, 0, m);
+  },
+  deskWall: (g, it) => {
+    const e = it.elev || .75, m = M(it.color ?? '#c19a6b');
+    add3(g, it.w, .025, it.d, 0, e, 0, m); add3(g, it.w, .5, .02, 0, e, -it.d / 2 + .01, m);
+    for (const sx of [-1, 1]) { const b = add3(g, .02, .02, it.d * .9, sx * (it.w / 2 - .06), e - .02, 0, M('#2b2f35')); b.rotation.x = .5; }
+  },
+  cornerUnit: (g, it) => { add3(g, it.w, .86, it.d, 0, 0, 0, M(it.color ?? '#f3f1ec')); add3(g, it.w, .04, it.d, 0, .86, 0, M('#7b6a58')); },
+  pantry: (g, it, Hc) => {
+    const h = Math.min(itemH(it, 2.1), Hc); add3(g, it.w, h, it.d, 0, 0, 0, M(it.color ?? '#f3f1ec'));
+    add3(g, .012, .3, .02, it.w / 2 - .05, 1.0, it.d / 2 + .01, M('#9aa0a6', { metalness: .7, roughness: .3 }));
+  },
+  tableHigh: (g, it) => { const h = itemH(it, 1.05), m = M(it.color ?? '#8a6a4a'); add3(g, it.w, .04, it.d, 0, h - .04, 0, m); for (const sx of [-1, 1]) add3(g, .05, h - .04, it.d * .7, sx * (it.w / 2 - .1), 0, 0, M('#2b2f35')); },
+  mirrorCabinet: (g, it) => { const e = it.elev || 1.15, h = itemH(it, .7); add3(g, it.w, h, it.d, 0, e, 0, M(it.color ?? '#f4f4f2')); add3(g, it.w - .02, h - .02, .01, 0, e + .01, it.d / 2 + .005, M('#cfe0ea', { metalness: .6, roughness: .08 })); },
+  vesselBasin: (g, it) => { const e = it.elev || .85, h = itemH(it, .15), o = cylA(g, .5, h, 0, e, 0, M('#fbfbfb', { roughness: .2 }), 32, .38); o.scale.set(it.w, 1, it.d); },
+  washerTower: (g, it, Hc) => {
+    const h = Math.min(itemH(it, 1.75), Hc), half = h / 2, m = M(it.color ?? '#f4f5f6');
+    for (const y of [0, half]) {
+      add3(g, it.w, half - .01, it.d, 0, y, 0, m);
+      const r = Math.min(it.w, half) * .3, dr = new THREE.Mesh(new THREE.CylinderGeometry(r, r, .02, 28), M('#5f6b78', { roughness: .2 })); dr.rotation.x = Math.PI / 2; dr.position.set(0, y + half * .48, it.d / 2 + .005); g.add(dr);
+    }
+  },
+  bathScreen: (g, it, Hc) => { B3.bath(g, it, Hc); add3(g, .8, Math.min(1.4, Hc - .6), .01, it.w / 2 - .45, .55, it.d / 2 - .03, M('#bfe3f5', { transparent: true, opacity: .3, roughness: .05, depthWrite: false })); },
+  stairsL: (g, it, Hc) => {
+    // volée le long de la profondeur, palier d'angle, volée le long de la largeur (marches pleines jusqu'au plafond)
+    const m = M(it.color ?? '#c19a6b'), wf = Math.min(.9, it.w / 2, it.d / 2), n1 = Math.max(2, Math.round((it.d - wf) / .26)), n2 = Math.max(2, Math.round((it.w - wf) / .26)), N = n1 + n2 + 1, rise = Hc / N;
+    const g1 = (it.d - wf) / n1, g2 = (it.w - wf) / n2, x0 = -it.w / 2, z0 = -it.d / 2;
+    for (let i = 0; i < n1; i++) add3(g, wf, (i + 1) * rise, g1, x0 + wf / 2, 0, it.d / 2 - (i + .5) * g1, m);
+    add3(g, wf, (n1 + 1) * rise, wf, x0 + wf / 2, 0, z0 + wf / 2, m);
+    for (let i = 0; i < n2; i++) add3(g, g2, (n1 + 2 + i) * rise, wf, x0 + wf + (i + .5) * g2, 0, z0 + wf / 2, m);
+  },
+  stairsSpiral: (g, it, Hc) => {
+    const m = M(it.color ?? '#2b2f35', { roughness: .45, metalness: .4 }), wood = M('#c19a6b'), R = Math.min(it.w, it.d) / 2, n = 13, rise = Hc / n;
+    cylA(g, .05, Hc, 0, 0, 0, m);
+    for (let i = 0; i < n; i++) { const a = i * (Math.PI * 1.65 / n), s = new THREE.Mesh(new THREE.BoxGeometry(R - .05, .04, .3), wood); s.position.set(Math.cos(a) * (R / 2 + .02), (i + 1) * rise - .02, -Math.sin(a) * (R / 2 + .02)); s.rotation.y = a; g.add(s); }
+    for (let i = 0; i < n; i++) { const a = i * (Math.PI * 1.65 / n); cylA(g, .012, .9, Math.cos(a) * (R - .04), (i + 1) * rise, -Math.sin(a) * (R - .04), m, 8); }
+  },
+  mezzanine: (g, it, Hc) => {
+    const m = M(it.color ?? '#c19a6b'), steel = M('#2b2f35', { roughness: .45, metalness: .4 }), y = clamp(Hc - 1.0, 1.8, Math.max(1.8, Hc - .3));
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) add3(g, .1, y, .1, sx * (it.w / 2 - .05), 0, sz * (it.d / 2 - .05), steel);
+    add3(g, it.w, .12, it.d, 0, y - .12, 0, m);
+    const gh = Math.min(.95, Hc - y - .02);
+    if (gh > .2) { add3(g, it.w, .04, .04, 0, y + gh - .04, it.d / 2 - .02, steel); add3(g, .04, .04, it.d, it.w / 2 - .02, y + gh - .04, 0, steel); for (let x = -it.w / 2; x <= it.w / 2; x += .12) add3(g, .015, gh, .015, x, y, it.d / 2 - .02, steel); for (let z = -it.d / 2; z <= it.d / 2; z += .12) add3(g, .015, gh, .015, it.w / 2 - .02, y, z, steel); }
+  },
+  claustra: (g, it, Hc) => { const h = Math.min(itemH(it, 2.4), Hc), m = M(it.color ?? '#c19a6b'), n = Math.max(2, Math.round(it.w / .09)); for (let i = 0; i < n; i++) add3(g, .04, h, it.d, -it.w / 2 + .02 + i * (it.w - .04) / (n - 1), 0, 0, m); },
+  beam: (g, it, Hc) => { const h = itemH(it, .25), top = Math.min(it._top ?? Hc, Hc); add3(g, it.w, h, it.d, 0, top - h, 0, M(it.color ?? '#7a5a3a', { roughness: .85 })); },
+  radiatorCol: (g, it, Hc) => { const e = it.elev || .1, h = Math.min(itemH(it, 1.8), Hc - e), m = M(it.color ?? '#2b2f35', { roughness: .4, metalness: .3 }), n = Math.max(2, Math.round(it.w / .07)); for (let i = 0; i < n; i++) cylA(g, .022, h, -it.w / 2 + .03 + i * (it.w - .06) / (n - 1), e, 0, m, 10); add3(g, it.w, .03, .03, 0, e, 0, m); add3(g, it.w, .03, .03, 0, e + h - .03, 0, m); },
+  parasol: (g, it, Hc) => { const h = Math.min(itemH(it, 2.4), Hc), R = Math.min(it.w, it.d) / 2; cylA(g, .02, h, 0, 0, 0, M('#2b2f35')); cylA(g, .25, .08, 0, 0, 0, M('#2b2f35')); cylA(g, .03, .35, 0, h - .35, 0, M(it.color ?? '#efe7da', { roughness: 1, side: THREE.DoubleSide }), 24, R); },
+  bbq: (g, it) => { const h = itemH(it, .9); add3(g, it.w, h - .05, it.d, 0, 0, 0, M(it.color ?? '#2b2f35', { roughness: .5, metalness: .3 })); add3(g, it.w * .6, .05, it.d - .08, -it.w * .15, h - .05, 0, M('#111214', { roughness: .3, metalness: .6 })); },
+  spa: (g, it) => { const h = itemH(it, .85); add3(g, it.w, h, it.d, 0, 0, 0, M(it.color ?? '#6b5a4a')); add3(g, it.w - .2, .01, it.d - .2, 0, h - .02, 0, M('#7cc6d9', { roughness: .1, transparent: true, opacity: .85 })); },
+});
+// meuble sur mesure : piètement, caisson (côtés, dessus, dessous, fond), séparations, tablettes, façades et poignées
+B3.custom = (g, it, Hc) => {
+  const c = customCfg(it), W = it.w, D = it.d, e = it.elev || 0, H = Math.max(.05, Math.min(itemH(it, .8), Hc - e));
+  const body = M(it.color ?? '#e9e4db'), front = M(it.color2 ?? it.color ?? '#e9e4db'), metal = M('#9aa0a6', { metalness: .7, roughness: .3 }), leg = M('#2b2f35', { roughness: .5 });
+  const th = Math.min(.019, W / 6, D / 4, H / 6);
+  if (c.model === 'bloc') { add3(g, W, H, D, 0, e, 0, body); return; }
+  if (c.model === 'table') {
+    const tt = .03;
+    if (c.shape === 'rond') {
+      const top = new THREE.Mesh(new THREE.CylinderGeometry(.5, .5, tt, 48), body); top.scale.set(W, 1, D); top.position.set(0, e + H - tt / 2, 0); g.add(top);
+      const s = Math.min(W, D); add3(g, .08, H - tt, .08, 0, e, 0, leg); add3(g, s * .45, .02, s * .45, 0, e, 0, leg);
+    } else {
+      add3(g, W, tt, D, 0, e + H - tt, 0, body);
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) add3(g, .05, H - tt, .05, sx * (W / 2 - .06), e, sz * (D / 2 - .06), c.base === 'pieds' ? leg : body);
+    }
+    return;
+  }
+  let y = e, h = H;
+  if (c.base === 'socle') { const b = Math.min(.1, H * .15); add3(g, W - .02, b, D - .06, 0, y, -.02, M('#3b3f45')); y += b; h -= b; }
+  else if (c.base === 'pieds') {
+    const b = Math.min(.15, H * .2);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const m = new THREE.Mesh(new THREE.CylinderGeometry(.018, .012, b, 12), leg); m.position.set(sx * (W / 2 - .05), y + b / 2, sz * (D / 2 - .05)); g.add(m); }
+    y += b; h -= b;
+  }
+  const seat = c.model === 'banc'; if (seat) h -= .06;   // coussin d'assise posé sur le coffre
+  add3(g, th, h, D, -W / 2 + th / 2, y, 0, body); add3(g, th, h, D, W / 2 - th / 2, y, 0, body);
+  add3(g, W, th, D, 0, y + h - th, 0, body); add3(g, W - 2 * th, th, D, 0, y, 0, body);
+  if (c.back !== false) add3(g, W - 2 * th, h - 2 * th, .006, 0, y + th, -D / 2 + .003, body);
+  const cols = clamp(Math.round(c.cols) || 1, 1, 10), rows = clamp(Math.round(c.rows) || 1, 1, 12);
+  const iw = (W - 2 * th - (cols - 1) * th) / cols, ih = (h - 2 * th - (rows - 1) * th) / rows;
+  for (let i = 1; i < cols; i++) add3(g, th, h - 2 * th, D - .01, -W / 2 + th + i * (iw + th) - th / 2, y + th, .005, body);
+  for (let j = 1; j < rows; j++) add3(g, W - 2 * th, th, D - .01, 0, y + th + j * (ih + th) - th, .005, body);
+  if (seat) add3(g, W - .02, .06, D - .02, 0, y + h, 0, M(it.color2 ?? '#9b7b62', { roughness: 1 }));
+  if (c.model === 'etagere' || iw < .02 || ih < .02) return;
+  const glass = M('#cfe3ee', { transparent: true, opacity: .35, roughness: .05, depthWrite: false });
+  for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) {
+    const kind = c.fronts === 'mixte' ? ((cols > 2 ? i === Math.floor(cols / 2) && j === rows - 1 : rows > 1 && j === rows - 1) ? 'ouvert' : 'portes')
+      : c.fronts === 'portesBas' ? (j === 0 ? 'portes' : 'vitrees') : c.fronts;
+    if (kind === 'ouvert') continue;
+    const cx = -W / 2 + th + iw / 2 + i * (iw + th), y0 = y + th + j * (ih + th), z = D / 2 + .009, drawer = kind === 'tiroirs';
+    add3(g, iw - .004, ih - .004, .018, cx, y0 + .002, z, kind === 'vitrees' ? glass : front);
+    if (c.handles === 'aucune' || seat) continue;
+    const hx = drawer ? cx : cx + (i % 2 ? -1 : 1) * (iw / 2 - .045), hy = drawer ? y0 + ih * .7 : y0 + Math.min(ih / 2, Math.max(.1, 1.05 - y0));
+    if (c.handles === 'bouton') { const m = new THREE.Mesh(new THREE.SphereGeometry(.014, 12, 8), metal); m.position.set(hx, hy, z + .02); g.add(m); }
+    else if (drawer) add3(g, Math.min(.2, iw * .45), .012, .02, hx, hy - .006, z + .018, metal);
+    else { const hl = Math.min(.2, ih * .4); add3(g, .012, hl, .02, hx, hy - hl / 2, z + .018, metal); }
+  }
+};
 // --- Mobilier & cuisine supplémentaires
 Object.assign(B3, {
   chair: (g, it) => chair3(g, 0, 0, 'N'),
@@ -3107,6 +3446,22 @@ function build3D() {
       } else if (o.type === 'placard' && opt.doorMode !== 'hidden') {
         const m = o.at + o.width / 2, pm = M('#e3d9c8'), tp = Math.min(topO, Hc);
         tag(slab3(w, f, o.at, m + .02, 0, tp, pm, .025, .02)); tag(slab3(w, f, m - .02, o.at + o.width, 0, tp, pm, .025, -.02));
+      } else if (o.type === 'arch' && topO <= Hw) {
+        // arche : on rebouche les deux coins hauts en escalier fin qui suit un demi-cercle
+        const r = Math.min(o.width / 2, o.height * .6), y0 = topO - r, n = 28, wmA = selW ? sideSel : side;
+        for (let i = 0; i < n; i++) {
+          const ya = y0 + i * r / n, yb = y0 + (i + 1) * r / n, dy = (ya + yb) / 2 - y0, ins = r - Math.sqrt(Math.max(0, r * r - dy * dy));
+          if (ins > .002) { tag(slab3(w, f, o.at, o.at + ins, ya, yb, wmA, w.t)); tag(slab3(w, f, o.at + o.width - ins, o.at + o.width, ya, yb, wmA, w.t)); }
+        }
+      } else if (o.type === 'passe' && sill < Hc) {
+        // passe-plat : tablette qui déborde des deux côtés du mur
+        tag(slab3(w, f, o.at - .04, o.at + o.width + .04, sill - .035, sill, M(o.color ?? '#b08a62', { roughness: .7 }), w.t + .24));
+      }
+      // linteau / poutre apparente au-dessus de l'ouverture (avec 20 cm d'appui de chaque côté)
+      const ln = lintelOf(o);
+      if (LINTEL_MAT[ln] && topO < Hw - .01) {
+        const lh = clamp(ipnSize(o.width) / 1000 + (ln === 'beton' ? .05 : 0), .12, Hw - topO);
+        tag(slab3(w, f, Math.max(0, o.at - .2), Math.min(f.L, o.at + o.width + .2), topO, topO + lh, M(...LINTEL_MAT[ln]), w.t + .012));
       }
     }
     push(slab3(w, f, cur, f.L + w.t / 2, 0, Hw, wm, w.t));
@@ -3203,7 +3558,11 @@ function build3D() {
     const f = fp(it), g = new THREE.Group();
     g.position.set(f.x + f.w / 2, 0, f.y + f.h / 2); g.rotation.y = -it.rot * Math.PI / 180;
     (B3[it.type] ?? B3.box)(g, it, Hc);
-    g.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; o.userData.pick = { kind: 'item', id: it.id }; } });
+    g.traverse(o => {
+      if (!o.isMesh) return;
+      o.castShadow = o.receiveShadow = true; o.userData.pick = { kind: 'item', id: it.id };
+      if (it.look && LOOK_PROPS[it.look] && o.material?.isMeshStandardMaterial && !o.material.transparent) o.material = lookMat(o.material, it.look);
+    });
     root.add(g);
     if (sel?.kind === 'item' && sel.id === it.id) root.add(new THREE.BoxHelper(g, 0x2563eb));
   }
@@ -3921,18 +4280,28 @@ document.getElementById('bHelp').onclick = openHelp;
 function renderCatalog() {
   const q = document.getElementById('catSearch').value.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const groups = {};
+  const norm = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  // sur mesure : mes mod\u00e8les enregistr\u00e9s, puis les points de d\u00e9part
+  const mine = mineGet().map((m, i) => ({ m, i })).filter(({ m }) => !q || norm(m.name + ' mes meubles sur mesure').includes(q))
+    .map(({ m, i }) => `<button data-mine="${i}" class="kitb"><b>\u2b50 ${esc(m.name)}</b><span>${cmTxt(m.w)} \u00d7 ${cmTxt(m.d)} ${UNIT()}</span><i data-delmine="${i}" title="Retirer de Mes meubles" role="button" aria-label="Retirer">\u2715</i></button>`);
+  const presets = Object.entries(CUSTOM_PRESETS).filter(([, p]) => !q || norm(p.label + ' ' + p.desc + ' sur mesure creer meuble fabriquer').includes(q))
+    .map(([k, p]) => `<button data-custom="${k}" class="kitb"><b><span class="chip" style="background:${p.color2 ?? p.color}"></span>${p.label}</b><span>${p.desc}</span></button>`);
   for (const [k, c] of Object.entries(CAT)) {
+    if (k === 'custom') continue;
     const g = CAT_GROUP(k), hay = (c.label + ' ' + g).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     if (q && !hay.includes(q)) continue;
     (groups[g] ??= []).push(`<button data-add="${k}"><span class="chip" style="background:${c.color ?? '#d9d2c5'}"></span>${c.label}</button>`);
   }
   const kits = Object.entries(KITS).filter(([, k]) => { const hay = (k.label + ' ' + k.desc + ' ensemble').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); return !q || hay.includes(q); })
     .map(([key, k]) => `<button data-kit="${key}" class="kitb"><b>✨ ${k.label}</b><span>${k.desc}</span></button>`);
-  document.getElementById('catList').innerHTML = (kits.length ? `<h6>Ensembles prêts à poser</h6><div class="cgrid">${kits.join('')}</div>` : '') + Object.entries(groups).map(([g, b]) => `<h6>${g}</h6><div class="cgrid">${b.join('')}</div>`).join('') || '<p class="muted">Rien trouvé. Le catalogue est grand, mais pas encore infini.</p>';
+  document.getElementById('catList').innerHTML = (mine.length ? `<h6>⭐ Mes meubles</h6><div class="cgrid">${mine.join('')}</div>` : '') + (presets.length ? `<h6>✏️ Créer mon meuble sur mesure</h6><div class="cgrid">${presets.join('')}</div>` : '') + (kits.length ? `<h6>Ensembles prêts à poser</h6><div class="cgrid">${kits.join('')}</div>` : '') + Object.entries(groups).map(([g, b]) => `<h6>${g}</h6><div class="cgrid">${b.join('')}</div>`).join('') || '<p class="muted">Rien trouvé. Le catalogue est grand, mais pas encore infini.</p>';
 }
 document.getElementById('catSearch').addEventListener('input', renderCatalog);
 document.getElementById('catSearch').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') document.querySelector('#catList [data-add]')?.click(); if (e.key === 'Escape') closeMenus(); });
-document.getElementById('catList').addEventListener('click', e => { const kb = e.target.closest('[data-kit]'); if (kb) { closeMenus(); startKit(kb.dataset.kit); ML.mobile()?.on() && ML.mobile().show('plan'); return; } const b = e.target.closest('[data-add]'); if (!b) return; closeMenus(); startAdd(b.dataset.add); ML.mobile()?.on() && ML.mobile().show('plan'); });
+document.getElementById('catList').addEventListener('click', e => {
+  const dm = e.target.closest('[data-delmine]'); if (dm) { e.stopPropagation(); const l = mineGet(), m = l.splice(+dm.dataset.delmine, 1)[0]; mineSet(l); renderCatalog(); if (m) toast(`« ${m.name} » retiré de Mes meubles.`); return; }
+  const cu = e.target.closest('[data-custom],[data-mine]'); if (cu) { closeMenus(); addCustom(cu.dataset.custom ? CUSTOM_PRESETS[cu.dataset.custom] : mineGet()[+cu.dataset.mine]); ML.mobile()?.on() && ML.mobile().show('plan'); return; }
+  const kb = e.target.closest('[data-kit]'); if (kb) { closeMenus(); startKit(kb.dataset.kit); ML.mobile()?.on() && ML.mobile().show('plan'); return; } const b = e.target.closest('[data-add]'); if (!b) return; closeMenus(); startAdd(b.dataset.add); ML.mobile()?.on() && ML.mobile().show('plan'); });
 // --- disposition & séparateurs redimensionnables
 function setLayout(l) {
   prefs.layout = l; savePrefs();

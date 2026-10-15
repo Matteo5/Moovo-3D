@@ -1169,7 +1169,7 @@ function applyExtStyle(key) {
 let tourI = 0;
 const TOUR = window.MoovoLib.EXT_TOUR;
 function renderTour() {
-  const [ic, t, txt] = TOUR[tourI];
+  const [ic, t, desk, mob] = TOUR[tourI], txt = mob && window.MoovoLib.mobile()?.on() ? mob : desk;   // texte tactile sur téléphone
   document.getElementById('tourBody').innerHTML = `<div class="tico">${ic}</div><div class="tstep">Étape ${tourI + 1} sur ${TOUR.length}</div><h2>${t}</h2><p>${txt}</p>`;
   document.getElementById('tourDots').innerHTML = TOUR.map((_, i) => `<i class="${i === tourI ? 'on' : ''}"></i>`).join('');
   document.getElementById('tourPrev').disabled = tourI === 0;

@@ -450,11 +450,16 @@
   };
   const EXT_TOUR = [
     ['<img src="img/logo-mark.png" width="72" height="72" alt="Moovo">', 'Bienvenue dans l’atelier extérieur', 'Pergola, carport, abri, terrasse, hangar ou clôture : tu dessines la structure, la 3D suit, et le métré, la liste de débit et le devis se calculent seuls. Aucune scie n’a été allumée pendant la conception.'],
-    ['✨', 'Les assistants', 'Bouton <b>Assistants</b> : quelques dimensions et la structure complète apparaît (poteaux, poutres, chevrons, couverture). Tu peux la régénérer ou la modifier barre par barre.'],
-    ['📐', 'Dessiner à la main', 'Outils <b>Barre</b>, <b>Poteau</b> et <b>Panneau</b>. Les vues <b>Dessus</b>, <b>Face</b> et <b>Côté</b> servent à placer les éléments en hauteur. Les cotes soulignées se modifient au clavier.'],
-    ['🎨', 'Teintes et bardages', 'Dans l’onglet <b>Sélection</b> (sans rien sélectionner), choisis une <b>ambiance</b> : bois naturel, nordique, contemporain… Puis affine chaque barre (lasure, RAL) et chaque panneau (bardage, sens des lames).'],
-    ['🪚', 'Métré et débit', 'Onglet <b>Métré &amp; débit</b> : longueurs, poids, volume de bois, et un plan de coupe optimisé pour acheter le moins de barres possible. Les chutes, elles, finiront en petit bois.'],
-    ['📄', 'Le devis', 'Menu Projet → <b>Générer le devis</b> : fournitures, quincaillerie, fondations, finitions et main-d’œuvre, avec ta fiche entreprise. Il ne reste plus qu’à trouver le week-end.'],
+    ['✨', 'Les assistants', 'Bouton <b>Assistants</b> : quelques dimensions et la structure complète apparaît (poteaux, poutres, chevrons, couverture). Tu peux la régénérer ou la modifier barre par barre.',
+      'Bouton <b>✨ Assistants</b> en bas : quelques dimensions et la structure complète apparaît (poteaux, poutres, chevrons, couverture). Tu peux la régénérer ou la modifier barre par barre, sans une seule écharde.'],
+    ['📐', 'Dessiner à la main', 'Outils <b>Barre</b>, <b>Poteau</b> et <b>Panneau</b>. Les vues <b>Dessus</b>, <b>Face</b> et <b>Côté</b> servent à placer les éléments en hauteur. Les cotes soulignées se modifient au clavier.',
+      'Bouton <b>🛠 Outils</b> en bas : <b>Barre</b>, <b>Poteau</b> et <b>Panneau</b>, puis touche le plan pour les poser. Les vues <b>Dessus</b>, <b>Face</b> et <b>Côté</b> (dans le même menu) servent à placer les éléments en hauteur. Touche une cote soulignée pour taper la valeur exacte.'],
+    ['🎨', 'Teintes et bardages', 'Dans l’onglet <b>Sélection</b> (sans rien sélectionner), choisis une <b>ambiance</b> : bois naturel, nordique, contemporain… Puis affine chaque barre (lasure, RAL) et chaque panneau (bardage, sens des lames).',
+      'Bouton <b>✏️ Modifier</b>, onglet <b>Sélection</b> (sans rien sélectionner) : choisis une <b>ambiance</b> : bois naturel, nordique, contemporain… Puis touche une barre ou un panneau pour l’affiner (lasure, RAL, bardage, sens des lames).'],
+    ['🪚', 'Métré et débit', 'Onglet <b>Métré &amp; débit</b> : longueurs, poids, volume de bois, et un plan de coupe optimisé pour acheter le moins de barres possible. Les chutes, elles, finiront en petit bois.',
+      '<b>✏️ Modifier</b>, onglet <b>Métré &amp; débit</b> : longueurs, poids, volume de bois, et un plan de coupe optimisé pour acheter le moins de barres possible. Les chutes, elles, finiront en petit bois.'],
+    ['📄', 'Le devis', 'Menu Projet → <b>Générer le devis</b> : fournitures, quincaillerie, fondations, finitions et main-d’œuvre, avec ta fiche entreprise. Il ne reste plus qu’à trouver le week-end.',
+      'Menu <b>⋯</b> en haut → <b>Générer le devis</b> (ou 🛠 Outils → Devis) : fournitures, quincaillerie, fondations, finitions et main-d’œuvre, avec ta fiche entreprise. Il ne reste plus qu’à trouver le week-end.'],
   ];
 
   // Pincement à deux doigts (écrans tactiles) : zoom + déplacement, prioritaire sur les autres gestes
@@ -543,7 +548,18 @@
     body.mshell #mzoom{flex-direction:row;bottom:8px}
     #mzoom button{width:38px;height:38px}
     body.mshell .menu.open.msheet,body.mshell .msheet.open{bottom:calc(46px + env(safe-area-inset-bottom))!important;max-height:80dvh}
-  }`;
+  }
+  /* guide de démarrage sur téléphone : tient dans l'écran, boutons pleine largeur, « Passer » dessous */
+  body.mshell .tour{padding:calc(12px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom))}
+  body.mshell .tour .tbox{max-height:100%;overflow-y:auto;overscroll-behavior:contain;padding:18px 18px 14px}
+  body.mshell .tour .tico{font-size:34px} body.mshell .tour .tico img{width:56px;height:56px}
+  body.mshell .tour h2{font-size:18px}
+  body.mshell .tour .tdots{margin:10px 0 12px}
+  body.mshell .tour .tnav{flex-wrap:wrap-reverse;justify-content:center;row-gap:4px}
+  body.mshell .tour .tnav .seg{flex:1 1 100%;flex-wrap:nowrap;gap:8px}
+  body.mshell .tour .tnav .seg button{flex:1;min-height:44px;justify-content:center}
+  body.mshell .tour #tourSkip{min-height:40px}
+  body.mshell:has(#tour:not([hidden])) #toast{top:calc(10px + env(safe-area-inset-top));bottom:auto}`;
   let MS = null;
   function mobileShell(cfg) {
     const mq = matchMedia('(max-width: 900px), (pointer: coarse) and (max-height: 520px)');

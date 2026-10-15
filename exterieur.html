@@ -677,7 +677,7 @@ svg.addEventListener('pointerdown', e => {
   const q = toV(e), el = e.target.closest('[data-k]'), k = el?.dataset.k;
   if (e.button === 2) { draw = null; render2D(); return; }
   if (k === 'edim') { e.preventDefault(); openDimEdit(el.dataset.id, e.clientX, e.clientY); return; }
-  down = { x: e.clientX, y: e.clientY, q, el, k, moved: false, shift: e.shiftKey };
+  down = { x: e.clientX, y: e.clientY, q, el, k, moved: false, shift: e.shiftKey, tol: e.pointerType === 'touch' ? 10 : 4 };   // un doigt bouge toujours un peu : sinon un simple toucher devient un glissement
   svg.setPointerCapture(e.pointerId);
   if (tool === 'select' && el && (k === 'm' || k === 'p' || k === 'b' || k === 'end' || k === 'd')) {
     const kk = k === 'end' ? 'm' : k, id = el.dataset.id;
@@ -691,7 +691,7 @@ svg.addEventListener('pointerdown', e => {
 svg.addEventListener('pointermove', e => {
   const q = toV(e); cursor = q;
   const w = snapPt(q).w; document.getElementById('coords').textContent = `X ${L(w[0])} · Y ${L(w[1])} · Z ${L(w[2])} ${UNIT()}`;
-  if (down && !down.moved && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 4) down.moved = true;
+  if (down && !down.moved && Math.hypot(e.clientX - down.x, e.clientY - down.y) > down.tol) down.moved = true;
   if (drag && down?.moved) {
     if (drag.kind === 'pan') { vw.cx = drag.cx - (e.clientX - drag.x) * vw.s; vw.cy = drag.cy - (e.clientY - drag.y) * vw.s; render2D(); return; }
     const V = VIEWS[view], dv = [snapV(q[0] - drag.q0[0]), snapV(q[1] - drag.q0[1])], d3 = add(mul(V.u[0], dv[0]), mul(V.u[1], dv[1]));
@@ -711,6 +711,7 @@ svg.addEventListener('pointerup', () => {
   else if (down && !down.moved) clickTool(down);
   down = null; drag = null;
 });
+svg.addEventListener('pointercancel', () => { if (drag && drag.kind !== 'pan' && down?.moved) commit(); down = null; drag = null; });   // geste interrompu par le téléphone
 window.MoovoLib.attachPinch(svg, {
   start: () => { if (drag?.objs) for (const x of drag.objs) Object.assign(x.o, x.orig); down = null; drag = null; },
   move: (k, mx, my, dx, dy) => {

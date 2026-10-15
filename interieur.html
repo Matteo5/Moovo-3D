@@ -1733,7 +1733,7 @@ svg.addEventListener('pointerdown', e => {
   const p = toPlan(e), el = e.target.closest('[data-kind]'), kind = el?.dataset.kind;
   if (e.button === 2) { if (draw) { draw = null; schedule(false); } return; }
   if (kind === 'edim') { e.preventDefault(); e.stopPropagation(); openDimEdit(el.dataset.id, e.clientX, e.clientY); return; }
-  down = { x: e.clientX, y: e.clientY, p, el, kind, moved: false, free: e.shiftKey };
+  down = { x: e.clientX, y: e.clientY, p, el, kind, moved: false, free: e.shiftKey, tol: e.pointerType === 'touch' ? 10 : 4 };   // un doigt bouge toujours un peu : sinon un simple toucher devient un glissement
   svg.setPointerCapture(e.pointerId);
   if (tool === 'bgmove' && S.bgMeta) bgDrag = { p, x: S.bgMeta.x, y: S.bgMeta.y };
   else if (tool === 'select' && el && kind !== 'room') startDrag(kind, el, p);
@@ -1742,7 +1742,7 @@ svg.addEventListener('pointerdown', e => {
 svg.addEventListener('pointermove', e => {
   const p = toPlan(e); cursor = p;
   document.getElementById('coords').textContent = `X ${cmTxt(p[0])} · Y ${cmTxt(p[1])} ${UNIT()}`;
-  if (down && !down.moved && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 4) down.moved = true;
+  if (down && !down.moved && Math.hypot(e.clientX - down.x, e.clientY - down.y) > down.tol) down.moved = true;
   if (bgDrag) { S.bgMeta.x = r2(bgDrag.x + p[0] - bgDrag.p[0]); S.bgMeta.y = r2(bgDrag.y + p[1] - bgDrag.p[1]); syncBgImage(); return; }
   if (drag && down?.moved) { applyDrag(p); return; }
   if (pan && down?.moved) { view.cx = pan.cx - (e.clientX - pan.x) * view.s; view.cy = pan.cy - (e.clientY - pan.y) * view.s; schedule(false); return; }
@@ -1754,6 +1754,7 @@ svg.addEventListener('pointerup', () => {
   else if (down && !down.moved) clickTool(down.p, down.el, down.kind);
   down = drag = pan = null;
 });
+svg.addEventListener('pointercancel', () => { if (bgDrag || (drag && down?.moved)) commit(); bgDrag = down = drag = pan = null; });   // geste interrompu par le téléphone
 svg.addEventListener('pointerleave', () => { cursor = null; hoverWall = null; if (tool !== 'select') schedule(false); });
 svg.addEventListener('dblclick', e => {
   if (tool === 'wall') { draw = null; schedule(false); return; }

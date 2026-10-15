@@ -19,19 +19,28 @@
   const num = (v, d = 2) => (Number(v) || 0).toLocaleString('fr-FR', { maximumFractionDigits: d });
 
   // ------------------------------------------------------------------ projets
-  const list = () => { try { return JSON.parse(ls.get(IDX) || '[]'); } catch { return []; } };
+  // Chaque projet peut appartenir à un compte (owner = identifiant du compte) : on n'affiche que les projets
+  // du compte connecté et ceux de cet appareil qui n'appartiennent à personne.
+  const USER = 'moovo3d-user';
+  const currentUser = () => ls.get(USER) || null;
+  const setUser = uid => { if (uid) ls.set(USER, uid); else ls.del(USER); };
+  const emit = (name, detail) => { try { window.dispatchEvent(new CustomEvent(name, { detail })); } catch {} };
+  const listAll = () => { try { return JSON.parse(ls.get(IDX) || '[]'); } catch { return []; } };
+  const list = () => { const u = currentUser(); return listAll().filter(p => !p.owner || p.owner === u); };
   const saveList = l => ls.set(IDX, JSON.stringify(l));
   const get = id => list().find(p => p.id === id) || null;
-  function create({ name, type, template, data }) {
-    const p = { id: uid(), name: name || 'Nouveau projet', type, template: template || null, created: Date.now(), updated: Date.now() };
-    const l = list(); l.unshift(p); saveList(l);
+  function create({ name, type, template, data, id, owner, created, updated }) {
+    const p = { id: id || uid(), name: name || 'Nouveau projet', type, template: template || null, created: created || Date.now(), updated: updated || Date.now() };
+    const o = owner === undefined ? currentUser() : owner; if (o) p.owner = o;
+    const l = listAll().filter(x => x.id !== p.id); l.unshift(p); saveList(l);
     if (data) ls.set(PFX + p.id, typeof data === 'string' ? data : JSON.stringify(data));
+    emit('moovo:saved', { id: p.id });
     return p;
   }
-  function touch(id, patch) { const l = list(), p = l.find(x => x.id === id); if (p) { Object.assign(p, patch || {}, { updated: Date.now() }); saveList(l); } }
+  function touch(id, patch, silent) { const l = listAll(), p = l.find(x => x.id === id); if (p) { Object.assign(p, patch || {}); if (!silent) p.updated = Date.now(); saveList(l); if (!silent) emit('moovo:saved', { id }); } }
   function load(id) { const raw = ls.get(PFX + id); if (!raw) return null; try { return JSON.parse(raw); } catch { return null; } }
   // le plan de fond (image) est gardé à part : on le supprime / copie avec le projet
-  function remove(id) { saveList(list().filter(p => p.id !== id)); ls.del(PFX + id); ls.del(BPFX + id); ls.del('moovo-bg-' + id); }
+  function remove(id, silent) { const p = listAll().find(x => x.id === id); saveList(listAll().filter(p => p.id !== id)); ls.del(PFX + id); ls.del(BPFX + id); ls.del('moovo-bg-' + id); if (!silent && p) emit('moovo:removed', { id, owner: p.owner || null }); }
   function duplicate(id) {
     const p = get(id); if (!p) return null;
     const raw = ls.get(PFX + id), n = create({ name: p.name + ' (copie)', type: p.type, template: p.template });
@@ -56,7 +65,7 @@
     hourly: 45, logo: '',
   };
   const company = () => { try { return Object.assign({}, companyDefault, JSON.parse(ls.get(COMPANY) || '{}')); } catch { return { ...companyDefault }; } };
-  const saveCompany = c => ls.set(COMPANY, JSON.stringify(c));
+  const saveCompany = (c, silent) => { c.updated = c.updated && silent ? c.updated : Date.now(); ls.set(COMPANY, JSON.stringify(c)); if (!silent) emit('moovo:company', {}); };
   function nextDevisNumber(peek) {
     const y = new Date().getFullYear(); let s = {}; try { s = JSON.parse(ls.get(SEQ) || '{}'); } catch {}
     const n = (s[y] || 0) + 1; if (!peek) { s[y] = n; ls.set(SEQ, JSON.stringify(s)); }
@@ -278,6 +287,6 @@
     w.document.open(); w.document.write(html); w.document.close();
   }
 
-  window.MoovoCore = { ls, uid, esc, eur, num, list, get, create, touch, load, remove, duplicate, migrateLegacy, typeOf, PFX, BPFX,
+  window.MoovoCore = { ls, uid, esc, eur, num, list, listAll, get, create, touch, load, remove, duplicate, migrateLegacy, typeOf, PFX, BPFX, currentUser, setUser,
     company, saveCompany, nextDevisNumber, encodeShare, decodeShare, shareLink, copyText, devisDialog };
 })();

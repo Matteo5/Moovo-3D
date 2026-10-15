@@ -63,6 +63,28 @@
   .new:hover{border-color:var(--accent);color:var(--accent)}
   .new span{font-size:34px;line-height:1}
   .empty{color:var(--muted)}
+  .acct{position:relative}
+  .gbtn{display:flex;align-items:center;gap:8px;font-weight:600;background:#fff}
+  .gbtn svg{width:18px;height:18px;flex:none}
+  .avbtn{display:flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;border-radius:999px}
+  .avbtn img,.avbtn .ini{width:30px;height:30px;border-radius:50%;object-fit:cover;flex:none}
+  .avbtn .ini{display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#2563eb,#6d4fd8);color:#fff;font-weight:700}
+  .avbtn .st{font-size:13px}
+  .amenu{position:absolute;right:0;top:calc(100% + 8px);width:290px;max-width:calc(100vw - 20px);background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:8px;z-index:60}
+  .amenu[hidden]{display:none}
+  .amenu .who{padding:8px 10px 10px;border-bottom:1px solid var(--line);margin-bottom:6px}
+  .amenu .who b{display:block} .amenu .who span{font-size:13px;color:var(--muted)}
+  .amenu .sync{font-size:13px;color:var(--muted);padding:4px 10px 8px}
+  .amenu button,.amenu a{display:block;width:100%;text-align:left;border:0;background:transparent;padding:9px 10px;border-radius:8px;font-size:14px;text-decoration:none;color:var(--ink)}
+  .amenu button:hover,.amenu a:hover{background:#f1f4f9}
+  .amenu .danger{color:#b42318}
+  .cloudband{display:flex;gap:12px;align-items:center;background:#f0f5ff;border:1px solid #d6e2fb;border-radius:14px;padding:12px 16px;margin:-12px 0 16px;font-size:14px;color:#1e2f4f;flex-wrap:wrap}
+  .cloudband[hidden]{display:none}
+  .cloudband b{display:block}
+  .cloudband .gbtn{margin-left:auto}
+  .cloudband.err{background:#fff6e5;border-color:#f3d9a4;color:#7a4b00}
+  .ptag{display:inline-block;font-size:11px;font-weight:600;border-radius:999px;padding:1px 7px;margin-right:4px;vertical-align:1px}
+  .ptag.cloud{background:#eef3ff;color:#2563eb} .ptag.local{background:#f3f4f6;color:#5d6678}
   .tipday{display:flex;gap:10px;align-items:flex-start;background:#fff8e6;border:1px solid #f6e3b0;border-radius:14px;padding:12px 16px;margin:-12px 0 26px;color:#5c4400;font-size:14px}
   .tipday b{color:#3d2e00;white-space:nowrap}
   .tipday button{margin-left:auto;font-size:12.5px;padding:3px 10px;background:transparent;border-color:#f0d58f}
@@ -101,6 +123,7 @@
   <div class="sp"></div>
   <button class="ghost hide-s" id="bCompany" title="Mon entreprise">🏢<span class="lbl"> Mon entreprise</span></button>
   <label class="btn hide-s" title="Importer un projet">📂<span class="lbl"> Importer</span><input type="file" id="fImp" accept=".json,application/json" hidden></label>
+  <div class="acct menuwrap" id="acct" hidden></div>
   <button class="pri" id="bNew" title="Nouveau projet">＋<span class="lbl"> Nouveau projet</span></button>
 </header>
 <main>
@@ -121,6 +144,7 @@
     </ul>
   </section>
 
+  <div class="cloudband" id="cloudBand" hidden></div>
   <div class="tipday" id="tipDay"></div>
   <h2>Mes projets <small id="count"></small></h2>
   <div class="grid" id="grid"></div>
@@ -135,6 +159,7 @@
 <footer>
   <span style="display:flex;gap:6px;align-items:center"><img src="img/favicon-32.png" width="16" height="16" alt="">Moovo 3D</span>
   <span id="storage"></span>
+  <a href="confidentialite.html">Confidentialité</a>
   <a href="#" id="bExportAll">Sauvegarde complète (tous les projets)</a>
   <label style="cursor:pointer;text-decoration:underline">Restaurer une sauvegarde complète<input type="file" id="fImpAll" accept=".json" hidden></label>
 </footer>
@@ -164,6 +189,8 @@
 
 <script src="moovo-core.js"></script>
 <script src="moovo-lib.js"></script>
+<script src="firebase-config.js"></script>
+<script src="moovo-cloud.js"></script>
 <script>
 'use strict';
 const C = MoovoCore, $ = id => document.getElementById(id), esc = C.esc;
@@ -196,6 +223,7 @@ function toast(m) { const t = $('toast'); t.textContent = m; t.classList.add('sh
 const url = p => (p.type === 'exterior' ? 'exterieur.html' : 'interieur.html') + '?p=' + encodeURIComponent(p.id);
 const ago = t => { const d = (Date.now() - t) / 1000; if (d < 60) return 'à l’instant'; if (d < 3600) return `il y a ${Math.round(d / 60)} min`; if (d < 86400) return `il y a ${Math.round(d / 3600)} h`; return new Date(t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }); };
 
+let cloudOn = false;
 function render() {
   const l = C.list();
   $('count').textContent = l.length ? `${l.length} projet${l.length > 1 ? 's' : ''}` : '';
@@ -204,7 +232,7 @@ function render() {
     const ext = p.type === 'exterior', tpl = (TEMPLATES[p.type] || []).find(t => t[0] === p.template);
     return `<div class="card" data-id="${esc(p.id)}">
       <div class="thumb ${ext ? 'ext' : ''}" data-open><span class="tag">${ext ? 'Extérieur' : 'Intérieur'}</span>${ext ? '🏗️' : '🛋️'}</div>
-      <div class="cbody"><b data-open>${esc(p.name)}</b><span class="muted">${tpl ? esc(tpl[1]) + ' · ' : ''}modifié ${ago(p.updated)}</span></div>
+      <div class="cbody"><b data-open>${esc(p.name)}</b><span class="muted">${cloudOn ? (p.owner ? '<span class="ptag cloud" title="Enregistré dans ton compte">☁ Compte</span>' : '<span class="ptag local" title="Seulement dans ce navigateur">📱 Cet appareil</span>') : ''}${tpl ? esc(tpl[1]) + ' · ' : ''}modifié ${ago(p.updated)}</span></div>
       <div class="cact"><button data-open>Ouvrir</button><button data-ren>Renommer</button><button data-dup>Dupliquer</button><button data-exp>Exporter</button><button class="del" data-del>Supprimer</button></div></div>`;
   }).join('');
   $('bNew3').onclick = openNew;
@@ -276,6 +304,38 @@ const CO_FIELDS = [['name', 'Nom commercial'], ['legal', 'Forme juridique'], ['a
 $('bCompany').onclick = () => { const c = C.company(); $('coForm').innerHTML = `<div class="two">${CO_FIELDS.map(([k, l]) => `<label class="f">${l}<input data-k="${k}" value="${esc(c[k])}"></label>`).join('')}</div>`; $('ovCo').hidden = false; };
 $('okCo').onclick = () => { const c = C.company(); document.querySelectorAll('#coForm [data-k]').forEach(i => { c[i.dataset.k] = ['hourly', 'validity', 'deposit'].includes(i.dataset.k) ? Number(i.value) : i.value; }); C.saveCompany(c); $('ovCo').hidden = true; toast('Informations enregistrées'); };
 $('cCo').onclick = () => $('ovCo').hidden = true;
+
+// --- compte Google et synchronisation (actif seulement si firebase-config.js est rempli)
+const G_ICON = '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>';
+const CL = window.MoovoCloud;
+if (CL?.enabled) {
+  cloudOn = true; $('acct').hidden = false;
+  CL.confirmImport = n => Promise.resolve(confirm(`${n} projet${n > 1 ? 's ont été créés' : ' a été créé'} sur cet appareil avant ta connexion.\n\nLes ajouter à ton compte pour les retrouver sur tous tes appareils ?`));
+  CL.onChange = () => render();
+  const syncTxt = st => st.state === 'syncing' ? '⟳ Synchronisation…' : st.state === 'ok' ? `✓ Synchronisé ${ago(st.lastSync)}` : st.state === 'offline' ? '⚡ Hors ligne : la synchro reprendra au retour du réseau' : st.state === 'error' ? '⚠ ' + (st.err || 'Erreur de synchronisation') : '';
+  const drawAcct = st => {
+    const u = st.user, el = $('acct'), band = $('cloudBand');
+    if (!u) {
+      el.innerHTML = `<button class="gbtn" id="bSign" title="Se connecter avec Google">${G_ICON}<span class="lbl">Se connecter</span></button>`;
+      $('bSign').onclick = () => CL.signIn();
+      band.hidden = st.state === 'loading'; band.className = 'cloudband' + (st.state === 'error' ? ' err' : '');
+      band.innerHTML = st.state === 'error' ? `<div><b>Connexion impossible pour l’instant</b>${esc(st.err)}</div>` : `<div><b>☁ Retrouve tes projets partout</b>Connecte-toi avec ton compte Google : tes projets sont sauvegardés en ligne et synchronisés entre ton téléphone et ton ordinateur.</div><button class="gbtn" id="bSign2">${G_ICON}Continuer avec Google</button>`;
+      $('bSign2')?.addEventListener('click', () => CL.signIn());
+      return;
+    }
+    band.hidden = !(st.state === 'error' || st.state === 'offline'); band.className = 'cloudband err'; band.innerHTML = `<div>${esc(syncTxt(st))}</div>`;
+    const ini = (u.name || u.email || '?').trim()[0].toUpperCase(), open = !$('amenu')?.hidden && $('amenu');
+    el.innerHTML = `<button class="ghost avbtn" id="bAv" title="${esc(u.name || '')}">${u.photo ? `<img src="${esc(u.photo)}" alt="" referrerpolicy="no-referrer">` : `<span class="ini">${esc(ini)}</span>`}<span class="st">${st.state === 'syncing' ? '⟳' : st.state === 'ok' ? '☁' : '⚠'}</span></button>
+      <div class="amenu" id="amenu"${open ? '' : ' hidden'}><div class="who"><b>${esc(u.name || '')}</b><span>${esc(u.email || '')}</span></div><div class="sync">${esc(syncTxt(st))}</div>
+      <button id="aSync">⟳ Synchroniser maintenant</button><a href="confidentialite.html">🔒 Confidentialité et données</a><button id="aOut">Se déconnecter</button><button id="aOutWipe" class="danger">Se déconnecter et effacer de cet appareil</button></div>`;
+    $('bAv').onclick = e => { e.stopPropagation(); $('amenu').hidden = !$('amenu').hidden; };
+    $('aSync').onclick = () => CL.syncNow();
+    $('aOut').onclick = async () => { await CL.signOut(false); render(); toast('Déconnecté. Tes projets t’attendent sagement dans ton compte.'); };
+    $('aOutWipe').onclick = async () => { if (!confirm('Se déconnecter et retirer tes projets de cet appareil ?\nIls restent dans ton compte et reviendront à ta prochaine connexion.')) return; await CL.signOut(true); render(); toast('Déconnecté et appareil nettoyé.'); };
+  };
+  CL.subscribe(st => { drawAcct(st); if (st.state === 'ok') render(); });
+  document.addEventListener('pointerdown', e => { if (!e.target.closest('#acct')) { const m = $('amenu'); if (m) m.hidden = true; } });
+}
 
 // --- démarrage : reprise de l'ancienne version, lien de partage, hors-ligne
 C.migrateLegacy();

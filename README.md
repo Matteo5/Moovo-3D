@@ -32,6 +32,8 @@ Application 100 % navigateur (aucun serveur, aucune installation) pour :
 | `interieur.html` | Éditeur intérieur (plan 2D + 3D) |
 | `exterieur.html` | Éditeur de structures extérieures (vues dessus/face/côté + 3D) |
 | `moovo-core.js` | Commun : stockage des projets, fiche entreprise, devis imprimable, partage par lien |
+| `moovo-cloud.js`, `firebase-config.js`, `firestore.rules` | Compte Google, synchronisation des projets, règles de sécurité de la base |
+| `confidentialite.html` | Page « Confidentialité et données » |
 | `moovo-lib.js` | Commun : nuanciers, matières, revêtements et sols texturés, ambiances, astuces, glossaire, sélecteur de couleur |
 | `manifest.webmanifest`, `icon.svg`, `sw.js` | Installation comme une appli et fonctionnement hors connexion (une fois en ligne) |
 | `archives/` | Anciennes versions, gardées par sécurité |
@@ -49,6 +51,17 @@ Double-clic sur `index.html` (Chrome ou Edge conseillés). Il faut Internet au p
 **Option GitHub Pages** : créer un dépôt, y pousser le dossier, activer Settings → Pages (branche `main`, dossier racine).
 
 À retirer avant publication si tu ne veux pas les rendre publics : `appartement-claire-kiki.json` et le dossier `archives/`.
+
+## Comptes Google et synchronisation (Firebase, gratuit)
+Sans configuration, l’appli fonctionne sans compte : les projets restent dans le navigateur. Pour activer la connexion Google et la synchronisation entre appareils :
+1. **Créer le projet** : https://console.firebase.google.com → « Créer un projet » → nom `moovo` → désactiver Google Analytics → Créer.
+2. **Connexion Google** : menu *Créer → Authentication* → « Commencer » → onglet *Méthode de connexion* → **Google** → Activer → choisir l’e-mail d’assistance → Enregistrer.
+3. **Domaine autorisé** : *Authentication → Paramètres → Domaines autorisés* → « Ajouter un domaine » → `matteo5.github.io`.
+4. **Base de données** : *Créer → Firestore Database* → « Créer une base de données » → emplacement **eur3 (europe-west)** → mode **production** → Créer.
+5. **Règles de sécurité** : *Firestore → Règles* → remplacer tout le contenu par celui du fichier `firestore.rules` → Publier.
+6. **Configuration** : roue dentée → *Paramètres du projet* → section *Vos applications* → icône **</>** (Web) → nom `Moovo` (ne pas cocher Hosting) → Enregistrer → copier les valeurs `apiKey`, `authDomain`, `projectId`, `appId` dans `firebase-config.js`.
+
+Ces valeurs ne sont pas secrètes : la sécurité repose sur les règles de l’étape 5 (chacun ne lit et n’écrit que ses propres projets). L’offre gratuite (Spark) suffit largement pour un usage entre amis et ne se met jamais en pause.
 
 ## Données
 Chaque projet est enregistré dans le navigateur de la personne (localStorage), avec des versions automatiques. Rien ne part sur un serveur. Pour changer d'ordinateur : *Exporter* le projet (ou « Sauvegarde complète » sur l'accueil) puis *Importer*.

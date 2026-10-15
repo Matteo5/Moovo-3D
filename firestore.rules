@@ -1,0 +1,18 @@
+rules_version = '2';
+// Moovo 3D : chaque utilisateur connecté ne peut lire et écrire QUE ses propres données,
+// rangées sous users/{son identifiant}/projects, /bgs (images de plan) et /meta (fiche entreprise).
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid}/{collection}/{docId} {
+      allow read, delete: if request.auth != null && request.auth.uid == uid
+                          && collection in ['projects', 'bgs', 'meta'];
+      allow create, update: if request.auth != null && request.auth.uid == uid
+                            && collection in ['projects', 'bgs', 'meta']
+                            && request.resource.data.keys().size() <= 40;
+    }
+    // tout le reste est fermé
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

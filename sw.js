@@ -1,5 +1,5 @@
 // Moovo 3D — mise en cache pour fonctionner hors connexion une fois l'application en ligne
-const CACHE = 'moovo3d-v9';
+const CACHE = 'moovo3d-v10';
 const CORE = ['./', 'index.html', 'interieur.html', 'exterieur.html', 'moovo-core.js', 'moovo-lib.js', 'moovo-cloud.js', 'firebase-config.js', 'confidentialite.html', 'manifest.webmanifest', 'img/logo-mark.png', 'img/logo-mark-128.png', 'img/favicon-32.png', 'img/favicon-64.png', 'img/icon-192.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });

@@ -325,7 +325,9 @@ const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
 const DEF_PRICES = () => ({ mats: Object.fromEntries(Object.entries(MAT).map(([k, m]) => [k, m.price])), panels: Object.fromEntries(Object.entries(PANEL).map(([k, p]) => [k, p.price])),
   joint: { bois: 4, acier: 14, alu: 9 }, foot: 45, finishBois: 0, finishAcier: 14, labour: { bois: .25, acier: .4, alu: .3, panel: .3, joint: .2 }, delivery: 90, waste: 8, stock: { bois: '2.5,3,4,5,6', acier: '6,12', alu: '6' } });
 function emptyProject(name) { return { v: 1, kind: 'exterior', name, site: { w: 16, d: 12, ground: '#a9c48b' }, members: [], panels: [], blocks: [], gens: [], dims: [], settings: { level: 0, plane: 0, side: 0, postH: 2.4, sec: 'b100x100', mat: 'douglas', panel: 'bac' }, prices: DEF_PRICES() }; }
+const FORMAT = 2;   // 2 : terrain en pente (site.slope, site.slopeDir)
 function migrate(st) {
+  st.fmt = Math.max(st.fmt | 0, FORMAT);
   st.site ??= { w: 16, d: 12, ground: '#a9c48b' }; st.members ??= []; st.panels ??= []; st.blocks ??= []; st.gens ??= []; st.dims ??= [];
   st.settings = Object.assign({ level: 0, plane: 0, side: 0, postH: 2.4, sec: 'b100x100', mat: 'douglas', panel: 'bac' }, st.settings || {});
   const d = DEF_PRICES(); st.prices = Object.assign(d, st.prices || {}); for (const k of ['mats', 'panels', 'joint', 'labour', 'stock']) st.prices[k] = Object.assign(d[k], (st.prices[k] || {}));

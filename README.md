@@ -30,6 +30,16 @@ Application 100 % navigateur (aucun serveur, aucune installation) pour :
 - **Extérieur sans pièges** : une poutre dessinée en vue de dessus se pose sur la tête des poteaux et reste horizontale, avec une vraie section de poutre ; chaque outil pose un élément puis revient en sélection (Maj enfoncée pour enchaîner) ; les poteaux au sol sont scellés (plot béton et platine visibles, comptés au devis) ; alerte si une barre dépasse les longueurs vendues ; **visite à hauteur d’yeux** (clavier ou croix tactile).
 - **Économe** : la 3D n’est redessinée que lorsque quelque chose change et qu’elle est visible.
 
+## Aller plus loin sans être expert
+- **Mode guidé en 4 étapes** (Ma pièce, Mes meubles, Décoration, Budget) : seuls les outils utiles à l’étape sont affichés, le reste est replié dans « Réglages précis ».
+- **✨ Aménager pour moi** : un ensemble adapté au nom de chaque pièce (séjour, chambre, cuisine, salle de bain, bureau, entrée…), posé dos au mur sans gêner les portes ; s’il manque de place, les meubles secondaires sont laissés de côté.
+- **Cuisine équipée** : on règle la longueur et les équipements, les caissons du commerce (60, 50, 45, 40, 30 cm) se placent seuls dans l’ordre réfrigérateur → évier → plaque, avec meubles hauts, hotte et prix.
+- **Meubles réalistes** : modèles 3D gratuits (licence CC0, Poly Haven) chargés à la demande pour 18 meubles courants ; sans connexion, le dessin simplifié reste affiché (Affichage › Meubles réalistes).
+- **Toiture** (Projet › Toiture) : plat, 1, 2 ou 4 pans, tuiles, ardoises, bac acier ou zinc, débord, gouttières ; charpente, couverture, isolation et gouttières au budget.
+- **Plusieurs niveaux** (bouton 🏢 du plan) : étages et sous-sol, contour repris, niveau du dessous en pointillés pour s’aligner, budget de tout le bâtiment.
+- **Terrain en pente** (extérieur) : pente et sens réglables, ou mesurés automatiquement à l’import d’une adresse (altimétrie IGN) ; courbes de niveau, profil en vues de face et de côté, poteaux qui suivent le terrain.
+- Vue de face cotée des murs, carnet de projet imprimable, photo 360°, zones de revêtement, séparations virtuelles, accessibilité PMR.
+
 ## Fichiers
 | Fichier | Rôle |
 |---|---|
@@ -41,6 +51,7 @@ Application 100 % navigateur (aucun serveur, aucune installation) pour :
 | `confidentialite.html` | Page « Confidentialité et données » |
 | `moovo-lib.js` | Commun : nuanciers, matières, revêtements et sols texturés, ambiances, astuces, glossaire, sélecteur de couleur |
 | `manifest.webmanifest`, `icon.svg`, `sw.js` | Installation comme une appli et fonctionnement hors connexion (une fois en ligne) |
+| `tests/index.html` | Tests automatiques : ouvrir `/tests/` sur le serveur local (crée puis supprime ses projets de test) |
 | `archives/` | Anciennes versions, gardées par sécurité |
 
 ## Utiliser en local

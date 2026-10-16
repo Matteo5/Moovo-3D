@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Moovo 3D · Tests</title>
+<style>
+  :root { --ok: #15803d; --ko: #b91c1c; --muted: #6b7280; --line: #e5e7eb; }
+  body { margin: 0; padding: 24px 16px; font: 14px/1.45 system-ui, -apple-system, Segoe UI, sans-serif; background: #f8fafc; color: #111827; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.muted { color: var(--muted); margin: 0 0 16px; }
+  #sum { font-weight: 700; margin: 12px 0; }
+  table { width: 100%; max-width: 900px; border-collapse: collapse; background: #fff; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  td { padding: 7px 10px; border-top: 1px solid var(--line); vertical-align: top; }
+  td.s { width: 28px; font-weight: 700; } .ok { color: var(--ok); } .ko { color: var(--ko); }
+  td.d { color: var(--muted); font-size: 12px; }
+  iframe { width: 1200px; height: 760px; border: 0; position: absolute; left: -9999px; top: 0; }
+  button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid #2563eb; background: #2563eb; color: #fff; cursor: pointer; }
+</style>
+</head>
+<body>
+<h1>Moovo 3D · tests automatiques</h1>
+<p class="muted">Ouvre l'application dans des projets de test (créés puis supprimés de ce navigateur) et vérifie les calculs principaux. Aucune donnée existante n'est modifiée.</p>
+<button id="run">Relancer</button>
+<div id="sum">…</div>
+<table id="out"></table>
+<script src="../moovo-core.js"></script>
+<script>
+const out = document.getElementById('out'), sum = document.getElementById('sum');
+const wait = ms => new Promise(r => setTimeout(r, ms));
+let pass = 0, fail = 0;
+function row(ok, name, detail = '') {
+  ok ? pass++ : fail++;
+  out.insertAdjacentHTML('beforeend', `<tr><td class="s ${ok ? 'ok' : 'ko'}">${ok ? '✓' : '✗'}</td><td>${name}</td><td class="d">${detail}</td></tr>`);
+  sum.textContent = `${pass} réussi${pass > 1 ? 's' : ''} · ${fail} échec${fail > 1 ? 's' : ''}`; sum.className = fail ? 'ko' : 'ok';
+}
+const check = (name, fn) => { try { const r = fn(); row(r === true || (r && r.ok), name, r?.d ?? ''); } catch (e) { row(false, name, String(e).slice(0, 200)); } };
+// ouvre une page de l'application dans un cadre caché et attend son crochet de test
+async function open(url, hook) {
+  const f = document.createElement('iframe'); document.body.appendChild(f); f.src = url;
+  for (let i = 0; i < 100; i++) { await wait(100); if (f.contentWindow?.[hook]) break; }
+  await wait(600); return f;
+}
+async function interior() {
+  const p = MoovoCore.create({ name: 'Test automatique', type: 'interior', template: 't4' });
+  const f = await open(`../interieur.html?p=${p.id}&debug=1`, '__m3'), m = f.contentWindow.__m3, F = m.fn, S = () => m.S();
+  try {
+    check('Format de projet à jour', () => ({ ok: S().fmt === F.FORMAT, d: `fmt ${S().fmt} / ${F.FORMAT}` }));
+    check('Migration : un niveau seul est supprimé, niveau actif borné', () => { const st = F.migrate({ fmt: 2, levels: [{ name: 'X', data: null }], lv: 4, walls: [], openings: [], items: [], rooms: [], prices: {} }); return st.levels === undefined && st.lv === 0 && st.fmt === F.FORMAT; });
+    // A3 : la cuisine remplit exactement sa longueur avec des caissons du commerce
+    check('Cuisine : les caissons remplissent toute la longueur', () => { const bad = [];
+      for (const w of [1.8, 2.0, 2.4, 2.75, 3.0, 3.6, 4.2, 5.0]) { const it = { type: 'kitchenRun', w, d: .6, run: {} }, L = F.runLayout(it), tot = L.reduce((a, x) => a + x.w, 0);
+        if (Math.abs(tot - w) > .006 || L.some(x => x.w < .005)) bad.push(`${w} m → ${tot.toFixed(3)}`); }
+      return { ok: !bad.length, d: bad.join(' · ') || '8 longueurs' }; });
+    check('Cuisine : évier, plaque et réfrigérateur présents dès 2,40 m', () => { const L = F.runLayout({ type: 'kitchenRun', w: 2.4, d: .6, run: {} }).map(x => x.kind); return { ok: ['fridge', 'sink'].every(k => L.includes(k)) && (L.includes('oven') || L.includes('hob')), d: L.join(', ') }; });
+    check('Cuisine : le prix suit les options', () => { const a = F.runPrice({ type: 'kitchenRun', w: 3, d: .6, run: {} }), b = F.runPrice({ type: 'kitchenRun', w: 3, d: .6, run: { appl: false } }); return { ok: a > b && b > 0, d: `${a} € avec électroménager, ${b} € sans` }; });
+    // A12 : aménagement automatique sans chevauchement
+    S().items = S().items.filter(i => i.type === 'gaine'); m.commit(); await wait(300);
+    F.autoFurnishAll(); await wait(300);
+    check('Aménager pour moi : au moins 4 pièces meublées', () => { const rs = new Set(S().items.filter(i => i.type !== 'gaine').map(i => i._r)); return { ok: rs.size >= 4, d: `${S().items.length} objets, ${rs.size} pièces` }; });
+    check('Aménager pour moi : aucun meuble ne se chevauche', () => { const sol = S().items.filter(i => F.floorish(i) && !F.passThrough(i)), hits = [];
+      for (let i = 0; i < sol.length; i++) for (let j = i + 1; j < sol.length; j++) if (F.ovl(F.fp(sol[i]), F.fp(sol[j]), .01)) hits.push(`${sol[i].type} / ${sol[j].type}`);
+      return { ok: !hits.length, d: hits.join(' · ') || `${sol.length} meubles vérifiés` }; });
+    // A14 : toiture chiffrée
+    const t0 = F.works().total; S().roof = { type: 'gable', pitch: 35, over: .4, cover: 'tuile', ridge: 'auto', insul: true };
+    check('Toiture 2 pans : surface et budget cohérents', () => { const q = F.roofQty(), add = F.works().total - t0, exp = F.roofLines().reduce((a, l) => a + l.total, 0);
+      return { ok: q.area > q.A0 && Math.abs(add - exp) < 1 && add > 0, d: `${q.area.toFixed(1)} m² pour ${q.A0.toFixed(1)} m² au sol, +${Math.round(add)} €` }; });
+    check('Toiture plate : pas de charpente', () => { S().roof.type = 'flat'; return !F.roofLines().some(l => /Charpente/.test(l.label)); });
+    S().roof.type = 'gable'; m.commit(); await wait(300);
+    // A15 : niveaux
+    const whole = F.worksAll().total, items0 = S().items.length;
+    F.addLevel('up'); await wait(400);
+    check('Étage ajouté : contour repris, sans meubles', () => ({ ok: S().levels.length === 2 && S().lv === 1 && S().items.length === 0 && S().walls.length > 0, d: `${S().walls.length} murs` }));
+    check('Budget du bâtiment identique depuis chaque niveau', () => { const a = F.worksAll().total; F.switchLevel(0); const b = F.worksAll().total; return { ok: Math.abs(a - b) < 1 && Math.abs(b - whole) < 1, d: `${Math.round(a)} € / ${Math.round(b)} € / avant : ${Math.round(whole)} €` }; });
+    check('Retour au rez-de-chaussée : meubles intacts', () => ({ ok: S().lv === 0 && S().items.length === items0, d: `${S().items.length} / ${items0}` }));
+  } finally { f.remove(); MoovoCore.remove(p.id, true); }
+}
+async function exterior() {
+  const p = MoovoCore.create({ name: 'Test automatique ext', type: 'exterior' });
+  const f = await open(`../exterieur.html?p=${p.id}&debug=1`, '__x'), x = f.contentWindow.__x, S = () => x.S();
+  try {
+    S().site.slope = 10; S().site.slopeDir = 180; x.commit();
+    check('Pente 10 % vers le sud : le nord est plus haut', () => { const n = x.groundZ(8, 0), s = x.groundZ(8, 12); return { ok: Math.abs(n - s - 1.2) < .001 && n > 0, d: `nord ${n.toFixed(2)} m, sud ${s.toFixed(2)} m` }; });
+    check('Pente 10 % vers l’est : la gauche est plus haute', () => { S().site.slopeDir = 90; return x.groundZ(0, 6) > x.groundZ(16, 6); });
+    S().site.slopeDir = 180; f.contentDocument.querySelector('[data-tool="post"]').click(); x.clickTool({ q: [4, 2], shift: false });
+    check('Poteau posé au sol : pied sur le terrain, tête au niveau', () => { const m = S().members.at(-1), g = x.groundZ(4, 2); return { ok: Math.abs(m.a[2] - g) < .002 && Math.abs(m.b[2] - S().settings.postH) < .002, d: `pied ${m.a[2]} m, tête ${m.b[2]} m` }; });
+  } finally { f.remove(); MoovoCore.remove(p.id, true); }
+}
+async function run() {
+  out.innerHTML = ''; pass = fail = 0; sum.textContent = 'Tests en cours…'; sum.className = '';
+  try { await interior(); } catch (e) { row(false, 'Page intérieur', String(e)); }
+  try { await exterior(); } catch (e) { row(false, 'Page extérieur', String(e)); }
+  document.title = `Tests · ${fail ? fail + ' échec(s)' : 'tout est bon'}`;
+}
+document.getElementById('run').onclick = run; run();
+</script>
+</body>
+</html>

@@ -1102,7 +1102,21 @@ let S = (() => {
   lsSet(KEY, JSON.stringify(s0));
   return s0;
 })();
+// format des projets : chaque évolution ajoute une étape ici, appliquée une seule fois et dans l'ordre
+const FORMAT = 3;
+const FORMAT_STEPS = {
+  // 2 : toiture, cuisine automatique, zones (rien à convertir : valeurs par défaut au chargement)
+  2: st => st,
+  // 3 : niveaux — un seul niveau n'en est pas un ; niveau actif valide ; données complètes pour chacun
+  3: st => { if (!(st.levels?.length > 1)) { delete st.levels; st.lv = 0; return st; }
+    st.lv = Math.min(Math.max(0, st.lv | 0), st.levels.length - 1);
+    for (const L of st.levels) { L.id ??= Math.random().toString(36).slice(2, 10); L.name ??= 'Niveau'; L.z = +L.z || 0; if (L.data) for (const k of ['walls', 'openings', 'items', 'rooms', 'dims']) L.data[k] ??= []; }
+    return st; },
+};
 function migrate(st) {
+  const from = st.fmt | 0; if (from > FORMAT) setTimeout(() => toast('Ce projet vient d’une version plus récente de Moovo 3D : certains réglages pourraient ne pas s’afficher.', 6000), 800);
+  for (let v = from + 1; v <= FORMAT; v++) st = FORMAT_STEPS[v]?.(st) ?? st;
+  st.fmt = Math.max(from, FORMAT);
   st.name ??= 'Appartement T4';
   st.dims ??= [];
   st.settings ??= {};
@@ -5303,7 +5317,7 @@ setTool('select');
 renderAll();
 requestAnimationFrame(() => { fit(); render2D(); resize3D(); setView('persp'); loop(); });
 document.getElementById("lvlName").textContent = lvlName();
-if (new URLSearchParams(location.search).has("debug")) window.__m3 = { scene, get cam() { return cam; }, renderer, ctl, build: () => { build3D(); dirty3D = false; }, render: () => renderer.render(scene, cam), S: () => S, opt, A: () => A, commit: () => commit(), pick: id => { sel = { kind: "item", id }; tab = "sel"; renderPanel(); }, fn: { fitLayout, kitLayout, doorZones, autoFurnish, autoKits, worksAll, works } };
+if (new URLSearchParams(location.search).has("debug")) window.__m3 = { scene, get cam() { return cam; }, renderer, ctl, build: () => { build3D(); dirty3D = false; }, render: () => renderer.render(scene, cam), S: () => S, opt, A: () => A, commit: () => commit(), pick: id => { sel = { kind: "item", id }; tab = "sel"; renderPanel(); }, fn: { fitLayout, kitLayout, doorZones, autoFurnish, autoKits, autoFurnishAll, worksAll, works, runLayout, runPrice, roofLines, roofQty, addLevel, switchLevel, migrate, FORMAT, fp, ovl, floorish, passThrough } };
 if (new URLSearchParams(location.search).get('demo')) {
   history.replaceState(null, '', location.pathname + '?p=' + encodeURIComponent(PID));
   // appartement témoin : une ambiance par pièce et quelques travaux cochés, pour montrer le rendu final

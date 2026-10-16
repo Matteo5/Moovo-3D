@@ -108,7 +108,11 @@
   .runmods { display: flex; gap: 2px; margin: 10px 0 4px; height: 38px; }
     .runmods span { background: var(--soft, #eef2f6); border: 1px solid #cfd6de; border-radius: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 13px; min-width: 0; overflow: hidden; }
     .runmods small { font-size: 10px; color: #6b7280; }
-    details.adv{margin:10px 0;border:1px solid var(--line);border-radius:10px;padding:0 12px}
+    .rooftypes{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px}
+  .rooftypes button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 6px;border:1.5px solid var(--line);border-radius:12px;background:#fff;color:var(--ink,#1f2937);cursor:pointer;text-align:center}
+  .rooftypes button.on{border-color:#2563eb;background:#eff6ff;color:#1d4ed8}
+  .rooftypes span{font-size:11px;color:var(--muted)}
+  details.adv{margin:10px 0;border:1px solid var(--line);border-radius:10px;padding:0 12px}
   details.adv > summary{cursor:pointer;padding:9px 0;font-weight:600;color:var(--muted);list-style:none}
   details.adv > summary::before{content:'▸ ';} details.adv[open] > summary::before{content:'▾ ';}
   details.adv[open]{padding-bottom:10px}
@@ -331,6 +335,7 @@
       <button data-cmd="devis">📄 Générer le devis…</button>
       <button data-cmd="carnet">📘 Carnet de projet (PDF)…</button>
       <button data-cmd="pano">🌐 Photo 360° de la pièce…</button>
+      <button data-cmd="roof">🏠 Toiture…</button>
       <button data-cmd="share">🔗 Partager par lien…</button>
       <button data-cmd="baseline">🏁 Définir l’état actuel comme « existant »</button>
       <hr>
@@ -419,6 +424,7 @@
                 <label><input type="checkbox" id="oElec" checked> Électricité</label>
                 <label><input type="checkbox" id="oCeil" checked> Faux plafonds</label>
                 <label><input type="checkbox" id="oRoof"> Plafonds</label>
+                <label title="La toiture réglée dans Projet › Toiture"><input type="checkbox" id="oToit" checked> Toiture</label>
                 <label><input type="checkbox" id="oFinish" checked> Faïence, peintures</label>
                 <label><input type="checkbox" id="oTex" checked> Textures de sol</label>
                 <label><input type="checkbox" id="oLbl" checked> Noms des pièces</label>
@@ -1523,6 +1529,63 @@ function roomStats(r) {
   if (tag?.works.tile) for (const run of boundaryRuns(r.id)) for (const s of runTiles(run, r.id, H)) tile += (s.e - s.s) * (s.y1 - s.y0);
   return { area: r.area, perim: r.perim, H, opA, wallNet, tile, paint: Math.max(0, wallNet - tile) + r.area, tag };
 }
+// =====================================================================
+//  A14 : toiture — plate, 1 pan, 2 pans ou 4 pans, posée sur l'emprise des murs
+// =====================================================================
+const ROOF_TYPES = [['none', 'Pas de toit', 'appartement, ou plus tard'], ['flat', 'Toit plat', 'toit-terrasse, acrotère'], ['mono', '1 pan', 'appentis, extension'], ['gable', '2 pans', 'le plus courant'], ['hip', '4 pans', 'pavillon, croupes']];
+const ROOF_COVERS = { tuile: { l: 'Tuiles terre cuite', c: '#a8553c', p: 95 }, ardoise: { l: 'Ardoises', c: '#4a5361', p: 150 }, bac: { l: 'Bac acier', c: '#5f666e', p: 55 }, zinc: { l: 'Zinc à joint debout', c: '#9aa3a8', p: 130 }, epdm: { l: 'Membrane EPDM (toit plat)', c: '#2a2d32', p: 95 } };
+const ROOF_DEF = { type: 'none', pitch: 35, over: .4, cover: 'tuile', ridge: 'auto', insul: true };
+const roofCfg = () => ({ ...ROOF_DEF, ...(S.roof ?? {}) });
+// emprise : rectangle englobant les murs réels (sans les séparations virtuelles)
+function roofBox() {
+  const ws = S.walls.filter(w => w.kind !== 'virtual'); if (!ws.length) return null;
+  const xs = ws.flatMap(w => [w.a[0] - w.t / 2, w.b[0] - w.t / 2, w.a[0] + w.t / 2, w.b[0] + w.t / 2]), ys = ws.flatMap(w => [w.a[1] - w.t / 2, w.b[1] - w.t / 2, w.a[1] + w.t / 2, w.b[1] + w.t / 2]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys), c = roofCfg();
+  const alongX = c.ridge === 'x' || (c.ridge === 'auto' && x1 - x0 >= y1 - y0);
+  return { x0, x1, y0, y1, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, alongX, L: alongX ? x1 - x0 : y1 - y0, Sp: alongX ? y1 - y0 : x1 - x0 };
+}
+function roofQty() {
+  const c = roofCfg(), b = roofBox(); if (!b || c.type === 'none') return null;
+  const o = c.type === 'flat' ? 0 : c.over, A0 = (b.L + 2 * o) * (b.Sp + 2 * o), k = c.type === 'flat' ? 1 : 1 / Math.cos(c.pitch * Math.PI / 180);
+  const eaves = c.type === 'gable' ? 2 * (b.L + 2 * o) : c.type === 'mono' ? b.L + 2 * o : c.type === 'hip' ? 2 * (b.L + b.Sp + 4 * o) : 0;
+  const rise = c.type === 'flat' ? 0 : (c.type === 'mono' ? b.Sp : b.Sp / 2) * Math.tan(c.pitch * Math.PI / 180);
+  return { A0, area: A0 * k, eaves, rise, b, c };
+}
+function roofLines() {
+  const q = roofQty(); if (!q) return [];
+  const { c } = q, cov = ROOF_COVERS[c.type === 'flat' ? 'epdm' : c.cover] ?? ROOF_COVERS.tuile, L = [], sec = 'Toiture';
+  if (c.type !== 'flat') L.push({ label: 'Charpente bois (fermettes ou traditionnelle)', qty: `${fm(q.A0)} m² au sol`, unit: '€/m²', total: q.A0 * 60, sec, qn: q.A0, un: 'm²', pu: 60 });
+  L.push({ label: c.type === 'flat' ? 'Étanchéité toiture-terrasse + acrotère' : `Couverture ${cov.l.toLowerCase()}`, qty: `${fm(q.area)} m²`, unit: '€/m²', total: q.area * cov.p, sec, qn: q.area, un: 'm²', pu: cov.p });
+  if (c.insul) L.push({ label: 'Isolation de toiture (R ≥ 7)', qty: `${fm(q.A0)} m²`, unit: '€/m²', total: q.A0 * 45, sec, qn: q.A0, un: 'm²', pu: 45 });
+  if (q.eaves > 0) L.push({ label: 'Gouttières et descentes', qty: `${fm(q.eaves)} ml`, unit: '€/ml', total: q.eaves * 45, sec, qn: q.eaves, un: 'ml', pu: 45 });
+  return L;
+}
+function roofIcon(t) {
+  const P = { none: 'M8 34h48', flat: 'M8 22h48v4H8zM12 26v12M52 26v12', mono: 'M8 28L56 14v4L8 32zM12 30v8M52 18v20', gable: 'M6 28L32 10L58 28M12 26v12M52 26v12', hip: 'M6 28L20 12h24L58 28M12 26v12M52 26v12' }[t];
+  return `<svg viewBox="0 0 64 42" width="64" height="42" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"><path d="${P}"/></svg>`;
+}
+function roofBody() {
+  const c = roofCfg(), q = roofQty(), tot = roofLines().reduce((a, l) => a + l.total, 0);
+  return `<div class="rooftypes">${ROOF_TYPES.map(([k, l, d]) => `<button data-roof="${k}" class="${c.type === k ? 'on' : ''}">${roofIcon(k)}<b>${l}</b><span>${d}</span></button>`).join('')}</div>
+    ${c.type === 'none' ? '<p class="muted">Sans toit, la 3D montre l’intérieur vu du dessus, comme d’habitude.</p>' : `
+    <div class="grid2" style="margin-top:12px">
+      ${c.type !== 'flat' ? `<label class="f"><span>Matériau</span><select data-rf="cover">${Object.entries(ROOF_COVERS).filter(([k]) => k !== 'epdm').map(([k, v]) => `<option value="${k}"${c.cover === k ? ' selected' : ''}>${v.l}</option>`).join('')}</select></label>
+      <label class="f"><span>Pente (degrés)</span><input type="number" data-rf="pitch" value="${c.pitch}" min="5" max="60"></label>
+      <label class="f"><span>Débord de toit (cm)</span><input type="number" data-rf="over" value="${Math.round(c.over * 100)}" min="0" max="120"></label>
+      <label class="f"><span>Faîtage (ligne du haut)</span><select data-rf="ridge">${[['auto', 'Dans le sens de la longueur'], ['x', 'De gauche à droite'], ['y', 'De haut en bas']].map(([k, l]) => `<option value="${k}"${c.ridge === k ? ' selected' : ''}>${l}</option>`).join('')}</select></label>` : ''}
+      <label class="chk full"><input type="checkbox" data-rf="insul"${c.insul ? ' checked' : ''}><span>Isolation de toiture comprise</span></label>
+    </div>
+    ${q ? `<p class="muted">Emprise ${fm(q.b.L)} × ${fm(q.b.Sp)} m · ${fm(q.area)} m² de toiture${q.rise ? ` · faîtage à ${fm(S.H + .2 + q.rise)} m du sol` : ''} · estimation <b>${fm(tot, 0)} €</b> (ajoutée au budget).</p>` : '<p class="muted">Dessine d’abord les murs : le toit se pose sur leur emprise.</p>'}
+    ${tipBox(c.type === 'flat' ? 'Un toit plat n’est jamais tout à fait plat : 1 à 2 % de pente vers les évacuations. Il peut devenir terrasse ou toit végétalisé.' : 'La pente minimale dépend du matériau et de la région : environ 25° pour des tuiles, 15° pour l’ardoise et 5° pour le bac acier. Le plan local d’urbanisme (PLU) impose souvent la pente et la couleur : vérifie-le en mairie.')}
+    <p class="muted">Pour revoir l’intérieur, décoche « Toiture » dans le menu Affichage de la 3D.</p>`}`;
+}
+function openRoof() {
+  openModal('roof', 'Toiture', `<div id="roofBody">${roofBody()}</div>`);
+  const box = document.getElementById('roofBody'), upd = () => { commit(); dirty3D = true; kick3D(); box.innerHTML = roofBody(); };
+  box.addEventListener('click', e => { const b = e.target.closest('[data-roof]'); if (!b) return; const ty = b.dataset.roof, was = roofCfg(); S.roof = { ...was, type: ty }; if (ty !== was.type && { mono: 15, gable: 35, hip: 30 }[ty]) S.roof.pitch = { mono: 15, gable: 35, hip: 30 }[ty]; if (b.dataset.roof !== 'none') { opt.toit = true; ensure3D(); } upd(); });
+  box.addEventListener('change', e => { const t = e.target, k = t.dataset.rf; if (!k) return; const c = roofCfg();
+    c[k] = t.type === 'checkbox' ? t.checked : k === 'pitch' ? clamp(+t.value || 35, 5, 60) : k === 'over' ? clamp((+t.value || 0) / 100, 0, 1.2) : t.value; S.roof = c; upd(); });
+}
 function works() {
   const P = S.prices, H = S.H, out = { lines: [], warnings: [] };
   let demo = 0, built = 0, builtArea = 0, demoExt = 0, verr = 0, verrMl = 0;
@@ -1594,6 +1657,7 @@ function works() {
   }
   for (const z of S.items.filter(it => it.type === 'wallZone')) { const fin = z.finish ?? 'panel', a = z.w * itemH(z, 1), pu = P.wallFinish?.[fin] ?? ML.WALL_FINISHES[fin]?.price ?? 40; out.lines.push({ label: `Zone murale ${ML.WALL_FINISHES[fin]?.label ?? fin} ${z.name !== CAT.wallZone.label ? ' — ' + z.name : ''}`, qty: `${fm(a)} m²`, key: 'wallFinish.' + fin, unit: '€/m²', total: a * pu, sec: 'Revêtements muraux', qn: a, un: 'm²', pu }); }
   for (const z of S.items.filter(it => it.type === 'floorZone')) { const fin = z.finish ?? 'tile', a = z.w * z.d, pu = P.floor[fin] ?? 50; out.lines.push({ label: `Zone de sol ${FLOORS[fin]?.label ?? fin} ${z.name !== CAT.floorZone.label ? ' — ' + z.name : ''}`, qty: `${fm(a)} m²`, key: 'floor.' + fin, unit: '€/m²', total: a * pu, sec: 'Revêtements de sol', qn: a, un: 'm²', pu }); }
+  out.lines.push(...roofLines());
   const eq = S.items.filter(it => it.price > 0 && !isElec(it));
   if (eq.length) out.lines.push({ label: 'Équipements & mobilier ajoutés', qty: eq.map(i => i.name).join(', '), total: eq.reduce((a, i) => a + i.price, 0) });
   out.total = out.lines.reduce((a, l) => a + l.total, 0) + (P.misc || 0);
@@ -2967,7 +3031,7 @@ function guidePanel() {
   const s = prefs.step || 1, B = (act, t, sub, extra = '') => `<button data-act="${act}" ${extra}>${t}<span>${sub}</span></button>`;
   let body = '';
   if (s === 1) body = `<p>Dessinez les murs de votre logement, puis placez portes et fenêtres. Pour changer un mur existant, cliquez dessus : vous pourrez le déplacer, l’ouvrir ou le supprimer.</p>
-    <div class="big">${B('gTool', '▭ Dessiner un mur', 'cliquez chaque angle, double-clic pour finir', 'data-tool="wall"')}${B('gTool', '⌒ Ajouter une porte', 'puis cliquez sur un mur', 'data-tool="door"')}${B('gTool', '▤ Ajouter une fenêtre', 'puis cliquez sur un mur', 'data-tool="window"')}${B('gBg', '🖼 Partir de mon plan', 'une photo ou une image du plan')}${B('gSep', '┆ Séparer une pièce ouverte', 'coin cuisine, coin salon : sans mur')}</div>
+    <div class="big">${B('gTool', '▭ Dessiner un mur', 'cliquez chaque angle, double-clic pour finir', 'data-tool="wall"')}${B('gTool', '⌒ Ajouter une porte', 'puis cliquez sur un mur', 'data-tool="door"')}${B('gTool', '▤ Ajouter une fenêtre', 'puis cliquez sur un mur', 'data-tool="window"')}${B('gBg', '🖼 Partir de mon plan', 'une photo ou une image du plan')}${B('gSep', '┆ Séparer une pièce ouverte', 'coin cuisine, coin salon : sans mur')}${B('gRoof', '🏠 Toiture', 'maison : plat, 1, 2 ou 4 pans')}</div>
     <div class="grid2" style="margin-top:10px">${field('Hauteur sous plafond (cm)', 'root', 'H', 'cm', S.H)}</div>`;
   else if (s === 2) body = `<p>Ajoutez vos meubles depuis le catalogue, ou créez-en un sur mesure. Cliquez ensuite un meuble pour le déplacer, le tourner, changer sa taille ou sa couleur.</p>
     <div class="big">${B('autoAll', '✨ Aménager pour moi', 'des meubles posés dans chaque pièce vide')}${B('gCatalog', '＋ Ajouter un meuble', `${Object.keys(CAT).length - 1} objets avec recherche`)}${B('gCatalog', '✏️ Créer mon meuble', 'bibliothèque, buffet, dressing…')}${B('gCatalog', '✨ Pièce toute prête', 'salon, chambre, cuisine…')}${B('gTool', '📏 Mesurer', 'vérifier un passage', 'data-tool="measure"')}</div>`;
@@ -3244,6 +3308,7 @@ panel.addEventListener('click', e => {
     if (a === 'resetRoomColors') { const t = resolveSel()?.tags?.[0]; if (t) { t.paintColor = null; t.floorTint = null; t.ceilColor = null; t.tileColor = null; t.wallFinish = null; t.sheen = null; t.style = null; commit(); } return; }
     if (a === 'autoFurnish') { const r = resolveSel(); if (r && r !== true && r.tags) { if (autoFurnish(r)) commit(); } return; }
     if (a === 'autoAll') { autoFurnishAll(); return; }
+    if (a === 'gRoof') { openRoof(); return; }
     if (a === 'applyStyle') { const r = resolveSel(); if (r && r !== true && r.tags?.[0]) { applyStyle(r, b.dataset.style); commit(); toast(`Ambiance « ${ML.STYLES[b.dataset.style].label} » appliquée. ${ML.STYLES[b.dataset.style].wink ?? ''}`, 3800); } return; }
     if (a === 'setSize') { const it = resolveSel(); if (it) { const f0 = fp(it), cx = f0.x + f0.w / 2, cy = f0.y + f0.h / 2; it.w = +b.dataset.w; it.d = +b.dataset.d; const f1 = fp(it); it.x = r2(cx - f1.w / 2); it.y = r2(cy - f1.h / 2); commit(); } return; }
     if (a === 'startTour') return startTour();
@@ -3308,8 +3373,8 @@ const ground = new THREE.Mesh(new THREE.PlaneGeometry(120, 120).rotateX(-Math.PI
 ground.position.y = -.005; ground.receiveShadow = true; scene.add(ground);
 let root = new THREE.Group(); scene.add(root);
 const labels = new THREE.Group(); scene.add(labels);
-const opt = Object.assign({ models: true, real: true, doorMode: 'open', glass: true, wallMode: 'full', cutH: 1.1, wallOp: .35, furn: true, elec: true, ceil: true, roof: false, finish: true, tex: true, lbl: true, shadow: true, isolate: false, night: false, sun: 40, eye: 1.6, speed: 1.8, collide: true }, prefs.opt || {});
-const OPT_UI = [['oModels', 'models', 'bool'], ['oDoorMode', 'doorMode', 'sel'], ['oGlass', 'glass', 'bool'], ['oWallMode', 'wallMode', 'sel'], ['oCutH', 'cutH', 'num'], ['oWallOp', 'wallOp', 'num'],
+const opt = Object.assign({ toit: true, models: true, real: true, doorMode: 'open', glass: true, wallMode: 'full', cutH: 1.1, wallOp: .35, furn: true, elec: true, ceil: true, roof: false, finish: true, tex: true, lbl: true, shadow: true, isolate: false, night: false, sun: 40, eye: 1.6, speed: 1.8, collide: true }, prefs.opt || {});
+const OPT_UI = [['oToit', 'toit', 'bool'], ['oModels', 'models', 'bool'], ['oDoorMode', 'doorMode', 'sel'], ['oGlass', 'glass', 'bool'], ['oWallMode', 'wallMode', 'sel'], ['oCutH', 'cutH', 'num'], ['oWallOp', 'wallOp', 'num'],
   ['oFurn', 'furn', 'bool'], ['oElec', 'elec', 'bool'], ['oCeil', 'ceil', 'bool'], ['oRoof', 'roof', 'bool'], ['oFinish', 'finish', 'bool'], ['oTex', 'tex', 'bool'],
   ['oLbl', 'lbl', 'bool'], ['oShadow', 'shadow', 'bool'], ['oIsolate', 'isolate', 'bool'], ['oNight', 'night', 'bool'], ['oSun', 'sun', 'num'], ['oEye', 'eye', 'cm'], ['oSpeed', 'speed', 'num'], ['oCollide', 'collide', 'bool'], ['oReal', 'real', 'bool']];
 function syncOptUI() {
@@ -4030,7 +4095,7 @@ function build3D() {
       }
     }
     const div = document.createElement('div'); div.className = 'lbl3'; div.innerHTML = `${esc(roomName(r))}<span>${fm(r.area, 1)} m²</span>`;
-    const lab = new CSS2DObject(div); lab.position.set(t ? t.x : r.cx, .3, t ? t.y : r.cy); lab.visible = opt.lbl && viewMode !== 'walk' && viewMode !== 'tour'; labels.add(lab);
+    const lab = new CSS2DObject(div); lab.position.set(t ? t.x : r.cx, .3, t ? t.y : r.cy); lab.visible = opt.lbl && viewMode !== 'walk' && viewMode !== 'tour' && !(opt.toit && roofCfg().type !== 'none' && opt.wallMode !== 'cut'); labels.add(lab);
   }
   const tm = opt.real ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping;
   if (renderer.toneMapping !== tm) { renderer.toneMapping = tm; _m.forEach(m => { m.needsUpdate = true; }); _wf.forEach(m => { m.needsUpdate = true; }); }
@@ -4065,6 +4130,62 @@ function build3D() {
     root.add(g);
     if (sel?.kind === 'item' && sel.id === it.id) root.add(new THREE.BoxHelper(g, 0x2563eb));
   }
+  if (opt.toit && viewMode !== 'walk' && opt.wallMode !== 'cut') build3DRoof();
+}
+// texture de couverture dessinée (1 m × 1 m) : rangs de tuiles, d'ardoises, nervures de bac, joints de zinc
+const _roofTex = {};
+function roofTex(kind, col) {
+  const k = kind + col; if (_roofTex[k]) return _roofTex[k];
+  const cv = document.createElement('canvas'); cv.width = cv.height = 256; const g = cv.getContext('2d'); g.fillStyle = col; g.fillRect(0, 0, 256, 256);
+  const dark = 'rgba(0,0,0,.28)', lite = 'rgba(255,255,255,.12)';
+  if (kind === 'tuile') for (let r = 0; r < 8; r++) for (let i = -1; i < 7; i++) { const x = i * 42 + (r % 2) * 21, y = r * 32; g.fillStyle = dark; g.fillRect(x, y + 28, 42, 4); g.fillStyle = lite; g.beginPath(); g.ellipse(x + 21, y + 14, 16, 12, 0, 0, Math.PI * 2); g.fill(); }
+  else if (kind === 'ardoise') for (let r = 0; r < 10; r++) for (let i = -1; i < 9; i++) { const x = i * 30 + (r % 2) * 15, y = r * 26; g.strokeStyle = dark; g.lineWidth = 2; g.strokeRect(x, y, 30, 26); }
+  else if (kind === 'bac') for (let i = 0; i < 8; i++) { g.fillStyle = dark; g.fillRect(i * 32, 0, 5, 256); g.fillStyle = lite; g.fillRect(i * 32 + 5, 0, 3, 256); }
+  else if (kind === 'zinc') for (let i = 0; i < 5; i++) { g.fillStyle = dark; g.fillRect(i * 51, 0, 3, 256); g.fillStyle = lite; g.fillRect(i * 51 + 3, 0, 2, 256); }
+  const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  return (_roofTex[k] = t);
+}
+function build3DRoof() {
+  const q = roofQty(); if (!q) return;
+  const { b, c } = q, base = S.H + .2, t = Math.tan(c.pitch * Math.PI / 180), o = c.over, L2 = b.L / 2, S2 = b.Sp / 2;
+  const W = (u, v, h) => b.alongX ? new THREE.Vector3(b.cx + u, base + h, b.cy + v) : new THREE.Vector3(b.cx + v, base + h, b.cy + u);
+  const cov = ROOF_COVERS[c.type === 'flat' ? 'epdm' : c.cover] ?? ROOF_COVERS.tuile;
+  const roofM = new THREE.MeshStandardMaterial({ map: c.type === 'flat' ? null : roofTex(c.cover, cov.c), color: c.type === 'flat' ? cov.c : '#ffffff', roughness: c.cover === 'bac' || c.cover === 'zinc' ? .45 : .85, metalness: c.cover === 'bac' || c.cover === 'zinc' ? .35 : 0, side: THREE.DoubleSide });
+  const wallM = M('#ece6dc', { roughness: .95, side: THREE.DoubleSide }), gutM = M('#8d949a', { metalness: .6, roughness: .35 });
+  // face plane (polygone convexe) avec UV en mètres : u le long de l'égout, v dans la pente
+  const face = (pts, mat) => {
+    const P = pts.map(p => W(...p)), e = P[1].clone().sub(P[0]).normalize(), n = P[1].clone().sub(P[0]).cross(P[2].clone().sub(P[0])).normalize(), sv = n.clone().cross(e);
+    const pos = [], uv = []; for (let i = 1; i < P.length - 1; i++) for (const Q of [P[0], P[i], P[i + 1]]) { pos.push(Q.x, Q.y, Q.z); const d = Q.clone().sub(P[0]); uv.push(d.dot(e), d.dot(sv)); }
+    const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); gg.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); gg.computeVertexNormals();
+    const m = new THREE.Mesh(gg, mat); m.castShadow = m.receiveShadow = true; root.add(m);
+  };
+  const gutter = (a, z) => { const A = W(...a), B = W(...z), m = new THREE.Mesh(new THREE.CylinderGeometry(.06, .06, A.distanceTo(B), 10), gutM); m.position.copy(A).add(B).multiplyScalar(.5); m.position.y -= .06; m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), B.clone().sub(A).normalize()); root.add(m); };
+  const he = -o * t, H = S2 * t;
+  if (c.type === 'flat') {
+    add3(root, b.x1 - b.x0, .25, b.y1 - b.y0, b.cx, base - .25, b.cy, M('#d9d6cf'));
+    const r = add3(root, b.x1 - b.x0 - .3, .02, b.y1 - b.y0 - .3, b.cx, base, b.cy, roofM); r.receiveShadow = true;
+    for (const [w, d, x, z] of [[b.x1 - b.x0, .15, b.cx, b.y0 + .075], [b.x1 - b.x0, .15, b.cx, b.y1 - .075], [.15, b.y1 - b.y0, b.x0 + .075, b.cy], [.15, b.y1 - b.y0, b.x1 - .075, b.cy]]) add3(root, w, .45, d, x, base, z, wallM).castShadow = true;
+  } else if (c.type === 'mono') {
+    const hi = b.Sp * t;
+    face([[-L2 - o, -S2 - o, he], [L2 + o, -S2 - o, he], [L2 + o, S2 + o, hi + o * t], [-L2 - o, S2 + o, hi + o * t]], roofM);
+    for (const u of [-L2, L2]) face([[u, -S2, 0], [u, S2, 0], [u, S2, hi]], wallM);
+    face([[-L2, S2, 0], [L2, S2, 0], [L2, S2, hi], [-L2, S2, hi]], wallM);
+    gutter([-L2 - o, -S2 - o, he], [L2 + o, -S2 - o, he]);
+  } else if (c.type === 'gable') {
+    face([[-L2 - o, -S2 - o, he], [L2 + o, -S2 - o, he], [L2 + o, 0, H], [-L2 - o, 0, H]], roofM);
+    face([[L2 + o, S2 + o, he], [-L2 - o, S2 + o, he], [-L2 - o, 0, H], [L2 + o, 0, H]], roofM);
+    for (const u of [-L2, L2]) face([[u, -S2, 0], [u, S2, 0], [u, 0, H]], wallM);
+    gutter([-L2 - o, -S2 - o, he], [L2 + o, -S2 - o, he]); gutter([-L2 - o, S2 + o, he], [L2 + o, S2 + o, he]);
+  } else {
+    const r = Math.max(0, L2 - S2);
+    face([[-L2 - o, -S2 - o, he], [L2 + o, -S2 - o, he], [r, 0, H], [-r, 0, H]], roofM);
+    face([[L2 + o, S2 + o, he], [-L2 - o, S2 + o, he], [-r, 0, H], [r, 0, H]], roofM);
+    face([[-L2 - o, S2 + o, he], [-L2 - o, -S2 - o, he], [-r, 0, H]], roofM);
+    face([[L2 + o, -S2 - o, he], [L2 + o, S2 + o, he], [r, 0, H]], roofM);
+    for (const sd of [-1, 1]) { gutter([-L2 - o, sd * (S2 + o), he], [L2 + o, sd * (S2 + o), he]); gutter([sd * (L2 + o), -S2 - o, he], [sd * (L2 + o), S2 + o, he]); }
+  }
+  // le mur réel s'arrête à la hauteur sous plafond : un bandeau ferme l'épaisseur du plancher haut
+  for (const [w, d, x, z] of [[b.x1 - b.x0, .02, b.cx, b.y0], [b.x1 - b.x0, .02, b.cx, b.y1], [.02, b.y1 - b.y0, b.x0, b.cy], [.02, b.y1 - b.y0, b.x1, b.cy]]) add3(root, w, .2, d, x, S.H, z, wallM);
 }
 function bounds() {
   let minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;
@@ -4987,7 +5108,7 @@ document.getElementById('projMenu').addEventListener('click', e => {
   const b = e.target.closest('[data-cmd]'); if (!b) return; closeMenus();
   ({ save: () => saveFile(false), saveAs: () => saveFile(true), open: openFile, versions: openVersions,
      snapshot: () => { const n = prompt('Nom du point de sauvegarde :', 'Avant modification'); if (n !== null) { backup(n || 'Point de sauvegarde', false); toast('📌 Point de sauvegarde créé'); } },
-     devis: openDevis, carnet: openCarnet, pano: () => open360(), share: shareProject, baseline: setBaseline, settings: openSettings, help: openHelp, hist: openHistory, tour: startTour,
+     devis: openDevis, carnet: openCarnet, pano: () => open360(), roof: openRoof, share: shareProject, baseline: setBaseline, settings: openSettings, help: openHelp, hist: openHistory, tour: startTour,
      exportSvg: () => exportPlan('svg'), exportPng: () => exportPlan('png'), shot3d: () => shot3D() }[b.dataset.cmd] ?? (() => {}))();
 });
 document.getElementById('bReset').addEventListener('click', closeMenus);

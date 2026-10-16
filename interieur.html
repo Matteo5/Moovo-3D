@@ -412,6 +412,7 @@
               <h5>Éléments affichés</h5>
               <div class="two">
                 <label><input type="checkbox" id="oFurn" checked> Mobilier</label>
+                <label title="Modèles 3D gratuits (licence CC0, Poly Haven), chargés à la demande ; sans connexion, le dessin simplifié reste affiché"><input type="checkbox" id="oModels" checked> Meubles réalistes</label>
                 <label><input type="checkbox" id="oElec" checked> Électricité</label>
                 <label><input type="checkbox" id="oCeil" checked> Faux plafonds</label>
                 <label><input type="checkbox" id="oRoof"> Plafonds</label>
@@ -466,6 +467,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 // =====================================================================
@@ -3117,8 +3119,8 @@ const ground = new THREE.Mesh(new THREE.PlaneGeometry(120, 120).rotateX(-Math.PI
 ground.position.y = -.005; ground.receiveShadow = true; scene.add(ground);
 let root = new THREE.Group(); scene.add(root);
 const labels = new THREE.Group(); scene.add(labels);
-const opt = Object.assign({ real: true, doorMode: 'open', glass: true, wallMode: 'full', cutH: 1.1, wallOp: .35, furn: true, elec: true, ceil: true, roof: false, finish: true, tex: true, lbl: true, shadow: true, isolate: false, night: false, sun: 40, eye: 1.6, speed: 1.8, collide: true }, prefs.opt || {});
-const OPT_UI = [['oDoorMode', 'doorMode', 'sel'], ['oGlass', 'glass', 'bool'], ['oWallMode', 'wallMode', 'sel'], ['oCutH', 'cutH', 'num'], ['oWallOp', 'wallOp', 'num'],
+const opt = Object.assign({ models: true, real: true, doorMode: 'open', glass: true, wallMode: 'full', cutH: 1.1, wallOp: .35, furn: true, elec: true, ceil: true, roof: false, finish: true, tex: true, lbl: true, shadow: true, isolate: false, night: false, sun: 40, eye: 1.6, speed: 1.8, collide: true }, prefs.opt || {});
+const OPT_UI = [['oModels', 'models', 'bool'], ['oDoorMode', 'doorMode', 'sel'], ['oGlass', 'glass', 'bool'], ['oWallMode', 'wallMode', 'sel'], ['oCutH', 'cutH', 'num'], ['oWallOp', 'wallOp', 'num'],
   ['oFurn', 'furn', 'bool'], ['oElec', 'elec', 'bool'], ['oCeil', 'ceil', 'bool'], ['oRoof', 'roof', 'bool'], ['oFinish', 'finish', 'bool'], ['oTex', 'tex', 'bool'],
   ['oLbl', 'lbl', 'bool'], ['oShadow', 'shadow', 'bool'], ['oIsolate', 'isolate', 'bool'], ['oNight', 'night', 'bool'], ['oSun', 'sun', 'num'], ['oEye', 'eye', 'cm'], ['oSpeed', 'speed', 'num'], ['oCollide', 'collide', 'bool'], ['oReal', 'real', 'bool']];
 function syncOptUI() {
@@ -3249,6 +3251,37 @@ const B3 = {
   },
 };
 B3.dryer = B3.washer;
+// =====================================================================
+//  A7 : meubles réalistes — modèles glTF gratuits (licence CC0, Poly Haven), chargés à la demande, en cache
+// =====================================================================
+const MODELS = { sofa: 'Sofa_01', loveseat: 'Sofa_01', sofaBed: 'sofa_02', armchair: 'modern_arm_chair_01', coffeeTable: 'modern_coffee_table_01', coffeeRound: 'coffee_table_round_01',
+  nightstand: 'ClassicNightstand_01', bookcase: 'wooden_bookshelf_worn', console: 'ClassicConsole_01', sideboard: 'modern_wooden_cabinet', barStool: 'bar_chair_round_01', pouf: 'Ottoman_01',
+  chair: 'dining_chair_02', desk: 'metal_office_desk', bench: 'painted_wooden_bench', mirror: 'ornate_mirror_01', table: 'dining_table', roundTable: 'round_wooden_table_01' };
+const MODEL_YAW = {};   // décalage de rotation d'un modèle dont l'avant n'est pas vers +z (degrés)
+const modelUrl = id => `https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/${id}/${id}_1k.gltf`;
+// les textures ne sont pas à côté du .gltf sur le serveur de Poly Haven : on corrige leur adresse au chargement
+const gltfMgr = new THREE.LoadingManager(); gltfMgr.setURLModifier(u => u.replace(/\/gltf\/1k\/([^/]+)\/textures\//, '/jpg/1k/$1/'));
+const gltf = new GLTFLoader(gltfMgr), _models = new Map(), _tints = new Map();
+// une table « avec chaises » garde le dessin simplifié, qui place les chaises autour
+const modelFor = it => opt.models && MODELS[it.type] && !(['table', 'roundTable'].includes(it.type) && it.chairs) ? MODELS[it.type] : null;
+function getModel(id) {
+  let m = _models.get(id); if (m) return m;
+  m = { state: 'loading' }; _models.set(id, m);
+  gltf.load(modelUrl(id), g => {
+    const sc = g.scene; sc.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; o.userData.shared = true; } });
+    m.scene = sc; m.bb = new THREE.Box3().setFromObject(sc); m.state = 'ok'; dirty3D = true; kick3D();
+  }, undefined, () => { m.state = 'fail'; });
+  return m;
+}
+function placeModel(g, it, m, Hc) {
+  const o = m.scene.clone(true), size = m.bb.getSize(new THREE.Vector3()), c = m.bb.getCenter(new THREE.Vector3());
+  const yaw = (MODEL_YAW[MODELS[it.type]] || 0) * Math.PI / 180, turned = Math.abs(Math.sin(yaw)) > .5;
+  const sx = it.w / (turned ? size.z : size.x), sz = it.d / (turned ? size.x : size.z), sy = it.h ? Math.min(it.h, Hc) / size.y : Math.min((sx + sz) / 2, Hc / size.y);
+  const pivot = new THREE.Group(); pivot.rotation.y = yaw; pivot.scale.set(turned ? sz : sx, sy, turned ? sx : sz);
+  o.position.set(-c.x, -m.bb.min.y, -c.z); pivot.add(o); pivot.position.y = it.elev || 0; g.add(pivot);
+  // couleur choisie : elle teinte le modèle (matériaux mis en cache par couleur)
+  if (it.color) o.traverse(x => { if (!x.isMesh) return; const k = x.material.uuid + it.color; if (!_tints.has(k)) { const t = x.material.clone(); t.color.set(it.color); _tints.set(k, t); } x.material = _tints.get(k); });
+}
 // nouveautés du catalogue
 const pmr3D = (g, it) => { const m = M('#2563eb', { transparent: true, opacity: .18, depthWrite: false }); if (it.type === 'pmrCircle') { const o = new THREE.Mesh(new THREE.CylinderGeometry(.5, .5, .006, 48), m); o.scale.set(it.w, 1, it.d); o.position.y = .006; g.add(o); } else add3(g, it.w, .006, it.d, 0, .004, 0, m); };
 B3.pmrCircle = pmr3D; B3.pmrChair = pmr3D;
@@ -3628,7 +3661,7 @@ function frameSelection() {
 }
 let dirty3D = true, viewMode = 'persp';
 function build3D() {
-  root.traverse(o => o.geometry?.dispose()); scene.remove(root); root = new THREE.Group(); scene.add(root); labels.clear();
+  root.traverse(o => { if (!o.userData.shared) o.geometry?.dispose(); }); scene.remove(root); root = new THREE.Group(); scene.add(root); labels.clear();
   const H = S.H, Hc = opt.wallMode === 'cut' ? Math.min(opt.cutH, H) : H, xr = opt.wallMode === 'xray';
   const tr = c => new THREE.MeshStandardMaterial({ color: c, transparent: true, opacity: opt.wallOp, depthWrite: false, roughness: .95 });
   const side = xr ? tr(S.settings.wallColor) : M(S.settings.wallColor, { roughness: .95 }), top = xr ? tr('#4a4f5c') : M('#4a4f5c'), sideSel = M('#9db8f5'), topSel = M('#2563eb');
@@ -3786,7 +3819,7 @@ function build3D() {
     }
     const f = fp(it), g = new THREE.Group();
     g.position.set(f.x + f.w / 2, 0, f.y + f.h / 2); g.rotation.y = -it.rot * Math.PI / 180;
-    (B3[it.type] ?? B3.box)(g, it, Hc);
+    { const mid = modelFor(it), m = mid && getModel(mid); if (m?.state === 'ok') placeModel(g, it, m, Hc); else (B3[it.type] ?? B3.box)(g, it, Hc); }
     { const bb = new THREE.Box3().setFromObject(g); if (isFinite(bb.min.y)) ITEM_Z.set(it.id, [Math.max(0, bb.min.y), bb.max.y]); }
     g.traverse(o => {
       if (!o.isMesh) return;
@@ -4824,6 +4857,7 @@ ML.mobileShell({
 setTool('select');
 renderAll();
 requestAnimationFrame(() => { fit(); render2D(); resize3D(); setView('persp'); loop(); });
+if (new URLSearchParams(location.search).has("debug")) window.__m3 = { scene, get cam() { return cam; }, renderer, ctl, build: () => { build3D(); dirty3D = false; }, render: () => renderer.render(scene, cam), S: () => S, opt };
 if (new URLSearchParams(location.search).get('demo')) {
   history.replaceState(null, '', location.pathname + '?p=' + encodeURIComponent(PID));
   // appartement témoin : une ambiance par pièce et quelques travaux cochés, pour montrer le rendu final

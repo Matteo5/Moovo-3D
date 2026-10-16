@@ -327,6 +327,7 @@
       <hr>
       <button data-cmd="devis">📄 Générer le devis…</button>
       <button data-cmd="carnet">📘 Carnet de projet (PDF)…</button>
+      <button data-cmd="pano">🌐 Photo 360° de la pièce…</button>
       <button data-cmd="share">🔗 Partager par lien…</button>
       <button data-cmd="baseline">🏁 Définir l’état actuel comme « existant »</button>
       <hr>
@@ -396,6 +397,7 @@
           <button id="bFrame" title="Cadrer la sélection (ou tout)">Cadrer</button>
           <button id="bShot" title="Belle capture (grand format)">📷</button>
           <button id="bTour3" title="Visite automatique de pièce en pièce">🎬</button>
+          <button id="b360" title="Photo 360° de la pièce : à faire tourner, ou à envoyer">360°</button>
           <button id="bCmp" title="Comparer avant / après">⇆</button>
           <div class="menuwrap">
             <button id="bV3opt">Affichage ▾</button>
@@ -3834,6 +3836,53 @@ function renderImage(W, H) {
   return url;
 }
 const ensure3D = () => { if (prefs.layout === 'plan') setLayout('split'); };
+// =====================================================================
+//  A10 : photo 360° — capture panoramique (cube → équirectangulaire) et visionneuse qu'on fait tourner
+// =====================================================================
+function pano360(pos, W = 2048) {
+  if (dirty3D) { build3D(); dirty3D = false; }
+  const H = W / 2, cubeRT = new THREE.WebGLCubeRenderTarget(1024), cc = new THREE.CubeCamera(.05, 300, cubeRT);
+  cc.position.copy(pos); scene.add(cc); cc.update(renderer, scene); scene.remove(cc);
+  // conversion : chaque pixel de l'image correspond à une direction (longitude, latitude) ; tonalité + sRGB faites à la main
+  const mat = new THREE.ShaderMaterial({ uniforms: { env: { value: cubeRT.texture }, expo: { value: renderer.toneMappingExposure || 1 } },
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+    fragmentShader: 'uniform samplerCube env; uniform float expo; varying vec2 vUv; vec3 aces(vec3 x){ return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14), 0.0, 1.0); } void main(){ float lon = (vUv.x - 0.5) * 6.28318530718; float lat = (vUv.y - 0.5) * 3.14159265359; vec3 d = vec3(cos(lat) * sin(lon), sin(lat), -cos(lat) * cos(lon)); vec3 c = textureCube(env, d).rgb * expo; gl_FragColor = vec4(pow(aces(c), vec3(1.0 / 2.2)), 1.0); }' });
+  const sc = new THREE.Scene(), oc = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat); sc.add(quad);
+  const tgt = new THREE.WebGLRenderTarget(W, H); renderer.setRenderTarget(tgt); renderer.render(sc, oc); renderer.setRenderTarget(null);
+  const px = new Uint8Array(W * H * 4); renderer.readRenderTargetPixels(tgt, 0, 0, W, H, px);
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d'), im = g.createImageData(W, H);
+  for (let y = 0; y < H; y++) im.data.set(px.subarray((H - 1 - y) * W * 4, (H - y) * W * 4), y * W * 4);   // l'image GPU est à l'envers
+  g.putImageData(im, 0, 0);
+  cubeRT.dispose(); tgt.dispose(); mat.dispose(); quad.geometry.dispose(); kick3D();
+  return cv.toDataURL('image/jpeg', .9);
+}
+function open360() {
+  // point de vue : en visite, là où l'on se tient ; sinon au centre de la pièce choisie (ou de la plus grande), à hauteur d'yeux
+  let pos;
+  if (viewMode === 'walk') pos = cam.position.clone();
+  else { const r = (sel?.kind === 'room' ? A.regionAt(sel.x, sel.y) : null) ?? [...A.rooms].sort((a, b) => b.area - a.area)[0]; if (!r) return toast('Aucune pièce fermée : impossible de prendre une photo 360°.');
+    const t = r.tags[0]; pos = new THREE.Vector3(t ? t.x : r.cx, opt.eye || 1.6, t ? t.y : r.cy); }
+  const keepSel = sel; sel = null; build3D(); dirty3D = false;
+  const url = pano360(pos); sel = keepSel; dirty3D = true;
+  openModal('pano', 'Photo 360°', `<div style="position:relative"><canvas id="panoCv" style="width:100%;height:min(60vh,520px);display:block;border-radius:10px;background:#111;touch-action:none;cursor:grab"></canvas>
+    <div class="muted" style="position:absolute;left:10px;bottom:8px;color:#fff;text-shadow:0 1px 2px #000">Glisser pour regarder autour · molette ou pincer pour zoomer</div></div>
+    <div class="row"><button class="primary" id="panoDl">⬇ Télécharger la photo 360°</button></div>
+    <p class="muted">L’image se lit dans toutes les visionneuses 360° (Google Photos, Facebook, casques VR). Pour une autre pièce, sélectionne-la puis relance, ou fais la photo pendant la visite.</p>`);
+  // visionneuse : sphère vue de l'intérieur, rendue seulement quand on bouge
+  document.getElementById('panoDl').onclick = () => download(url, slug(S.name) + '-360.jpg', 'image/jpeg');
+  const cv = document.getElementById('panoCv'), r2d = new THREE.WebGLRenderer({ canvas: cv, antialias: true }), sc = new THREE.Scene();
+  const pc = new THREE.PerspectiveCamera(75, 1, .1, 100), tex = new THREE.TextureLoader().load(url, () => draw()); tex.colorSpace = THREE.SRGBColorSpace;
+  const geo = new THREE.SphereGeometry(10, 64, 32); geo.scale(-1, 1, 1); sc.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex })));
+  let lon = 0, lat = 0, drag = null;
+  const draw = () => { if (!document.body.contains(cv)) { r2d.dispose(); geo.dispose(); tex.dispose(); return; } const w = cv.clientWidth, h = cv.clientHeight; r2d.setSize(w, h, false); pc.aspect = w / h; pc.updateProjectionMatrix();
+    const phi = THREE.MathUtils.degToRad(90 - lat), th = THREE.MathUtils.degToRad(lon); pc.lookAt(Math.sin(phi) * Math.cos(th), Math.cos(phi), Math.sin(phi) * Math.sin(th)); r2d.render(sc, pc); };
+  cv.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, lon, lat }; cv.setPointerCapture(e.pointerId); cv.style.cursor = 'grabbing'; });
+  cv.addEventListener('pointermove', e => { if (!drag) return; lon = drag.lon - (e.clientX - drag.x) * .2; lat = clamp(drag.lat + (e.clientY - drag.y) * .2, -85, 85); draw(); });
+  cv.addEventListener('pointerup', () => { drag = null; cv.style.cursor = 'grab'; });
+  cv.addEventListener('wheel', e => { e.preventDefault(); pc.fov = clamp(pc.fov + e.deltaY * .05, 35, 100); draw(); }, { passive: false });
+  ML.attachPinch(cv, { move: k => { pc.fov = clamp(pc.fov * k, 35, 100); draw(); } });
+  draw();
+}
 // --- belle capture : rendu réaliste, ombres, sans sélection, grand format, signée
 const brandImg = new Image(); brandImg.src = 'img/logo-mark-128.png';
 function beautyShot() {
@@ -3906,6 +3955,7 @@ document.getElementById('bFull').onclick = () => { v3.classList.toggle('full'); 
 document.getElementById('bFrame').onclick = frameSelection;
 document.getElementById('bShot').onclick = () => beautyShot();
 document.getElementById('bTour3').onclick = () => tourA ? stopTour() : autoTour();
+document.getElementById('b360').onclick = () => open360();
 document.getElementById('bCmp').onclick = () => openCompare();
 syncOptUI();
 function resize3D() { const r = v3.getBoundingClientRect(); if (!r.width || !r.height) return; renderer.setSize(r.width, r.height); labelR.setSize(r.width, r.height); cam.aspect = r.width / r.height; cam.updateProjectionMatrix(); kick3D(); }
@@ -4668,7 +4718,7 @@ document.getElementById('projMenu').addEventListener('click', e => {
   const b = e.target.closest('[data-cmd]'); if (!b) return; closeMenus();
   ({ save: () => saveFile(false), saveAs: () => saveFile(true), open: openFile, versions: openVersions,
      snapshot: () => { const n = prompt('Nom du point de sauvegarde :', 'Avant modification'); if (n !== null) { backup(n || 'Point de sauvegarde', false); toast('📌 Point de sauvegarde créé'); } },
-     devis: openDevis, carnet: openCarnet, share: shareProject, baseline: setBaseline, settings: openSettings, help: openHelp, hist: openHistory, tour: startTour,
+     devis: openDevis, carnet: openCarnet, pano: () => open360(), share: shareProject, baseline: setBaseline, settings: openSettings, help: openHelp, hist: openHistory, tour: startTour,
      exportSvg: () => exportPlan('svg'), exportPng: () => exportPlan('png'), shot3d: () => shot3D() }[b.dataset.cmd] ?? (() => {}))();
 });
 document.getElementById('bReset').addEventListener('click', closeMenus);

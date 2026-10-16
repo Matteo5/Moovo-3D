@@ -234,6 +234,9 @@
   .catalog{width:380px;padding:10px}
   .catalog input{width:100%;font:inherit;border:1px solid var(--line);border-radius:8px;padding:7px 10px;margin-bottom:8px}
   #catList{max-height:62vh;overflow:auto}
+  #catTabs{display:flex;gap:6px;overflow-x:auto;padding:0 0 8px;scrollbar-width:thin}
+  #catTabs button{flex:none;border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 11px;font-size:13px;cursor:pointer;white-space:nowrap}
+  #catTabs button.on{background:#2563eb;border-color:#2563eb;color:#fff}
   #catList h6{margin:10px 2px 5px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
   #catList .cgrid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
   #catList button{display:flex;gap:8px;align-items:center;text-align:left;white-space:normal;padding:6px 8px;font-size:12.5px}
@@ -377,7 +380,7 @@
       </div>
       <div class="menuwrap" id="catWrap">
         <button id="bCatalog" class="primary" title="Ajouter un objet (A)">＋ Ajouter</button>
-        <div class="menu catalog" id="catalog"><input id="catSearch" placeholder="Rechercher un objet… (prise, lit, spot…)"><div id="catList"></div></div>
+        <div class="menu catalog" id="catalog"><div id="catTabs"></div><input id="catSearch" placeholder="Rechercher un objet… (prise, lit, spot…)"><div id="catList"></div></div>
       </div>
       <div class="menuwrap" id="lvlWrap"><button id="bLvl" title="Niveaux : rez-de-chaussée, étages, sous-sol">🏢 <span id="lvlName">Plain-pied</span> ▾</button><div class="menu" id="lvlMenu"></div></div>
       <select id="addItem" hidden></select>
@@ -864,7 +867,7 @@ function doorZones() {
   return out;
 }
 // cherche la meilleure place d'une disposition (4 orientations × grille de 10 cm) dans la pièce
-function fitLayout(r, mk, taken, doors) {
+function fitLayout(r, mk, taken, doors, needBack = true) {
   const x0r = A.ox + r.bb.i0 / 100, x1r = A.ox + (r.bb.i1 + 1) / 100, y0r = A.oy + r.bb.j0 / 100, y1r = A.oy + (r.bb.j1 + 1) / 100;
   const inR = (x, y) => A.regionAt(x, y)?.id === r.id;
   let best = null;
@@ -886,11 +889,11 @@ function fitLayout(r, mk, taken, doors) {
       for (let k = 0; k < 5; k++) { const t = (k + .5) / 5, o = .12;
         back.push(q === 0 ? [x0 + t * L.W, y0 - o] : q === 1 ? [x0 + L.W + o, y0 + t * L.D] : q === 2 ? [x0 + t * L.W, y0 + L.D + o] : [x0 - o, y0 + t * L.D]); }
       const bs = back.filter(([x, y]) => !inR(x, y)).length / 5;
-      const cx = x0 + L.W / 2, cy = y0 + L.D / 2, score = bs * 10 - Math.hypot(cx - r.cx, cy - r.cy) * .3 + (solid.length ? 0 : 0);
+      const cx = x0 + L.W / 2, cy = y0 + L.D / 2, score = (needBack ? bs * 10 : 0) - Math.hypot(cx - r.cx, cy - r.cy) * .3;
       if (!best || score > best.score) best = { x0, y0, q, L, score, bs };
     }
   }
-  return best && best.bs >= .6 ? best : null;
+  return best && (!needBack || best.bs >= .6) ? best : null;
 }
 const KIT_OPTIONAL = ['plant', 'lamp', 'towel', 'planter', 'coatRack', 'armchair', 'tv', 'storageUnit', 'sideboard', 'bookcase', 'lounger', 'nightstand', 'wardrobe', 'dishwasher', 'doubleVanity', 'wc'];
 // garde seulement les meubles restants et recadre l'ensemble sur eux
@@ -2617,11 +2620,31 @@ const addSel = document.getElementById('addItem');
 }
 addSel.onchange = () => { const t = addSel.value; addSel.value = ''; if (t) startAdd(t); };
 function startAdd(type) {
-  if (MOUNT.has(type)) { setTool('place'); placing = type; document.getElementById('hint').textContent = `${CAT[type].label} : clique près d’un mur pour le fixer contre · Échap pour finir`; return; }
+  if (MOUNT.has(type)) { setTool('place'); placing = type; document.getElementById('hint').textContent = `${CAT[type].label} : clique près d’un mur pour le fixer contre · Échap pour finir`; toast(`👉 ${CAT[type].label} : clique maintenant sur le plan, près du mur où le fixer.`, 5000); return; }
   if (CAT[type].group) { setTool('place'); placing = type; document.getElementById('hint').textContent = `${CAT[type].label} : ${CAT[type].ceil ? 'clique où le poser au plafond' : 'clique près d’un mur pour le poser contre'} · plusieurs clics = plusieurs poses · Échap pour finir`; return; }
   const c = CAT[type], it = I_(type, c.label, 0, 0, c.w, c.d, { price: c.price });
   it.x = r2(view.cx - c.w / 2); it.y = r2(view.cy - c.d / 2);
+  const r = placeFree(it);
   S.items.push(it); setTool('select'); sel = { kind: 'item', id: it.id }; tab = 'sel'; commit();
+  const tap = ML.mobile()?.on() ? "Touche-le" : "Clique-le";
+  toast(r ? `✅ ${c.label} ajouté dans « ${roomName(r)} ». ${tap} et glisse-le pour le déplacer, ou règle-le dans le panneau.` : `✅ ${c.label} ajouté au centre du plan (pas de place libre trouvée). Glisse-le où tu veux.`, 5000);
+}
+// cherche une place libre : d'abord la pièce choisie ou celle au centre de l'écran, puis les plus grandes
+function placeFree(it) {
+  if (!A?.rooms?.length) return null;
+  const selR = sel?.kind === 'room' ? A.regionAt(sel.x, sel.y) : null, here = A.regionAt(view.cx, view.cy);
+  // un lit va dans une chambre, un canapé au séjour… : les pièces du bon type passent devant
+  const want = { 'Chambre': 'chambre', 'Séjour': 'sejour', 'Cuisine': 'cuisine', 'Salle de bain': 'sdb', 'Entrée & rangement': 'circ' }[CAT_GROUP(it.type)];
+  const fits = r => want && r.tags[0] && roomType(roomName(r)) === want, big = [...A.rooms].filter(r => r.tags[0]).sort((a, b) => b.area - a.area);
+  const rooms = [selR, here && fits(here) ? here : null, ...big.filter(fits), here, ...big].filter((r, i, a) => r && a.indexOf(r) === i);
+  const free = passThrough(it), back = !free && !TUCKS.has(it.type) && !/table|island|rug|pouf|bed|tub|bath|shower|walkIn|lounger|outdoor/i.test(it.type) || /^bed/.test(it.type);
+  const doors = doorZones();
+  for (const r of rooms) {
+    const taken = free ? [] : S.items.filter(o => o._r === r.id && floorish(o) && !passThrough(o)).map(fp);
+    const best = fitLayout(r, q => { const sw = q % 2, fw = sw ? it.d : it.w, fh = sw ? it.w : it.d; return { W: fw, D: fh, its: [{ type: it.type, x: 0, y: 0, fw, fh, rot: q * 90 }] }; }, taken, free ? [] : doors, back);
+    if (best) { it.x = r2(best.x0); it.y = r2(best.y0); it.rot = best.q * 90; return r; }
+  }
+  return null;
 }
 function act(a) {
   const obj = resolveSel();
@@ -3122,7 +3145,7 @@ function guidePanel() {
     <div class="big">${B('gTool', '▭ Dessiner un mur', 'cliquez chaque angle, double-clic pour finir', 'data-tool="wall"')}${B('gTool', '⌒ Ajouter une porte', 'puis cliquez sur un mur', 'data-tool="door"')}${B('gTool', '▤ Ajouter une fenêtre', 'puis cliquez sur un mur', 'data-tool="window"')}${B('gBg', '🖼 Partir de mon plan', 'une photo ou une image du plan')}${B('gSep', '┆ Séparer une pièce ouverte', 'coin cuisine, coin salon : sans mur')}${B('gRoof', '🏠 Toiture', 'maison : plat, 1, 2 ou 4 pans')}</div>
     <div class="grid2" style="margin-top:10px">${field('Hauteur sous plafond (cm)', 'root', 'H', 'cm', S.H)}</div>`;
   else if (s === 2) body = `<p>Ajoutez vos meubles depuis le catalogue, ou créez-en un sur mesure. Cliquez ensuite un meuble pour le déplacer, le tourner, changer sa taille ou sa couleur.</p>
-    <div class="big">${B('autoAll', '✨ Aménager pour moi', 'des meubles posés dans chaque pièce vide')}${B('gCatalog', '＋ Ajouter un meuble', `${Object.keys(CAT).length - 1} objets avec recherche`)}${B('gCatalog', '✏️ Créer mon meuble', 'bibliothèque, buffet, dressing…')}${B('gCatalog', '✨ Pièce toute prête', 'salon, chambre, cuisine…')}${B('gTool', '📏 Mesurer', 'vérifier un passage', 'data-tool="measure"')}</div>`;
+    <div class="big">${B('autoAll', '✨ Aménager pour moi', 'des meubles posés dans chaque pièce vide')}${B('gCatalog', '＋ Ajouter un meuble', `${Object.keys(CAT).length - 1} objets avec recherche`)}${B('gCatalog', '✏️ Créer mon meuble', 'bibliothèque, buffet, dressing…', 'data-tab="custom"')}${B('gCatalog', '✨ Pièce toute prête', 'salon, chambre, cuisine…', 'data-tab="kits"')}${B('gTool', '📏 Mesurer', 'vérifier un passage', 'data-tool="measure"')}</div>`;
   else if (s === 3) { const rs = A.rooms.filter(r => r.tags[0]);
     body = `<p>Choisissez une pièce : vous lui donnerez une ambiance en un clic, puis la couleur des murs et le sol.</p>
     <div class="big">${rs.slice(0, 10).map(r => `<button data-act="gRoom" data-x="${r.tags[0].x}" data-y="${r.tags[0].y}">🎨 ${esc(roomName(r))}<span>${fm(r.area, 1)} m²${r.tags[0].style ? ' · ' + esc(ML.STYLES[r.tags[0].style]?.label ?? '') : ''}</span></button>`).join('')}</div>
@@ -3409,7 +3432,7 @@ panel.addEventListener('click', e => {
     if (a === 'gTool') { setTool(b.dataset.tool); if (ML.mobile()?.on()) ML.mobile().show('plan'); return; }
     if (a === 'gBg') return document.getElementById('bBg').click();
     if (a === 'gSep') { setTool('wall'); drawKind = 'virtual'; toast('┆ Séparation invisible : cliquez le début puis la fin de la limite entre les deux zones.', 5000); if (ML.mobile()?.on()) ML.mobile().show('plan'); return; }
-    if (a === 'gCatalog') { if (ML.mobile()?.on()) ML.mobile().show('add'); else document.getElementById('bCatalog').click(); return; }
+    if (a === 'gCatalog') { catTab = b.dataset.tab || 'all'; renderCatalog(); if (ML.mobile()?.on()) ML.mobile().show('add'); else document.getElementById('bCatalog').click(); return; }
     if (a === 'gRoom') { setSel({ kind: 'room', x: +b.dataset.x, y: +b.dataset.y }); return; }
     if (a === 'useCustomPrice') { const it = resolveSel(); if (it) { it.price = customPrice(it); commit(); } return; }
     if (a === 'saveMine') {
@@ -5217,7 +5240,13 @@ document.getElementById('bReset').addEventListener('click', closeMenus);
 document.getElementById('bSettings').onclick = openSettings;
 document.getElementById('bHelp').onclick = openHelp;
 // --- catalogue
+const CAT_TABS = [['all', 'Tout', ''], ['Séjour', 'Séjour', '🛋️'], ['Chambre', 'Chambre', '🛏️'], ['Cuisine', 'Cuisine', '🍳'], ['Salle de bain', 'Salle de bain', '🛁'], ['Bureau', 'Bureau', '💻'], ['Décoration', 'Déco', '🪴'], ['Entrée & rangement', 'Rangement', '🚪'], ['Extérieur & balcon', 'Extérieur', '🌿'], ['elec', 'Électricité', '💡'], ['works', 'Travaux', '🧱'], ['kits', 'Pièces prêtes', '✨'], ['custom', 'Sur mesure', '✏️']];
+const CAT_ORDER = ['Séjour', 'Chambre', 'Cuisine', 'Salle de bain', 'Bureau', 'Décoration', 'Entrée & rangement', 'Extérieur & balcon', 'Accessibilité', 'Éclairage', 'Électricité', 'Chauffage & ventilation', 'Plafond', 'Construction', 'Divers'];
+const tabOf = g => ['Éclairage', 'Électricité', 'Chauffage & ventilation', 'Plafond'].includes(g) ? 'elec' : ['Construction', 'Accessibilité', 'Divers', 'Sur mesure'].includes(g) ? 'works' : g;
+const catIdx = g => { const i = CAT_ORDER.indexOf(g); return i < 0 ? 99 : i; };
+let catTab = 'all';
 function renderCatalog() {
+  document.getElementById('catTabs').innerHTML = CAT_TABS.map(([k, l, ic]) => `<button data-cattab="${k}" class="${catTab === k ? 'on' : ''}">${ic ? ic + ' ' : ''}${l}</button>`).join('');
   const q = document.getElementById('catSearch').value.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const groups = {};
   const norm = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -5234,9 +5263,16 @@ function renderCatalog() {
   }
   const kits = Object.entries(KITS).filter(([, k]) => { const hay = (k.label + ' ' + k.desc + ' ensemble').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); return !q || hay.includes(q); })
     .map(([key, k]) => `<button data-kit="${key}" class="kitb"><b>✨ ${k.label}</b><span>${k.desc}</span></button>`);
-  document.getElementById('catList').innerHTML = (mine.length ? `<h6>⭐ Mes meubles</h6><div class="cgrid">${mine.join('')}</div>` : '') + (presets.length ? `<h6>✏️ Créer mon meuble sur mesure</h6><div class="cgrid">${presets.join('')}</div>` : '') + (kits.length ? `<h6>Ensembles prêts à poser</h6><div class="cgrid">${kits.join('')}</div>` : '') + Object.entries(groups).map(([g, b]) => `<h6>${g}</h6><div class="cgrid">${b.join('')}</div>`).join('') || '<p class="muted">Rien trouvé. Le catalogue est grand, mais pas encore infini.</p>';
+  // une recherche cherche partout ; sinon on montre l'onglet choisi, les meubles en premier
+  const t = q ? 'all' : catTab, show = k => t === 'all' || t === k;
+  const gs = Object.entries(groups).filter(([g]) => show(tabOf(g))).sort(([a], [b]) => catIdx(a) - catIdx(b));
+  document.getElementById('catList').innerHTML = (mine.length && (t === 'all' || t === 'custom') ? `<h6>⭐ Mes meubles</h6><div class="cgrid">${mine.join('')}</div>` : '')
+    + gs.map(([g, b]) => `<h6>${g}</h6><div class="cgrid">${b.join('')}</div>`).join('')
+    + (kits.length && show('kits') ? `<h6>✨ Pièces toutes prêtes (plusieurs meubles d’un coup)</h6><div class="cgrid">${kits.join('')}</div>` : '')
+    + (presets.length && show('custom') ? `<h6>✏️ Créer mon meuble sur mesure</h6><div class="cgrid">${presets.join('')}</div>` : '') || '<p class="muted">Rien trouvé. Le catalogue est grand, mais pas encore infini.</p>';
 }
 document.getElementById('catSearch').addEventListener('input', renderCatalog);
+document.getElementById('catTabs').addEventListener('click', e => { const b = e.target.closest('[data-cattab]'); if (!b) return; e.stopPropagation(); catTab = b.dataset.cattab; document.getElementById('catSearch').value = ''; renderCatalog(); document.getElementById('catList').scrollTop = 0; });
 document.getElementById('catSearch').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') document.querySelector('#catList [data-add]')?.click(); if (e.key === 'Escape') closeMenus(); });
 document.getElementById('catList').addEventListener('click', e => {
   const dm = e.target.closest('[data-delmine]'); if (dm) { e.stopPropagation(); const l = mineGet(), m = l.splice(+dm.dataset.delmine, 1)[0]; mineSet(l); renderCatalog(); if (m) toast(`« ${m.name} » retiré de Mes meubles.`); return; }

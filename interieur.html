@@ -692,6 +692,12 @@ Object.assign(CAT, {
   bbq:          { label: 'Barbecue / plancha',              w: 1.20, d: .55, h: .90, price: 450, color: '#2b2f35', cg: 'Extérieur & balcon' },
   spa:          { label: 'Spa 4 places',                    w: 2.00, d: 2.00, h: .85, price: 5000, color: '#6b5a4a', cg: 'Extérieur & balcon' },
 });
+// Accessibilité (personnes à mobilité réduite) : symboles au sol, vérifiés par les alertes
+Object.assign(CAT, {
+  pmrCircle: { label: 'Cercle de rotation fauteuil roulant (Ø 150 cm)', w: 1.50, d: 1.50, price: 0, color: '#2563eb', cg: 'Accessibilité' },
+  pmrChair:  { label: 'Emprise fauteuil roulant (80 × 130 cm)', w: .80, d: 1.30, price: 0, color: '#2563eb', cg: 'Accessibilité' },
+});
+const PMR = new Set(['pmrCircle', 'pmrChair']);
 // Tailles standard proposées dans le panneau de l'objet : [largeur, profondeur, libellé]
 const SIZES = {
   bed: [[.9, 1.9, '90×190'], [1.4, 1.9, '140×190'], [1.6, 2.0, '160×200'], [1.8, 2.0, '180×200']],
@@ -1326,7 +1332,8 @@ const cmTxt = v => prefs.unit === 'mm' ? `${Math.round(v * 1000)}` : (Math.round
 function roomStats(r) {
   const tag = r.tags[0], H = roomH(tag);
   const opA = S.openings.filter(o => o._rooms && o._rooms.includes(r.id)).reduce((a, o) => a + o.width * Math.max(0, Math.min(o.height, H - (o.sill || 0))), 0);
-  const wallNet = Math.max(0, r.perim * H - opA);
+  const vLen = S.walls.filter(w => w.kind === 'virtual' && !isArc(w)).reduce((a, w) => { const f = frame(w), m = at(w, f, f.L / 2); return a + ([1, -1].some(sd => A.regionAt(m[0] + f.n[0] * sd * .05, m[1] + f.n[1] * sd * .05) === r) ? f.L : 0); }, 0);
+  const wallNet = Math.max(0, (r.perim - vLen) * H - opA);
   let tile = 0;
   if (tag?.works.tile) for (const run of boundaryRuns(r.id)) for (const s of runTiles(run, r.id, H)) tile += (s.e - s.s) * (s.y1 - s.y0);
   return { area: r.area, perim: r.perim, H, opA, wallNet, tile, paint: Math.max(0, wallNet - tile) + r.area, tag };
@@ -1336,11 +1343,13 @@ function works() {
   let demo = 0, built = 0, builtArea = 0, demoExt = 0, verr = 0, verrMl = 0;
   for (const w of S.walls) if (w.glassAbove && isLow(w)) { const L = isArc(w) ? arcGeo(w).len : frame(w).L; verrMl += L; verr += L * (S.H - w.h); }
   for (const w of BASE().walls) {
+    if (w.kind === 'virtual') continue;
     let c = 0; cellsOf(w, A.ox, A.oy, A.nx, A.ny, k => { if (!A.cur[k]) c++; });
     const ml = c / Math.max(1, Math.round(w.t * 100)) / 100;
     demo += ml; if (w.kind === 'ext' && ml > .02) demoExt += ml;
   }
   for (const w of S.walls) {
+    if (w.kind === 'virtual') continue;
     let c = 0; cellsOf(w, A.ox, A.oy, A.nx, A.ny, k => { if (!A.ini[k]) c++; });
     const ml = c / Math.max(1, Math.round(w.t * 100)) / 100;
     built += ml; builtArea += ml * wallH(w);
@@ -1479,9 +1488,64 @@ const CLOSE_OK = new Set(['coffeeTable', 'coffeeRound', 'tv', 'tvWall']);   // p
 const NOFLOOR = new Set(['rug', 'rugRound', 'sink', 'hob', 'backsplash', 'microwave', 'coffrage']);
 const floorish = it => { const c = CAT[it.type] ?? {}; return !c.ceil && !c.elec && !c.group && !MOUNT.has(it.type) && (it.elev || 0) < .5 && !NOFLOOR.has(it.type); };
 const ovl = (a, b, m = 0) => a.x < b.x + b.w - m && b.x < a.x + a.w - m && a.y < b.y + b.h - m && b.y < a.y + a.h - m;
+// =====================================================================
+//  Magnétisme objet sur objet : pas de chevauchement, objet posé SUR un meuble, alignement avec guides
+// =====================================================================
+const SURFACES = new Set(['table', 'roundTable', 'coffeeTable', 'coffeeRound', 'desk', 'deskCorner', 'sideboard', 'console', 'dresser', 'nightstand', 'counter', 'island', 'bar', 'box', 'tv', 'shoeCabinet', 'vanityTable', 'tableHigh', 'cornerUnit', 'storageUnit', 'filing', 'custom', 'outdoorSet', 'bench']);
+const TOP_H = { table: .75, roundTable: .75, desk: .75, deskCorner: .75, coffeeTable: .40, coffeeRound: .38, nightstand: .50, counter: .90, island: .90, bar: 1.05, tv: .50, outdoorSet: .75, bench: .45, console: .80, sideboard: .80, dresser: .85 };
+const topOf = it => (it.elev || 0) + (it.type === 'custom' && customCfg(it).model === 'table' ? itemH(it, .75) : itemH(it, TOP_H[it.type] ?? CAT[it.type]?.h ?? .75));
+const TUCKS = new Set(['chair', 'officeChair', 'barStool', 'pouf']);   // sièges qui se glissent sous une table
+let guides = [];
+const passThrough = it => it.type.startsWith('rug') || PMR.has(it.type) || CAT[it.type]?.group || MOUNT.has(it.type) || CAT[it.type]?.ceil;
+function magnetItem(it) {
+  guides = [];
+  if (!prefs.magnet || passThrough(it)) return '';
+  const others = S.items.filter(o => o !== it && !passThrough(o)), area = f => f.w * f.h;
+  let f = fp(it), msg = '';
+  // 1. posé sur un meuble : un objet nettement plus petit dont le centre tombe sur un plateau
+  const cx = f.x + f.w / 2, cy = f.y + f.h / 2;
+  const base = !TUCKS.has(it.type) && others.find(o => SURFACES.has(o.type) && o !== it && area(fp(o)) > area(f) * 2 && (() => { const g = fp(o); return cx > g.x && cx < g.x + g.w && cy > g.y && cy < g.y + g.h; })());
+  if (base) { it.elev = r2(topOf(base)); it._on = base.id; return `🧲 Posé sur « ${base.name} »`; }
+  if (it._on) { it.elev = 0; delete it._on; }
+  // 2. collision : on repousse hors des meubles au sol (sauf les sièges, qui se glissent sous une table)
+  const floorSolid = !TUCKS.has(it.type) && (it.elev || 0) < .3;
+  const solids = floorSolid ? others.filter(o => !TUCKS.has(o.type) && (o.elev || 0) < .3 && !o._on).map(o => ({ o, g: fp(o) })) : [];
+  const hits = (x, y) => solids.filter(({ g }) => Math.min(x + f.w, g.x + g.w) - Math.max(x, g.x) > .005 && Math.min(y + f.h, g.y + g.h) - Math.max(y, g.y) > .005);
+  const now = hits(f.x, f.y);
+  if (now.length) {
+    // on essaie de sortir par chaque côté de chaque meuble touché, et on garde la sortie libre la plus proche
+    const cands = now.flatMap(({ g }) => [[g.x - f.w, f.y], [g.x + g.w, f.y], [f.x, g.y - f.h], [f.x, g.y + g.h]])
+      .map(([x, y]) => ({ x, y, d: Math.hypot(x - f.x, y - f.y) })).sort((a, b) => a.d - b.d);
+    const ok = cands.find(c => !hits(c.x, c.y).length);
+    if (ok) { it.x = r2(it.x + ok.x - f.x); it.y = r2(it.y + ok.y - f.y); f = fp(it); msg = `🧲 Collé à « ${now[0].o.name} »`; }
+  }
+  // 3. alignement : bords et centres alignés sur un autre meuble à moins de 4 cm, avec un guide pointillé
+  const T = .04; let bx = T, by = T, ax = null, ay = null;
+  for (const o of others) {
+    const g = fp(o);
+    for (const [a, b] of [[f.x, g.x], [f.x + f.w, g.x + g.w], [f.x, g.x + g.w], [f.x + f.w, g.x], [f.x + f.w / 2, g.x + g.w / 2]]) { const d = Math.abs(a - b); if (d < bx) { bx = d; ax = { dx: b - a, at: b, g }; } }
+    for (const [a, b] of [[f.y, g.y], [f.y + f.h, g.y + g.h], [f.y, g.y + g.h], [f.y + f.h, g.y], [f.y + f.h / 2, g.y + g.h / 2]]) { const d = Math.abs(a - b); if (d < by) { by = d; ay = { dy: b - a, at: b, g }; } }
+  }
+  // un alignement qui ferait rentrer le meuble dans un autre est abandonné
+  const solid = TUCKS.has(it.type) || (it.elev || 0) >= .3 ? [] : others.filter(o => !TUCKS.has(o.type) && (o.elev || 0) < .3 && !o._on);
+  const clash = () => { const a = fp(it); return solid.some(o => { const g = fp(o); return Math.min(a.x + a.w, g.x + g.w) - Math.max(a.x, g.x) > .005 && Math.min(a.y + a.h, g.y + g.h) - Math.max(a.y, g.y) > .005; }); };
+  if (ax) { const x0 = it.x; it.x = r2(it.x + ax.dx); if (clash()) it.x = x0; else { f = fp(it); guides.push({ x: ax.at, y0: Math.min(f.y, ax.g.y) - .15, y1: Math.max(f.y + f.h, ax.g.y + ax.g.h) + .15 }); } }
+  if (ay) { const y0 = it.y; it.y = r2(it.y + ay.dy); if (clash()) it.y = y0; else { f = fp(it); guides.push({ y: ay.at, x0: Math.min(f.x, ay.g.x) - .15, x1: Math.max(f.x + f.w, ay.g.x + ay.g.w) + .15 }); } }
+  return msg || (guides.length ? '🧲 Aligné' : '');
+}
 let ALERTS = [];
 function computeAlerts() {
-  const out = [], fl = S.items.filter(floorish), F = new Map(fl.map(it => [it, fp(it)]));
+  const out = [], fl = S.items.filter(it => floorish(it) && !PMR.has(it.type)), F = new Map(fl.map(it => [it, fp(it)]));
+  // accessibilité : le cercle de 1,50 m et l'emprise du fauteuil doivent rester libres (meubles et murs)
+  const pmrs = S.items.filter(it => PMR.has(it.type));
+  for (const z of pmrs) {
+    const fz = fp(z), hit = fl.find(it => !it.type.startsWith('rug') && ovl(fz, F.get(it), .02)), cx = fz.x + fz.w / 2, cy = fz.y + fz.h / 2;
+    const wallHit = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => { const r = scan(cx, cy, dx, dy, 1); return r != null && r < (dx ? fz.w : fz.h) / 2 - .02; });
+    if (hit) out.push({ it: z, lvl: 'warn', t: `♿ « ${hit.name} » empiète sur l’${z.type === 'pmrCircle' ? 'aire de rotation de 1,50 m' : 'emprise du fauteuil'} : déplace le meuble ou choisis un modèle plus petit.` });
+    else if (wallHit) out.push({ it: z, lvl: 'warn', t: `♿ L’${z.type === 'pmrCircle' ? 'aire de rotation de 1,50 m' : 'emprise du fauteuil'} touche un mur : la pièce est trop étroite à cet endroit.` });
+  }
+  const narrow = pmrs.length ? S.openings.filter(o => o.type === 'door' && o.width < .90 && wallById(o.wall)) : [];
+  if (narrow.length) out.push({ it: pmrs[0], o: narrow[0], lvl: 'info', t: `♿ ${narrow.length === 1 ? 'Une porte fait' : `${narrow.length} portes font`} moins de 90 cm (${[...new Set(narrow.map(o => cmTxt(o.width)))].join(', ')} ${UNIT()}) : pour un fauteuil roulant, compte un bloc-porte de 90 cm, soit 83 cm de passage utile.` });
   // portes battantes : le débattement ne doit rien toucher
   for (const o of S.openings) {
     if (o.type !== 'door' || ['coulissante', 'galandage'].includes(o.style)) continue;
@@ -1524,6 +1588,8 @@ function itemSym(it) {
   switch (it.type) {
     case 'roundTable': if (it.chairs) { const r = Math.min(w, d) / 2, n = Math.max(2, Math.min(8, Math.round(2 * Math.PI * r / .6))); for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; g += `<rect x="${n4(Math.cos(a) * (r + .2) - .2)}" y="${n4(Math.sin(a) * (r + .2) - .2)}" width=".4" height=".4" fill="#9ca3af" fill-opacity=".6" ${st}/>`; } } break;
     case 'plantTall': case 'plantSmall': case 'planter': g += `<circle r="${n4(Math.min(w, d) * .38)}" fill="#6aa56f" ${th}/>`; break;
+    case 'pmrCircle': g = `<circle r="${n4(Math.min(w, d) / 2)}" fill="#2563eb" fill-opacity=".08" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="6 4" class="ns"/><text x="0" y="0" font-size="${n4(18 * s)}" text-anchor="middle" dominant-baseline="central" fill="#2563eb">♿</text>`; break;
+    case 'pmrChair': g = `<rect x="${n4(x)}" y="${n4(y)}" width="${n4(w)}" height="${n4(d)}" rx="${n4(4 * s)}" fill="#2563eb" fill-opacity=".08" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="6 4" class="ns"/><text x="0" y="0" font-size="${n4(16 * s)}" text-anchor="middle" dominant-baseline="central" fill="#2563eb">♿</text>`; break;
     case 'stairsSpiral': { const R = Math.min(w, d) / 2, n = 13; g = `<circle r="${n4(R)}" fill="${base}" fill-opacity=".9" ${st}/><circle r=".05" fill="#374151"/>`; for (let i = 0; i < n; i++) { const a = i * Math.PI * 1.65 / n; g += `<line x1="0" y1="0" x2="${n4(Math.cos(a) * R)}" y2="${n4(-Math.sin(a) * R)}" ${th}/>`; } break; }
     case 'stairsL': { const wf = Math.min(.9, w / 2, d / 2); g = `<path d="M${n4(x)},${n4(-y)}V${n4(y)}H${n4(-x)}V${n4(y + wf)}H${n4(x + wf)}V${n4(-y)}Z" fill="${base}" ${st}/>`; for (let z = y + wf + .26; z < -y; z += .26) g += `<line x1="${n4(x)}" y1="${n4(z)}" x2="${n4(x + wf)}" y2="${n4(z)}" ${th}/>`; for (let s = x + wf + .26; s < -x; s += .26) g += `<line x1="${n4(s)}" y1="${n4(y)}" x2="${n4(s)}" y2="${n4(y + wf)}" ${th}/>`; break; }
     case 'custom': { const c = customCfg(it); if (['caisson', 'etagere', 'banc'].includes(c.model)) { const n = clamp(Math.round(c.cols) || 1, 1, 10); for (let i = 1; i < n; i++) g += `<line x1="${n4(x + i * w / n)}" y1="${n4(y)}" x2="${n4(x + i * w / n)}" y2="${n4(-y)}" ${th}/>`; } if (c.shape === 'rond' && c.model === 'table') g = `<ellipse cx="0" cy="0" rx="${n4(w / 2)}" ry="${n4(d / 2)}" fill="${base}" fill-opacity=".95" ${st}/>`; break; }
@@ -1609,6 +1675,12 @@ function render2D() {
     const f = frame(w), ops = S.openings.filter(o => o.wall === w.id).sort((a, b) => a.at - b.at);
     const selW = sel?.kind === 'wall' && sel.id === w.id;
     const fill = selW ? 'var(--accent)' : isLow(w) ? '#a9b0ba' : w.kind === 'ext' ? '#3b404b' : '#6b7280';
+    if (w.kind === 'virtual' && !isArc(w)) {
+      const p1 = at(w, f, 0), p2 = at(w, f, f.L);
+      h += poly(wallPoly(w, f, -.06, f.L + .06), `class="wall" data-kind="wall" data-id="${w.id}" fill="transparent"`);
+      h += `<line class="ns" x1="${n4(p1[0])}" y1="${n4(p1[1])}" x2="${n4(p2[0])}" y2="${n4(p2[1])}" stroke="${selW ? 'var(--accent)' : '#8a93a3'}" stroke-width="${selW ? 2.5 : 1.5}" stroke-dasharray="7 5" pointer-events="none"/>`;
+      continue;
+    }
     if (isArc(w)) { h += poly(wallShape(w), `class="wall" data-kind="wall" data-id="${w.id}" fill="${fill}"`); continue; }
     if (w.glassAbove && isLow(w)) {
       const p1 = at(w, f, 0), p2 = at(w, f, f.L);
@@ -1767,6 +1839,7 @@ function render2D() {
     const b = meas.b ?? (cursor ? snapFine(cursor) : meas.a);
     h += `<circle cx="${n4(meas.a[0])}" cy="${n4(meas.a[1])}" r="${n4(3.5 * s)}" fill="var(--accent)"/>` + dimLine(meas.a[0], meas.a[1], b[0], b[1], `${cmTxt(Math.hypot(b[0] - meas.a[0], b[1] - meas.a[1]))} ${UNIT()}`);
   }
+  for (const g of guides) h += g.x != null ? `<line class="ns" x1="${n4(g.x)}" y1="${n4(g.y0)}" x2="${n4(g.x)}" y2="${n4(g.y1)}" stroke="#e11d48" stroke-width="1" stroke-dasharray="4 3" pointer-events="none"/>` : `<line class="ns" x1="${n4(g.x0)}" y1="${n4(g.y)}" x2="${n4(g.x1)}" y2="${n4(g.y)}" stroke="#e11d48" stroke-width="1" stroke-dasharray="4 3" pointer-events="none"/>`;
   G.innerHTML = h;
   updateSelbar();
   if (!exportBox) document.getElementById('zoomPct').textContent = Math.round(.01 / view.s * 100) + ' %';
@@ -1905,6 +1978,7 @@ svg.addEventListener('pointerup', () => {
   if (drag) { if (down?.moved) { commit(); if (down.touch) ML.hintDone?.('drag'); } }
   else if (down?.tapSel && !down.moved) { startDrag(down.kind, down.el, down.p); drag = null; navigator.vibrate?.(8); }
   else if (down && !down.moved) clickTool(down.p, down.el, down.kind);
+  if (guides.length) { guides = []; schedule(false); }
   down = drag = pan = null;
 });
 svg.addEventListener('pointercancel', () => { if (bgDrag || (drag && down?.moved)) commit(); bgDrag = down = drag = pan = null; });   // geste interrompu par le téléphone
@@ -2047,6 +2121,7 @@ function applyDrag(p) {
       if (l != null && l < M) it.x = r2(it.x - l); else if (r != null && r < M) it.x = r2(it.x + r);
       if (u != null && u < M) it.y = r2(it.y - u); else if (b != null && b < M) it.y = r2(it.y + b);
     }
+    if (!down?.free) magnetItem(it);   // Maj enfoncée : sans aimant
     schedule(true);
   } else if (drag.kind === 'handle') {
     const it = drag.it, f = drag.f0, fw = Math.max(.05, snapV(f.w + d[0])), fh = Math.max(.02, snapV(f.h + d[1]));
@@ -2081,11 +2156,12 @@ function clickTool(p, el, kind) {
     if (Math.hypot(e[0] - a[0], e[1] - a[1]) < .05) return;
     const next = e;
     if (e[0] < a[0] || e[1] < a[1]) [a, e] = [e, a];
-    S.walls.push({ id: 'w-' + uid(), a: [...a], b: [...e], t: S.settings.defaultT, kind: 'int' });
+    S.walls.push({ id: 'w-' + uid(), a: [...a], b: [...e], t: drawKind === 'virtual' ? .02 : S.settings.defaultT, kind: drawKind });
     draw = { start: next }; commit(); return;
   }
   if (OPS[tool]) {
     const hw = hitWall(p); if (!hw) return;
+    if (hw.w.kind === 'virtual') { toast('Une séparation invisible n’a pas de mur : on ne peut pas y poser d’ouverture.'); return; }
     const def = OPS[tool], f = frame(hw.w), wd = Math.min(def.w, f.L);
     const o = { id: 'o-' + uid(), wall: hw.w.id, type: tool, at: r2(clamp(hw.al - wd / 2, 0, f.L - wd)), width: wd, height: def.h, sill: def.sill, side: 1, hinge: 'a' };
     S.openings.push(o); setTool('select'); sel = { kind: 'opening', id: o.id }; commit(); return;
@@ -2168,7 +2244,9 @@ const HINTS = {
   bgmove: 'Glisse le plan de fond pour l’aligner · Échap ou Sélection pour terminer',
   kit: '',
 };
+let drawKind = 'int';   // 'virtual' = séparation invisible (zone d'une pièce ouverte)
 function setTool(t) {
+  if (t !== 'wall') drawKind = 'int';
   tool = t; draw = null; dimDraw = null; hoverWall = null; calib = null; if (t !== 'kit') kitPlacing = null; if (t !== 'measure') meas = null; if (t !== 'place') placing = null;
   document.querySelectorAll('[data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === t));
   document.getElementById('hint').textContent = HINTS[t];
@@ -2388,6 +2466,9 @@ function wallPanel(w) {
   const sides = [1, -1].map(sd => { const p = at(w, f, f.L / 2, sd * w.t / 2); return { sd, d: scan(p[0], p[1], f.n[0] * sd, f.n[1] * sd), r: A.regionAt(p[0] + f.n[0] * sd * .05, p[1] + f.n[1] * sd * .05) }; });
   const sideTxt = sides.map(s => `<li>${s.r ? esc(roomName(s.r)) : 'Extérieur / palier'}${s.d != null ? ` : ${cmTxt(s.d)} ${UNIT()} jusqu’au mur suivant` : ''}</li>`).join('');
   const ini = BASE().walls.find(x => x.id === w.id);
+  if (w.kind === 'virtual') return `<h3>Séparation invisible</h3><p class="muted">Elle découpe une pièce ouverte en zones (coin cuisine, coin salon) pour leur donner un nom, un sol et une ambiance à part. Elle n’existe pas en vrai : rien en 3D, rien au devis.</p>
+    <div class="grid2">${field('Longueur (cm)', 'wall', 'len', 'cm', f.L)}${selectF('Type', 'wall', 'kind', w.kind, [['int', 'Cloison'], ['ext', 'Extérieur / porteur'], ['virtual', 'Séparation invisible (pièce ouverte)']])}</div>
+    <div class="row"><button data-act="del" class="danger">Supprimer la séparation</button></div>`;
   return `<h3>${w.kind === 'ext' ? 'Mur extérieur / porteur' : 'Cloison'}</h3><div class="muted">${esc(w.id)}${ini ? '' : ' · ajouté'}</div>
     ${w.kind === 'ext' ? '<div class="warn">Mur probablement porteur ou de façade : le déplacer, le supprimer ou y percer une ouverture demande l’avis d’un professionnel (et de la copropriété).</div>' : ''}
     <div class="grid2">
@@ -2395,7 +2476,7 @@ function wallPanel(w) {
       ${field('Épaisseur (cm)', 'wall', 't', 'cm', w.t)}
       ${horiz ? field('Position verticale y (cm)', 'wall', 'posY', 'cm', w.a[1]) : ''}
       ${vert ? field('Position horizontale x (cm)', 'wall', 'posX', 'cm', w.a[0]) : ''}
-      ${selectF('Type', 'wall', 'kind', w.kind, [['int', 'Cloison'], ['ext', 'Extérieur / porteur']])}
+      ${selectF('Type', 'wall', 'kind', w.kind, [['int', 'Cloison'], ['ext', 'Extérieur / porteur'], ['virtual', 'Séparation invisible (pièce ouverte)']])}
     </div>
     ${isArc(w) ? '' : `<h4 id="openWallBox">Ouvrir ce mur</h4>
     <p class="muted" style="margin:0 0 6px">Au point cliqué sur le mur. Largeur, hauteur et position restent modifiables ensuite.</p>
@@ -2685,7 +2766,7 @@ function guidePanel() {
   const s = prefs.step || 1, B = (act, t, sub, extra = '') => `<button data-act="${act}" ${extra}>${t}<span>${sub}</span></button>`;
   let body = '';
   if (s === 1) body = `<p>Dessinez les murs de votre logement, puis placez portes et fenêtres. Pour changer un mur existant, cliquez dessus : vous pourrez le déplacer, l’ouvrir ou le supprimer.</p>
-    <div class="big">${B('gTool', '▭ Dessiner un mur', 'cliquez chaque angle, double-clic pour finir', 'data-tool="wall"')}${B('gTool', '⌒ Ajouter une porte', 'puis cliquez sur un mur', 'data-tool="door"')}${B('gTool', '▤ Ajouter une fenêtre', 'puis cliquez sur un mur', 'data-tool="window"')}${B('gBg', '🖼 Partir de mon plan', 'une photo ou une image du plan')}</div>
+    <div class="big">${B('gTool', '▭ Dessiner un mur', 'cliquez chaque angle, double-clic pour finir', 'data-tool="wall"')}${B('gTool', '⌒ Ajouter une porte', 'puis cliquez sur un mur', 'data-tool="door"')}${B('gTool', '▤ Ajouter une fenêtre', 'puis cliquez sur un mur', 'data-tool="window"')}${B('gBg', '🖼 Partir de mon plan', 'une photo ou une image du plan')}${B('gSep', '┆ Séparer une pièce ouverte', 'coin cuisine, coin salon : sans mur')}</div>
     <div class="grid2" style="margin-top:10px">${field('Hauteur sous plafond (cm)', 'root', 'H', 'cm', S.H)}</div>`;
   else if (s === 2) body = `<p>Ajoutez vos meubles depuis le catalogue, ou créez-en un sur mesure. Cliquez ensuite un meuble pour le déplacer, le tourner, changer sa taille ou sa couleur.</p>
     <div class="big">${B('gCatalog', '＋ Ajouter un meuble', `${Object.keys(CAT).length - 1} objets avec recherche`)}${B('gCatalog', '✏️ Créer mon meuble', 'bibliothèque, buffet, dressing…')}${B('gCatalog', '✨ Pièce toute prête', 'salon, chambre, cuisine…')}${B('gTool', '📏 Mesurer', 'vérifier un passage', 'data-tool="measure"')}</div>`;
@@ -2708,7 +2789,7 @@ function applyGuided() {
 }
 function setStep(n) {
   prefs.step = clamp(n, 1, 4); savePrefs(); applyGuided(); setTool('select');
-  if (n === 4) { sel = null; tab = 'works'; } else if (tab === 'works') tab = 'sel';
+  sel = null; tab = n === 4 ? 'works' : 'sel';   // changer d'étape montre son guide
   if (ML.mobile()?.on()) ML.mobile().show(n === 4 ? 'panel' : 'plan');
   renderPanel(); render2D();
 }
@@ -2898,6 +2979,7 @@ function onFieldChange(e) {
     if (key === 'len') { const L = Math.max(.05, v); w.b = [r2(w.a[0] + f.u[0] * L), r2(w.a[1] + f.u[1] * L)]; }
     else if (key === 'posY' || key === 'posX') { const cur = key === 'posY' ? w.a[1] : w.a[0], dv = v - cur, m = moveWallStart(w); moveWallApply(m, r2(key === 'posY' ? dv * f.n[1] : dv * f.n[0])); }
     else if (key === 't') w.t = clamp(v, .03, .6);
+    else if (key === 'kind') { if (v === 'virtual') { w.t = .02; S.openings = S.openings.filter(o => o.wall !== w.id); w.h = null; w.glassAbove = false; } else if (w.kind === 'virtual') w.t = S.settings.defaultT; w.kind = v; }
     else if (key === 'bulge') w.bulge = clamp(v, -f.L / 2, f.L / 2);
     else if (key === 'roundR') roundR = Math.max(.05, v);
     else if (key === 'arcA' || key === 'arcB') {
@@ -2966,6 +3048,7 @@ panel.addEventListener('click', e => {
     if (a === 'toggleGuided') { e.preventDefault(); prefs.guided = !prefs.guided; savePrefs(); applyGuided(); renderPanel(); toast(prefs.guided ? 'Mode guidé : les étapes et l’essentiel seulement.' : 'Mode expert : tous les outils et tous les réglages. Retour au mode guidé dans ⚙ Réglages.', 4000); return; }
     if (a === 'gTool') { setTool(b.dataset.tool); if (ML.mobile()?.on()) ML.mobile().show('plan'); return; }
     if (a === 'gBg') return document.getElementById('bBg').click();
+    if (a === 'gSep') { setTool('wall'); drawKind = 'virtual'; toast('┆ Séparation invisible : cliquez le début puis la fin de la limite entre les deux zones.', 5000); if (ML.mobile()?.on()) ML.mobile().show('plan'); return; }
     if (a === 'gCatalog') { if (ML.mobile()?.on()) ML.mobile().show('add'); else document.getElementById('bCatalog').click(); return; }
     if (a === 'gRoom') { setSel({ kind: 'room', x: +b.dataset.x, y: +b.dataset.y }); return; }
     if (a === 'useCustomPrice') { const it = resolveSel(); if (it) { it.price = customPrice(it); commit(); } return; }
@@ -3151,6 +3234,8 @@ const B3 = {
 };
 B3.dryer = B3.washer;
 // nouveautés du catalogue
+const pmr3D = (g, it) => { const m = M('#2563eb', { transparent: true, opacity: .18, depthWrite: false }); if (it.type === 'pmrCircle') { const o = new THREE.Mesh(new THREE.CylinderGeometry(.5, .5, .006, 48), m); o.scale.set(it.w, 1, it.d); o.position.y = .006; g.add(o); } else add3(g, it.w, .006, it.d, 0, .004, 0, m); };
+B3.pmrCircle = pmr3D; B3.pmrChair = pmr3D;
 const cylA = (g, r, h, x, y0, z, m, seg = 16, r2_ = r) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(r, r2_, h, seg), m); o.position.set(x, y0 + h / 2, z); g.add(o); return o; };
 Object.assign(B3, {
   sofaBed: (g, it, Hc) => B3.sofa(g, it, Hc),
@@ -3531,6 +3616,7 @@ function build3D() {
   const mats = [side, side, top, side, side, side], matsSel = [sideSel, sideSel, topSel, sideSel, sideSel, sideSel];
   const glass = new THREE.MeshStandardMaterial({ color: '#9cc9e8', transparent: true, opacity: .28, roughness: .1, depthWrite: false });
   for (const w of S.walls) {
+    if (w.kind === 'virtual') continue;   // séparation invisible : rien à construire
     if (!inIso(Math.min(w.a[0], w.b[0]), Math.min(w.a[1], w.b[1]), Math.max(w.a[0], w.b[0]), Math.max(w.a[1], w.b[1]))) continue;
     const f = frame(w), ops = S.openings.filter(o => o.wall === w.id).sort((a, b) => a.at - b.at);
     const Hw = Math.min(wallH(w), Hc);
@@ -3819,7 +3905,7 @@ gizmo.addEventListener('dragging-changed', e => {
   ctl.enabled = !e.value;
   const it = resolveSel();
   if (e.value && it) gz = { start: gizmoPivot.position.clone(), it, x: it.x, y: it.y, elev: it.elev || 0 };
-  else if (gz) { gz = null; showInfo(''); commit(); }
+  else if (gz) { gz = null; guides = []; showInfo(''); commit(); }
 });
 gizmo.addEventListener('objectChange', () => {
   if (!gz) return;
@@ -3833,6 +3919,7 @@ gizmo.addEventListener('objectChange', () => {
     if (l != null && l < Mg) { it.x = r2(it.x - l); msg = '🧲 Collé au mur'; } else if (r != null && r < Mg) { it.x = r2(it.x + r); msg = '🧲 Collé au mur'; }
     if (u != null && u < Mg) { it.y = r2(it.y - u); msg = '🧲 Collé au mur'; } else if (b != null && b < Mg) { it.y = r2(it.y + b); msg = '🧲 Collé au mur'; }
     if (it.elev > 0 && it.elev < .03) { it.elev = 0; msg = msg || '🧲 Posé au sol'; }
+    msg = magnetItem(it) || msg;
   }
   showInfo(msg || (Math.abs(v.y) > .005 ? `↕ À ${cmTxt(it.elev)} ${UNIT()} du sol` : ''));
   render2D(); dirty3D = true; kick3D();

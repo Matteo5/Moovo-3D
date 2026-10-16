@@ -664,7 +664,7 @@ function customPrice(it) {
 // =====================================================================
 //  A3 : cuisine linéaire — on donne la longueur et les équipements, les caissons standard se placent seuls
 // =====================================================================
-Object.assign(CAT, { kitchenRun: { label: 'Cuisine complète (remplissage automatique)', w: 3.00, d: .60, h: .90, price: 0, color: '#f3f1ec', cg: 'Cuisine' } });
+Object.assign(CAT, { kitchenRun: { label: 'Cuisine équipée', w: 3.00, d: .60, h: .90, price: 0, color: '#f3f1ec', cg: 'Cuisine' } });
 const RUN_DEF = { sink: true, dish: true, hob: true, oven: true, fridge: true, tall: 0, uppers: true, hood: true, side: 'L', appl: true, top: '#c9b79c' };
 const runCfg = it => ({ ...RUN_DEF, ...(it.run ?? {}) });
 const RUN_LABEL = { fridge: 'Colonne réfrigérateur', tall: 'Colonne de rangement', sink: 'Évier', dish: 'Lave-vaisselle', hob: 'Plaque', oven: 'Plaque + four', doors: 'Portes', drawers: 'Tiroirs', filler: 'Fileur' };
@@ -826,6 +826,111 @@ function placeKit(p) {
   for (const i of L2.its) { const c = CAT[i.type]; S.items.push(I_(i.type, c.label, r2(x0 + i.x), r2(y0 + i.y), i.o.w, i.o.d, { price: c.price, rot: i.rot, ...i.o })); }
   const n = L2.its.length, lbl = KITS[kitPlacing].label; setTool('select'); commit();
   toast(`✨ ${lbl} posé (${n} objets). Chaque meuble se déplace ensuite séparément.`, 4000);
+}
+// =====================================================================
+//  A12 : « Aménager pour moi » — l'ensemble adapté à la pièce, posé dos au mur, sans gêner les portes
+// =====================================================================
+function autoKits(r) {
+  const t = roomName(r).toLowerCase(), a = r.area, ty = roomType(t);
+  if (/balcon|terrasse|loggia/.test(t)) return ['balcon'];
+  if (/bureau/.test(t)) return ['bureau'];
+  if (ty === 'sejour') return a >= 24 ? ['salon', 'repas'] : ['salon'];
+  if (ty === 'chambre') return [/enfant|b[ée]b[ée]|ado|amis/.test(t) || a < 10.5 ? 'enfant' : 'parents'];
+  if (ty === 'sdb') return [a < 4.5 ? 'sde' : 'sdb'];
+  if (ty === 'circ') return a >= 2 ? ['entree'] : [];
+  if (ty === 'cuisine') return ['@run'];
+  return [];
+}
+// zones à garder libres : débattement des portes battantes et passage de 60 cm de chaque côté de toutes les portes
+function doorZones() {
+  const out = [];
+  for (const o of S.openings) {
+    if (o.type !== 'door' && o.type !== 'baie') continue;
+    const w = wallById(o.wall); if (!w || isArc(w)) continue;
+    const f = frame(w);
+    for (const sd of [-1, 1]) {
+      const deep = ['coulissante', 'galandage'].includes(o.style) || o.type === 'baie' || sd !== (o.side || 1) ? .6 : Math.max(.6, o.width * (o.style === 'double' ? .5 : 1));
+      const p1 = at(w, f, o.at - .05, sd * w.t / 2), p2 = at(w, f, o.at + o.width + .05, sd * (w.t / 2 + deep));
+      out.push({ x: Math.min(p1[0], p2[0]), y: Math.min(p1[1], p2[1]), w: Math.abs(p2[0] - p1[0]), h: Math.abs(p2[1] - p1[1]) });
+    }
+  }
+  return out;
+}
+// cherche la meilleure place d'une disposition (4 orientations × grille de 10 cm) dans la pièce
+function fitLayout(r, mk, taken, doors) {
+  const x0r = A.ox + r.bb.i0 / 100, x1r = A.ox + (r.bb.i1 + 1) / 100, y0r = A.oy + r.bb.j0 / 100, y1r = A.oy + (r.bb.j1 + 1) / 100;
+  const inR = (x, y) => A.regionAt(x, y)?.id === r.id;
+  let best = null;
+  for (let q = 0; q < 4; q++) {
+    const L = mk(q); if (L.W > x1r - x0r + .01 || L.D > y1r - y0r + .01) continue;
+    const solid = L.its.filter(i => !i.type.startsWith('rug'));
+    for (let y0 = y0r; y0 <= y1r - L.D + 1e-6; y0 += .1) for (let x0 = x0r; x0 <= x1r - L.W + 1e-6; x0 += .1) {
+      let ok = true;
+      for (const i of L.its) {
+        const R = { x: x0 + i.x, y: y0 + i.y, w: i.fw, h: i.fh }, e = .03;
+        for (const [fx, fy] of [[0, 0], [1, 0], [0, 1], [1, 1], [.5, .5], [.5, 0], [.5, 1], [0, .5], [1, .5]]) if (!inR(R.x + e + fx * (R.w - 2 * e), R.y + e + fy * (R.h - 2 * e))) { ok = false; break; }
+        if (!ok) break;
+        if (i.type.startsWith('rug')) continue;
+        if (taken.some(t => ovl(R, t, -.01)) || doors.some(t => ovl(R, t, -.01))) { ok = false; break; }
+      }
+      if (!ok) continue;
+      // le dos de l'ensemble (côté y = 0 avant rotation) doit toucher un mur
+      const back = [];
+      for (let k = 0; k < 5; k++) { const t = (k + .5) / 5, o = .12;
+        back.push(q === 0 ? [x0 + t * L.W, y0 - o] : q === 1 ? [x0 + L.W + o, y0 + t * L.D] : q === 2 ? [x0 + t * L.W, y0 + L.D + o] : [x0 - o, y0 + t * L.D]); }
+      const bs = back.filter(([x, y]) => !inR(x, y)).length / 5;
+      const cx = x0 + L.W / 2, cy = y0 + L.D / 2, score = bs * 10 - Math.hypot(cx - r.cx, cy - r.cy) * .3 + (solid.length ? 0 : 0);
+      if (!best || score > best.score) best = { x0, y0, q, L, score, bs };
+    }
+  }
+  return best && best.bs >= .6 ? best : null;
+}
+const KIT_OPTIONAL = ['plant', 'lamp', 'towel', 'planter', 'coatRack', 'armchair', 'tv', 'storageUnit', 'sideboard', 'bookcase', 'lounger', 'nightstand', 'wardrobe', 'dishwasher', 'doubleVanity', 'wc'];
+// garde seulement les meubles restants et recadre l'ensemble sur eux
+function kitTrim(L, drops) {
+  if (!drops.length) return L;
+  const its = L.its.filter(i => !drops.includes(i.type)); if (!its.length) return L;
+  const mx = Math.min(...its.map(i => i.x)), my = Math.min(...its.map(i => i.y));
+  const out = its.map(i => ({ ...i, x: i.x - mx, y: i.y - my }));
+  return { W: Math.max(...out.map(i => i.x + i.fw)), D: Math.max(...out.map(i => i.y + i.fh)), its: out };
+}
+function autoFurnish(r, quiet) {
+  const ks = autoKits(r);
+  if (!ks.length) { if (!quiet) toast(`Je ne sais pas encore quoi mettre dans « ${roomName(r)} ». Donne-lui un nom (séjour, chambre, cuisine, salle de bain, bureau, entrée…) ou pioche une pièce toute prête dans le catalogue.`, 6000); return 0; }
+  const taken = S.items.filter(it => it._r === r.id && floorish(it) && !passThrough(it)).map(fp), doors = doorZones();
+  let n = 0; const missed = [], dropped = [];
+  for (const k of ks) {
+    let best = null, add;
+    if (k === '@run') {
+      for (const len of [4.2, 3.6, 3.0, 2.4, 1.8]) {
+        best = fitLayout(r, q => { const fw = q % 2 ? .6 : len, fh = q % 2 ? len : .6; return { W: fw, D: fh, its: [{ type: 'kitchenRun', x: 0, y: 0, fw, fh, rot: q * 90, o: { w: len, d: .6 } }] }; }, taken, doors);
+        if (best) break;
+      }
+    } else {
+      // l'ensemble complet ne tient pas : on retire un à un les meubles secondaires, le principal reste
+      // essais : tout l'ensemble, puis sans un seul meuble secondaire, puis en en retirant de plus en plus
+      const opt = KIT_OPTIONAL.filter(d => KITS[k].items.some(i => i[0] === d)), tries = [[], ...opt.map(d => [d]), ...opt.slice(1).map((_, i) => opt.slice(0, i + 2))];
+      for (const drops of tries) {
+        best = fitLayout(r, q => kitTrim(kitLayout(k, q), drops), taken, doors);
+        if (best) { dropped.push(...drops.map(t => CAT[t].label.toLowerCase())); break; }
+      }
+    }
+    if (!best) { missed.push(k === '@run' ? 'Cuisine' : KITS[k].label); continue; }
+    for (const i of best.L.its) {
+      const c = CAT[i.type], it = I_(i.type, c.label, r2(best.x0 + i.x), r2(best.y0 + i.y), i.o.w, i.o.d, { price: c.price, ...i.o, rot: i.rot });
+      if (i.type === 'kitchenRun') it.price = runPrice(it);
+      S.items.push(it); n++; if (!i.type.startsWith('rug')) taken.push(fp(it));
+    }
+  }
+  if (!quiet) toast(n ? `✨ ${n} meubles posés dans « ${roomName(r)} ».${missed.length ? ` Pas la place pour : ${missed.join(', ')}.` : ''}${dropped.length ? ` Sans ${[...new Set(dropped)].join(", ")}, faute de place.` : ""} Chacun se déplace ensuite à la main, et Ctrl+Z annule tout.` : `Pas assez de place libre dans « ${roomName(r)} » (portes, meubles déjà là). Libère un mur ou pioche un meuble à la fois dans le catalogue.`, 6000);
+  return n;
+}
+function autoFurnishAll() {
+  // seulement les pièces encore vides : on ne touche jamais à ce qui est déjà meublé
+  const rs = A.rooms.filter(r => r.tags[0] && !S.items.some(it => it._r === r.id && floorish(it) && !passThrough(it) && !isElec(it) && CAT_GROUP(it.type) !== 'Construction'));
+  if (!rs.length) return toast('Toutes les pièces ont déjà des meubles. Pour en ajouter, choisis une pièce puis « ✨ Aménager pour moi », ou passe par le catalogue.', 5000);
+  let n = 0, done = 0; for (const r of rs) { const k = autoFurnish(r, true); n += k; if (k) done++; }
+  commit(); toast(n ? `✨ ${n} meubles posés dans ${done} pièce${done > 1 ? 's' : ''}. Clique un meuble pour l’ajuster ; Ctrl+Z annule tout.` : 'Je n’ai trouvé de place nulle part : nomme les pièces (séjour, chambre…) et vérifie qu’elles sont fermées.', 6000);
 }
 const CAT_GROUP = t => CAT[t]?.group ?? CAT[t]?.cg ?? ({
   bed: 'Chambre', bed90: 'Chambre', nightstand: 'Chambre', wardrobe: 'Chambre',
@@ -2787,6 +2892,7 @@ function roomPanel(r) {
         ${field('Nom', 'tag', 'name', 'text', t.name, 'full')}
       </div>
       ${tipBox(ML.TIPS.byRoom[roomType(t.name)], 'Conseil pour cette pièce')}
+      <div class="row"><button data-act="autoFurnish" class="primary" title="Pose un ensemble de meubles adapté à la pièce, contre les murs, sans gêner les portes">✨ Aménager pour moi</button></div>
       <h4>Ambiance en un clic</h4>
       <div class="styles">${Object.entries(ML.STYLES).map(([k, v]) => `<button data-act="applyStyle" data-style="${k}" title="${esc(v.desc)}" class="${t.style === k ? 'on' : ''}"><span class="sw">${[v.wallColor ?? v.paint, v.wood, v.fabric, v.accent].map(c => `<i style="background:${c}"></i>`).join('')}</span>${v.label}</button>`).join('')}</div>
       <p class="muted" style="margin:6px 0 0">Applique murs, sol, plafond et couleurs du mobilier de la pièce. Tout reste modifiable ensuite (et Ctrl+Z annule).</p>
@@ -2864,7 +2970,7 @@ function guidePanel() {
     <div class="big">${B('gTool', '▭ Dessiner un mur', 'cliquez chaque angle, double-clic pour finir', 'data-tool="wall"')}${B('gTool', '⌒ Ajouter une porte', 'puis cliquez sur un mur', 'data-tool="door"')}${B('gTool', '▤ Ajouter une fenêtre', 'puis cliquez sur un mur', 'data-tool="window"')}${B('gBg', '🖼 Partir de mon plan', 'une photo ou une image du plan')}${B('gSep', '┆ Séparer une pièce ouverte', 'coin cuisine, coin salon : sans mur')}</div>
     <div class="grid2" style="margin-top:10px">${field('Hauteur sous plafond (cm)', 'root', 'H', 'cm', S.H)}</div>`;
   else if (s === 2) body = `<p>Ajoutez vos meubles depuis le catalogue, ou créez-en un sur mesure. Cliquez ensuite un meuble pour le déplacer, le tourner, changer sa taille ou sa couleur.</p>
-    <div class="big">${B('gCatalog', '＋ Ajouter un meuble', `${Object.keys(CAT).length - 1} objets avec recherche`)}${B('gCatalog', '✏️ Créer mon meuble', 'bibliothèque, buffet, dressing…')}${B('gCatalog', '✨ Pièce toute prête', 'salon, chambre, cuisine…')}${B('gTool', '📏 Mesurer', 'vérifier un passage', 'data-tool="measure"')}</div>`;
+    <div class="big">${B('autoAll', '✨ Aménager pour moi', 'des meubles posés dans chaque pièce vide')}${B('gCatalog', '＋ Ajouter un meuble', `${Object.keys(CAT).length - 1} objets avec recherche`)}${B('gCatalog', '✏️ Créer mon meuble', 'bibliothèque, buffet, dressing…')}${B('gCatalog', '✨ Pièce toute prête', 'salon, chambre, cuisine…')}${B('gTool', '📏 Mesurer', 'vérifier un passage', 'data-tool="measure"')}</div>`;
   else if (s === 3) { const rs = A.rooms.filter(r => r.tags[0]);
     body = `<p>Choisissez une pièce : vous lui donnerez une ambiance en un clic, puis la couleur des murs et le sol.</p>
     <div class="big">${rs.slice(0, 10).map(r => `<button data-act="gRoom" data-x="${r.tags[0].x}" data-y="${r.tags[0].y}">🎨 ${esc(roomName(r))}<span>${fm(r.area, 1)} m²${r.tags[0].style ? ' · ' + esc(ML.STYLES[r.tags[0].style]?.label ?? '') : ''}</span></button>`).join('')}</div>
@@ -3136,6 +3242,8 @@ panel.addEventListener('click', e => {
     if (a === 'openHelp') return openHelp();
     if (a === 'selItem') { setSel({ kind: 'item', id: b.dataset.id }); return; }
     if (a === 'resetRoomColors') { const t = resolveSel()?.tags?.[0]; if (t) { t.paintColor = null; t.floorTint = null; t.ceilColor = null; t.tileColor = null; t.wallFinish = null; t.sheen = null; t.style = null; commit(); } return; }
+    if (a === 'autoFurnish') { const r = resolveSel(); if (r && r !== true && r.tags) { if (autoFurnish(r)) commit(); } return; }
+    if (a === 'autoAll') { autoFurnishAll(); return; }
     if (a === 'applyStyle') { const r = resolveSel(); if (r && r !== true && r.tags?.[0]) { applyStyle(r, b.dataset.style); commit(); toast(`Ambiance « ${ML.STYLES[b.dataset.style].label} » appliquée. ${ML.STYLES[b.dataset.style].wink ?? ''}`, 3800); } return; }
     if (a === 'setSize') { const it = resolveSel(); if (it) { const f0 = fp(it), cx = f0.x + f0.w / 2, cy = f0.y + f0.h / 2; it.w = +b.dataset.w; it.d = +b.dataset.d; const f1 = fp(it); it.x = r2(cx - f1.w / 2); it.y = r2(cy - f1.h / 2); commit(); } return; }
     if (a === 'startTour') return startTour();
@@ -4985,7 +5093,7 @@ ML.mobileShell({
 setTool('select');
 renderAll();
 requestAnimationFrame(() => { fit(); render2D(); resize3D(); setView('persp'); loop(); });
-if (new URLSearchParams(location.search).has("debug")) window.__m3 = { scene, get cam() { return cam; }, renderer, ctl, build: () => { build3D(); dirty3D = false; }, render: () => renderer.render(scene, cam), S: () => S, opt, A: () => A, commit: () => commit(), pick: id => { sel = { kind: "item", id }; tab = "sel"; renderPanel(); } };
+if (new URLSearchParams(location.search).has("debug")) window.__m3 = { scene, get cam() { return cam; }, renderer, ctl, build: () => { build3D(); dirty3D = false; }, render: () => renderer.render(scene, cam), S: () => S, opt, A: () => A, commit: () => commit(), pick: id => { sel = { kind: "item", id }; tab = "sel"; renderPanel(); }, fn: { fitLayout, kitLayout, doorZones, autoFurnish, autoKits } };
 if (new URLSearchParams(location.search).get('demo')) {
   history.replaceState(null, '', location.pathname + '?p=' + encodeURIComponent(PID));
   // appartement témoin : une ambiance par pièce et quelques travaux cochés, pour montrer le rendu final

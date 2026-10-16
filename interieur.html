@@ -75,6 +75,40 @@
   #zoomPct{min-width:52px;text-align:center;font-size:12px;color:var(--muted)}
   .foot{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:5px 12px;font-size:12px;color:var(--muted);background:var(--panel);border-top:1px solid var(--line)}
   .foot #hint{flex:1;min-width:200px}
+  /* ===== mode guidé : 4 étapes, seuls les outils de l'étape sont visibles, les réglages précis se replient ===== */
+  body.guided > header{flex-wrap:nowrap;min-width:0}
+  body.guided > header .seg{flex-wrap:nowrap;flex:none}
+  body.guided > header .cmdbtn .lbl{display:none}
+  body.guided > header .projname{min-width:80px;flex:0 1 200px}
+  @media (max-width:1440px){body.guided > header .brand .wm, body.guided > header .brand small{display:none} body.guided #steps button{padding:5px 10px 5px 5px}}
+  @media (max-width:1280px){body.guided #saveState{display:none} body.guided #bSettings .lbl{display:none}}
+  @media (max-width:1100px){body.guided #steps button{font-size:0;gap:0;padding:4px} body.guided #steps button b{font-size:12px} body.guided #steps button.on{font-size:13px;gap:6px;padding:4px 10px 4px 4px}}
+  #steps{display:none;gap:4px;margin-left:10px;flex:none}
+  body.guided #steps{display:flex}
+  #steps button{display:flex;align-items:center;gap:7px;border-radius:999px;padding:5px 13px 5px 6px;font-weight:600;background:transparent;border-color:transparent;color:var(--muted)}
+  #steps button b{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--line);color:var(--ink);font-size:12px}
+  #steps button.on{background:var(--accent-weak);color:var(--accent);border-color:#cddbfb}
+  #steps button.on b{background:var(--accent);color:#fff}
+  #steps button.done b{background:#d1fae5;color:#065f46}
+  body.guided[data-step="1"] #tools > :not([data-st~="1"]), body.guided[data-step="2"] #tools > :not([data-st~="2"]),
+  body.guided[data-step="3"] #tools > :not([data-st~="3"]), body.guided[data-step="4"] #tools > :not([data-st~="4"]) {display:none}
+  body.guided:not([data-step="2"]) #catWrap{display:none}
+  body.guided .foot label, body.guided .foot #coords, body.guided #bHist{display:none}
+  body.guided .tabs [data-tab="elec"]{display:none}
+  .totalbadge{border-radius:999px;font-weight:700;padding:5px 12px;background:#ecfdf5;border-color:#a7f3d0;color:#065f46;white-space:nowrap;flex:none}
+  body.mshell .totalbadge{font-size:12px;padding:4px 9px;min-height:0}
+  body.mshell > header .projname{min-width:0;flex:1 1 40px}
+  .guide{border:1px solid #cddbfb;background:#f6f9ff;border-radius:12px;padding:14px 16px;margin-bottom:12px}
+  .guide h3{margin:0 0 4px;display:flex;align-items:center;gap:8px} .guide h3 b{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font-size:14px}
+  .guide p{margin:4px 0 10px;line-height:1.5}
+  .guide .big{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .guide .big button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;white-space:normal;padding:10px 12px;min-height:56px;font-weight:600}
+  .guide .big button span{font-weight:400;font-size:12px;color:var(--muted)}
+  .guide .next{display:flex;justify-content:space-between;align-items:center;margin-top:12px;gap:8px;flex-wrap:wrap}
+  details.adv{margin:10px 0;border:1px solid var(--line);border-radius:10px;padding:0 12px}
+  details.adv > summary{cursor:pointer;padding:9px 0;font-weight:600;color:var(--muted);list-style:none}
+  details.adv > summary::before{content:'▸ ';} details.adv[open] > summary::before{content:'▾ ';}
+  details.adv[open]{padding-bottom:10px}
   .foot label{display:flex;gap:5px;align-items:center;cursor:pointer;white-space:nowrap}
   .foot select{font:inherit;font-size:12px;border:1px solid var(--line);border-radius:6px;padding:1px 4px;background:#fff}
   #coords{min-width:150px;text-align:right}
@@ -308,7 +342,9 @@
     </div>
   </div>
   <div class="seg"><button id="bUndo" class="ghost" title="Annuler (Ctrl+Z)">↶</button><button id="bRedo" class="ghost" title="Rétablir (Ctrl+Y)">↷</button><button id="bHist" class="ghost dsk" title="Historique des modifications">🕘</button></div>
+  <nav id="steps" class="dsk" aria-label="Étapes du projet"><button data-step="1"><b>1</b>Ma pièce</button><button data-step="2"><b>2</b>Mes meubles</button><button data-step="3"><b>3</b>Décoration</button><button data-step="4"><b>4</b>Budget</button></nav>
   <div class="spacer"></div>
+  <button id="bTotal" class="totalbadge" title="Budget estimé du projet : voir le détail">≈ 0 €</button>
   <div class="seg dsk" id="layoutSeg"><button data-layout="plan">Plan</button><button data-layout="split" class="on">Plan + 3D</button><button data-layout="3d">3D</button></div>
   <button id="bCmd" class="ghost cmdbtn" title="Tout trouver et tout faire (Ctrl+K)">🔍<span class="lbl"> Rechercher… <kbd>Ctrl K</kbd></span></button>
   <button id="bSettings" class="ghost dsk" title="Réglages">⚙<span class="lbl"> Réglages</span></button>
@@ -318,18 +354,18 @@
   <section id="planWrap">
     <div class="toolbar">
       <div class="seg" id="tools">
-        <button data-tool="select" title="Sélection (V)"><span class="ic">↖</span>Sélection</button>
-        <button data-tool="wall" title="Mur (M)"><span class="ic">▭</span>Mur</button>
-        <button data-tool="door" title="Porte (P)"><span class="ic">⌒</span>Porte</button>
-        <button data-tool="window" title="Fenêtre (F)"><span class="ic">▤</span>Fenêtre</button>
-        <button data-tool="baie" title="Baie / porte-fenêtre">Baie</button>
-        <button data-tool="opening" title="Passage sans porte">Passage</button>
-        <button data-tool="placard" title="Placard">Placard</button>
-        <button data-tool="dim" title="Poser une cote (C)"><span class="ic">↔</span>Coter</button>
-        <button data-tool="measure" title="Mesure temporaire (D)"><span class="ic">📏</span>Mesurer</button>
-        <button id="bBg" title="Importer un plan (image) à décalquer ou à convertir en murs"><span class="ic">🖼</span>Plan de fond</button>
+        <button data-tool="select" data-st="1 2 3 4" title="Sélection (V)"><span class="ic">↖</span>Sélection</button>
+        <button data-tool="wall" data-st="1" title="Mur (M)"><span class="ic">▭</span>Mur</button>
+        <button data-tool="door" data-st="1" title="Porte (P)"><span class="ic">⌒</span>Porte</button>
+        <button data-tool="window" data-st="1" title="Fenêtre (F)"><span class="ic">▤</span>Fenêtre</button>
+        <button data-tool="baie" data-st="" title="Baie / porte-fenêtre">Baie</button>
+        <button data-tool="opening" data-st="" title="Passage sans porte">Passage</button>
+        <button data-tool="placard" data-st="" title="Placard">Placard</button>
+        <button data-tool="dim" data-st="" title="Poser une cote (C)"><span class="ic">↔</span>Coter</button>
+        <button data-tool="measure" data-st="1 2" title="Mesure temporaire (D)"><span class="ic">📏</span>Mesurer</button>
+        <button id="bBg" data-st="1" title="Importer un plan (image) à décalquer ou à convertir en murs"><span class="ic">🖼</span>Plan de fond</button>
       </div>
-      <div class="menuwrap">
+      <div class="menuwrap" id="catWrap">
         <button id="bCatalog" class="primary" title="Ajouter un objet (A)">＋ Ajouter</button>
         <div class="menu catalog" id="catalog"><input id="catSearch" placeholder="Rechercher un objet… (prise, lit, spot…)"><div id="catList"></div></div>
       </div>
@@ -884,7 +920,7 @@ function migrate(st) {
   return st;
 }
 migrate(S);
-const prefs = Object.assign({ unit: 'cm', snap: '0.01', layout: 'split', aside: 460, v3h: 46, magnet: true, layers: { dims: true, elec: false, furn: true } }, (() => { try { return JSON.parse(lsGet(PKEY) || '{}'); } catch { return {}; } })());
+const prefs = Object.assign({ unit: 'cm', snap: '0.01', layout: 'split', aside: 460, v3h: 46, magnet: true, guided: true, step: 1, layers: { dims: true, elec: false, furn: true } }, (() => { try { return JSON.parse(lsGet(PKEY) || '{}'); } catch { return {}; } })());
 const savePrefs = () => lsSet(PKEY, JSON.stringify(prefs));
 const UNIT = () => prefs.unit;
 const UF = () => prefs.unit === 'mm' ? 1000 : 100;
@@ -2329,7 +2365,7 @@ function renderPanel() {
   const obj = resolveSel();
   let html;
   if (tab === 'rooms') html = roomsPanel();
-  else if (tab === 'works') html = worksPanel();
+  else if (tab === 'works') html = (prefs.guided ? budgetGuide() : '') + worksPanel();
   else if (tab === 'elec') html = elecPanel();
   else if (sel?.kind === 'wall' && obj) html = wallPanel(obj);
   else if (sel?.kind === 'opening' && obj) html = openingPanel(obj);
@@ -2342,8 +2378,10 @@ function renderPanel() {
       <div class="row"><button data-act="del" class="danger">Supprimer cette cote</button><button data-act="clearDims">Effacer toutes les cotes (${S.dims.length})</button></div>`;
   }
   else if (sel?.kind === 'room') html = roomPanel(obj && obj !== true ? obj : null);
-  else html = generalPanel();
-  panel.innerHTML = ML.mobile()?.on() ? ML.touchCopy(html) : html;   // au doigt : « touche » plutôt que « clique », pas de raccourcis clavier
+  else html = prefs.guided ? guidePanel() : generalPanel();
+  panel.innerHTML = ML.mobile()?.on() ? ML.touchCopy(html) : html;
+  if (prefs.guided && tab === 'sel' && sel) foldAdvanced(panel);
+  updateTotal();   // au doigt : « touche » plutôt que « clique », pas de raccourcis clavier
 }
 function wallPanel(w) {
   const f = frame(w), horiz = isH(f), vert = isV(f);
@@ -2615,6 +2653,7 @@ function generalPanel() {
   const st = S.settings;
   return `<h3>${esc(S.name)}</h3><div class="muted">Clique un mur, une ouverture, un objet ou une pièce pour le modifier. Clique une <b>cote soulignée</b> pour taper sa valeur exacte.</div>
     <div class="row"><button data-act="openSettings">⚙ Réglages</button><button data-act="openVersions">🕘 Versions</button><button data-act="openHelp">? Aide &amp; glossaire</button><button data-act="startTour">🎓 Guide de démarrage</button></div>
+    <p class="muted">Débutant ? <a href="#" data-act="toggleGuided">Revenir au mode guidé</a> : les étapes et l’essentiel seulement.</p>
     ${ALERTS.length ? `<h4>Points d’attention (${ALERTS.length})</h4>${ALERTS.slice(0, 8).map(a => `<div class="warn clickable" data-act="selItem" data-id="${a.it.id}" style="cursor:pointer">${a.lvl === 'warn' ? '⚠️' : 'ℹ️'} ${esc(a.t)}</div>`).join('')}${ALERTS.length > 8 ? `<p class="muted">… et ${ALERTS.length - 8} autres (pastilles sur le plan).</p>` : ''}` : ''}
     ${tipBox(ML.tipOfDay(), 'Astuce du jour')}
     ${tipBox(ML.TIPS.room)}
@@ -2635,6 +2674,70 @@ function generalPanel() {
     <h4>Raccourcis</h4>
     <div class="muted"><kbd>V</kbd> sélection · <kbd>M</kbd> mur · <kbd>P</kbd> porte · <kbd>F</kbd> fenêtre · <kbd>D</kbd> mesurer · <kbd>R</kbd> pivoter · <kbd>Suppr</kbd> effacer · flèches ±1 cm (<kbd>Maj</kbd> ±10 cm) · <kbd>Ctrl+Z</kbd> annuler</div>`;
 }
+// =====================================================================
+//  Mode guidé : 4 étapes (pièce, meubles, déco, budget), un encadré « que faire ici », réglages précis repliés
+// =====================================================================
+const STEP_NAMES = ['', 'Ma pièce', 'Mes meubles', 'Décoration', 'Budget'];
+function guideNav(s) {
+  return `<div class="next">${s > 1 ? `<button data-act="goStep" data-step="${s - 1}">← ${STEP_NAMES[s - 1]}</button>` : '<span></span>'}${s < 4 ? `<button class="primary" data-act="goStep" data-step="${s + 1}">Étape suivante : ${STEP_NAMES[s + 1]} →</button>` : ''}</div>`;
+}
+function guidePanel() {
+  const s = prefs.step || 1, B = (act, t, sub, extra = '') => `<button data-act="${act}" ${extra}>${t}<span>${sub}</span></button>`;
+  let body = '';
+  if (s === 1) body = `<p>Dessinez les murs de votre logement, puis placez portes et fenêtres. Pour changer un mur existant, cliquez dessus : vous pourrez le déplacer, l’ouvrir ou le supprimer.</p>
+    <div class="big">${B('gTool', '▭ Dessiner un mur', 'cliquez chaque angle, double-clic pour finir', 'data-tool="wall"')}${B('gTool', '⌒ Ajouter une porte', 'puis cliquez sur un mur', 'data-tool="door"')}${B('gTool', '▤ Ajouter une fenêtre', 'puis cliquez sur un mur', 'data-tool="window"')}${B('gBg', '🖼 Partir de mon plan', 'une photo ou une image du plan')}</div>
+    <div class="grid2" style="margin-top:10px">${field('Hauteur sous plafond (cm)', 'root', 'H', 'cm', S.H)}</div>`;
+  else if (s === 2) body = `<p>Ajoutez vos meubles depuis le catalogue, ou créez-en un sur mesure. Cliquez ensuite un meuble pour le déplacer, le tourner, changer sa taille ou sa couleur.</p>
+    <div class="big">${B('gCatalog', '＋ Ajouter un meuble', `${Object.keys(CAT).length - 1} objets avec recherche`)}${B('gCatalog', '✏️ Créer mon meuble', 'bibliothèque, buffet, dressing…')}${B('gCatalog', '✨ Pièce toute prête', 'salon, chambre, cuisine…')}${B('gTool', '📏 Mesurer', 'vérifier un passage', 'data-tool="measure"')}</div>`;
+  else if (s === 3) { const rs = A.rooms.filter(r => r.tags[0]);
+    body = `<p>Choisissez une pièce : vous lui donnerez une ambiance en un clic, puis la couleur des murs et le sol.</p>
+    <div class="big">${rs.slice(0, 10).map(r => `<button data-act="gRoom" data-x="${r.tags[0].x}" data-y="${r.tags[0].y}">🎨 ${esc(roomName(r))}<span>${fm(r.area, 1)} m²${r.tags[0].style ? ' · ' + esc(ML.STYLES[r.tags[0].style]?.label ?? '') : ''}</span></button>`).join('')}</div>
+    ${rs.length ? '' : '<p class="muted">Aucune pièce fermée pour l’instant : revenez à l’étape 1 et fermez les murs.</p>'}`; }
+  else body = `<p>Budget estimé de votre projet : <b>${eur(works().total)}</b>, travaux et mobilier compris.</p>
+    <div class="big">${B('goBudget', '📊 Détail du budget', 'travaux pièce par pièce, prix modifiables')}${B('openDevis', '📄 Voir le devis', 'à imprimer ou à envoyer')}</div>`;
+  return `<div class="guide"><h3><b>${s}</b>${STEP_NAMES[s]}</h3>${body}${guideNav(s)}</div>
+    ${ALERTS.length ? `<h4>Points d’attention (${ALERTS.length})</h4>${ALERTS.slice(0, 5).map(a => `<div class="warn clickable" data-act="selItem" data-id="${a.it.id}" style="cursor:pointer">${a.lvl === 'warn' ? '⚠️' : 'ℹ️'} ${esc(a.t)}</div>`).join('')}` : ''}
+    ${tipBox(ML.tipOfDay(), 'Astuce du jour')}
+    <p class="muted" style="margin-top:14px">Habitué des logiciels de plan ? <a href="#" data-act="toggleGuided">Passer en mode expert</a> pour voir tous les outils et tous les réglages.</p>`;
+}
+const budgetGuide = () => `<div class="guide"><h3><b>4</b>Budget</h3><p>L’estimation de vos travaux et de votre mobilier. Cochez les travaux de chaque pièce, ajustez les prix si vous les connaissez, puis ouvrez le devis à imprimer ou à envoyer.</p>
+  <div class="next"><button data-act="goStep" data-step="3">← Décoration</button><button class="primary" data-act="openDevis">📄 Voir le devis</button></div></div>`;
+function applyGuided() {
+  const s = prefs.step || 1; document.body.classList.toggle('guided', !!prefs.guided); document.body.dataset.step = s;
+  document.querySelectorAll('#steps [data-step]').forEach(b => { const k = +b.dataset.step; b.classList.toggle('on', k === s); b.classList.toggle('done', k < s); });
+}
+function setStep(n) {
+  prefs.step = clamp(n, 1, 4); savePrefs(); applyGuided(); setTool('select');
+  if (n === 4) { sel = null; tab = 'works'; } else if (tab === 'works') tab = 'sel';
+  if (ML.mobile()?.on()) ML.mobile().show(n === 4 ? 'panel' : 'plan');
+  renderPanel(); render2D();
+}
+document.getElementById('steps').addEventListener('click', e => { const b = e.target.closest('[data-step]'); if (b) setStep(+b.dataset.step); });
+// réglages précis : repliés dans le mode guidé (l'état ouvert / fermé est gardé d'un rendu à l'autre)
+const ADV_KEYS = new Set(['x', 'y', 'h', 'elev', 'price', 'look', 'rot', 'name', 'cfg.back', 't', 'posX', 'posY', 'bulge', 'roundR', 'arcA', 'arcB', 'at', 'sill', 'label']);
+const ADV_SECTIONS = /^(Courbure|Arrondir un angle|Mur d’accent|De part et d’autre|Hauteur & verrière)$/;
+const advOpen = new Set();
+function foldAdvanced(root) {
+  const fold = (title, nodes, after) => { const d = document.createElement('details'); d.className = 'adv'; d.dataset.k = title; d.open = advOpen.has(title); const sm = document.createElement('summary'); sm.textContent = title; d.appendChild(sm); nodes.forEach(n => d.appendChild(n)); after(d); return d; };
+  root.querySelectorAll('.grid2').forEach((g, i) => {
+    const adv = [...g.children].filter(l => ADV_KEYS.has(l.querySelector('[data-key]')?.dataset.key));
+    if (!adv.length) return;
+    const inner = document.createElement('div'); inner.className = 'grid2'; adv.forEach(l => inner.appendChild(l));
+    fold(i ? `Réglages précis (${i + 1})` : 'Réglages précis', [inner], d => g.after(d));
+    if (!g.children.length) g.remove();
+  });
+  root.querySelectorAll('h4').forEach(h => {
+    const t = h.textContent.trim(); if (!ADV_SECTIONS.test(t)) return;
+    const nodes = []; let n = h.nextElementSibling;
+    while (n && n.tagName !== 'H4' && n.tagName !== 'DETAILS' && !(n.classList.contains('row') && /Supprimer/.test(n.textContent))) { nodes.push(n); n = n.nextElementSibling; }
+    fold(t, nodes, d => h.replaceWith(d));
+  });
+}
+panel.addEventListener('toggle', e => { const d = e.target; if (d.classList?.contains('adv')) d.open ? advOpen.add(d.dataset.k) : advOpen.delete(d.dataset.k); }, true);
+// A1 : budget total toujours visible, recalculé peu après chaque modification
+let totalT = 0;
+function updateTotal() { clearTimeout(totalT); totalT = setTimeout(() => { try { document.getElementById('bTotal').textContent = '≈ ' + eur(works().total); } catch {} }, 250); }
+document.getElementById('bTotal').onclick = () => { if (prefs.guided) setStep(4); else { sel = null; tab = 'works'; renderPanel(); if (ML.mobile()?.on()) ML.mobile().show('panel'); } };
 function roomsPanel() {
   const rows = A.rooms.map(r => { const st = roomStats(r); return `<tr class="clickable" data-room="${r.cx},${r.cy}" data-tx="${r.tags[0]?.x ?? r.cx}" data-ty="${r.tags[0]?.y ?? r.cy}"><td>${esc(roomName(r))}</td><td class="n">${fm(r.area)}</td><td class="n">${fm(r.perim)}</td><td class="n">${fm(st.wallNet)}</td></tr>`; }).join('');
   const tot = A.rooms.reduce((a, r) => a + r.area, 0);
@@ -2858,6 +2961,13 @@ panel.addEventListener('click', e => {
     if (a === 'setSize') { const it = resolveSel(); if (it) { const f0 = fp(it), cx = f0.x + f0.w / 2, cy = f0.y + f0.h / 2; it.w = +b.dataset.w; it.d = +b.dataset.d; const f1 = fp(it); it.x = r2(cx - f1.w / 2); it.y = r2(cy - f1.h / 2); commit(); } return; }
     if (a === 'startTour') return startTour();
     if (a === 'openWall') return openWall(b.dataset.k);
+    if (a === 'goStep') return setStep(+b.dataset.step);
+    if (a === 'goBudget') { sel = null; tab = 'works'; renderPanel(); return; }
+    if (a === 'toggleGuided') { e.preventDefault(); prefs.guided = !prefs.guided; savePrefs(); applyGuided(); renderPanel(); toast(prefs.guided ? 'Mode guidé : les étapes et l’essentiel seulement.' : 'Mode expert : tous les outils et tous les réglages. Retour au mode guidé dans ⚙ Réglages.', 4000); return; }
+    if (a === 'gTool') { setTool(b.dataset.tool); if (ML.mobile()?.on()) ML.mobile().show('plan'); return; }
+    if (a === 'gBg') return document.getElementById('bBg').click();
+    if (a === 'gCatalog') { if (ML.mobile()?.on()) ML.mobile().show('add'); else document.getElementById('bCatalog').click(); return; }
+    if (a === 'gRoom') { setSel({ kind: 'room', x: +b.dataset.x, y: +b.dataset.y }); return; }
     if (a === 'useCustomPrice') { const it = resolveSel(); if (it) { it.price = customPrice(it); commit(); } return; }
     if (a === 'saveMine') {
       const it = resolveSel(); if (!it) return;
@@ -3965,6 +4075,7 @@ function exportPlan(fmt) {
 function syncPrefsUI() {
   document.getElementById('unitSel').value = prefs.unit; document.getElementById('snap').value = prefs.snap;
   document.getElementById('lMagnet').checked = prefs.magnet;
+  applyGuided?.();
   for (const [id, k] of [['lDims', 'dims'], ['lElec', 'elec'], ['lFurn2', 'furn']]) { document.getElementById(id).checked = prefs.layers[k]; layer[k] = prefs.layers[k]; }
 }
 function openSettings() {
@@ -3983,6 +4094,7 @@ function openSettings() {
     </div>
     <p class="muted">Clavier : flèches = 1 cm, <kbd>Maj</kbd> + flèches = 10 cm, <kbd>Alt</kbd> + flèches = 1 mm. Clique sur n’importe quelle cote soulignée pour taper sa valeur exacte.</p>
     <h4>Aide</h4>
+    <label class="chk"><input type="checkbox" data-target="prefs" data-key="guided" data-unit="bool"${prefs.guided ? ' checked' : ''}><span>Mode guidé : étapes, outils essentiels, réglages précis repliés (recommandé pour débuter)</span></label>
     <label class="chk"><input type="checkbox" data-target="prefs" data-key="tips" data-unit="bool"${prefs.tips !== false ? ' checked' : ''}><span>Afficher les astuces et conseils dans les panneaux (recommandé pour débuter)</span></label>
     <div class="row" style="margin-top:4px"><button data-act="startTour">🎓 Revoir le guide de démarrage</button></div>
     <h4>Couleurs par défaut</h4>

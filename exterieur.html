@@ -71,6 +71,19 @@
   #gzPivot button{border:0;background:transparent;border-radius:8px;padding:6px 9px;font:600 12px system-ui,sans-serif;color:#1f2937;min-height:32px}
   #gzPivot button.on{background:#2563eb;color:#fff}
   #walkHint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:#1d2129e0;color:#fff;padding:6px 12px;border-radius:999px;font-size:12px;display:none;white-space:nowrap;z-index:3}
+  /* mode guidé : outils experts masqués, réglages précis repliés */
+  body.guided #tools [data-tool="panel"], body.guided #tools [data-tool="dim"], body.guided #views [data-view="side"], body.guided #wpBox, body.guided .foot label, body.guided .foot #coords{display:none}
+  .totalbadge{border-radius:999px;font-weight:700;padding:5px 12px;background:#ecfdf5;border-color:#a7f3d0;color:#065f46;white-space:nowrap;flex:none}
+  body.mshell .totalbadge{font-size:12px;padding:4px 9px;min-height:0}
+  .guide{border:1px solid #cddbfb;background:#f6f9ff;border-radius:12px;padding:14px 16px;margin-bottom:12px}
+  .guide h3{margin:0 0 4px} .guide p{margin:4px 0 10px;line-height:1.5}
+  .guide .big{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .guide .big button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;white-space:normal;padding:10px 12px;min-height:52px;font-weight:600}
+  .guide .big button span{font-weight:400;font-size:12px;color:#697386}
+  .guide ol{margin:6px 0 0;padding-left:20px;line-height:1.6}
+  details.adv{margin:10px 0;border:1px solid #e1e5eb;border-radius:10px;padding:0 12px}
+  details.adv > summary{cursor:pointer;padding:9px 0;font-weight:600;color:#697386;list-style:none}
+  details.adv > summary::before{content:'▸ ';} details.adv[open] > summary::before{content:'▾ ';} details.adv[open]{padding-bottom:10px}
   .v3bar{position:absolute;top:8px;left:8px;right:8px;display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap;pointer-events:none;z-index:3}
   .v3bar>*{pointer-events:auto} .v3bar button{background:#ffffffeb} .v3bar button.on{background:var(--accent)}
   .v3menu{width:270px;padding:10px 12px} .v3menu label{display:flex;gap:8px;align-items:center;padding:3px 0;font-size:13px;cursor:pointer}
@@ -166,6 +179,7 @@
   </div>
   <div class="seg"><button id="bUndo" class="ghost" title="Annuler (Ctrl+Z)">↶</button><button id="bRedo" class="ghost" title="Rétablir (Ctrl+Y)">↷</button></div>
   <div class="sp"></div>
+  <button id="bTotal" class="totalbadge" title="Prix estimé du projet : voir le devis">≈ 0 € HT</button>
   <div class="seg dsk"><button data-layout="2d">2D</button><button data-layout="split" class="on">2D + 3D</button><button data-layout="3d">3D</button></div>
   <button id="bHelp" class="ghost dsk" title="Aide (?)">?</button>
 </header>
@@ -324,7 +338,7 @@ function initState() {
   if (meta.template && meta.template !== 'empty') addGenerator(st, meta.template);
   C.ls.set(KEY, JSON.stringify(st)); return st;
 }
-const prefs = Object.assign({ unit: 'cm', snap: '0.01', layout: 'split', aside: 470, v3h: 52, view: 'top', o: { panels: true, xray: false, blocks: true, ground: true, len: false, shadow: true, color: 'mat' }, l: { dims: true, panels: true, grid: true } }, (() => { try { return JSON.parse(C.ls.get(PKEY) || '{}'); } catch { return {}; } })());
+const prefs = Object.assign({ guided: true, unit: 'cm', snap: '0.01', layout: 'split', aside: 470, v3h: 52, view: 'top', o: { panels: true, xray: false, blocks: true, ground: true, len: false, shadow: true, color: 'mat' }, l: { dims: true, panels: true, grid: true } }, (() => { try { return JSON.parse(C.ls.get(PKEY) || '{}'); } catch { return {}; } })());
 const savePrefs = () => C.ls.set(PKEY, JSON.stringify(prefs));
 let sel = [], tab = 'sel', tool = 'select', view = prefs.view;   // sel = [{k:'m'|'p'|'b'|'d', id}]
 let past = [], future = [], lastSaved = '', lastSaveAt = new Date(), lastBackup = 0, nCommit = 0, fileHandle = null;
@@ -1048,6 +1062,8 @@ function renderPanel() {
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
   const html = tab === 'bom' ? bomPanel() : tab === 'gens' ? gensPanel() : tab === 'prices' ? pricesPanel() : selPanel();
   panel.innerHTML = window.MoovoLib.mobile()?.on() ? window.MoovoLib.touchCopy(html) : html;   // au doigt : « touche » plutôt que « clique »
+  if (prefs.guided) foldAdvanced(panel);
+  updateTotal();
 }
 function selPanel() {
   if (!sel.length) return projectPanel();
@@ -1100,9 +1116,31 @@ function selPanel() {
   return projectPanel();
 }
 const moveBlock = () => `<h4>Déplacer de</h4><div class="grid3">${lenF('ΔX', 'mv.0', 0)}${lenF('ΔY', 'mv.1', 0)}${lenF('ΔZ', 'mv.2', 0)}</div>`;
+// mode guidé : par où commencer, en trois temps
+function guideCard() {
+  const empty = !S.members.length && !S.panels.length;
+  return `<div class="guide"><h3>${empty ? 'Par où commencer ?' : 'Et maintenant ?'}</h3>
+    ${empty ? '<p>Choisissez ce que vous voulez construire : donnez quelques dimensions, la structure se dessine toute seule.</p>' : '<p>Cliquez une barre ou un poteau pour l’ajuster. Les flèches et l’anneau en 3D le déplacent et le tournent.</p>'}
+    ${empty ? `<div class="big">${Object.entries(GEN).map(([k, g]) => `<button data-act="gGen" data-gen="${k}">${esc(g.l)}<span>assistant guidé</span></button>`).join('')}</div>` : `<ol><li>Choisissez une <b>ambiance</b> ci-dessous (teinte du bois, bardage).</li><li>Onglet <b>Métré &amp; débit</b> : la liste des barres à acheter.</li><li><b>Générer le devis</b> pour l’imprimer ou l’envoyer.</li></ol>`}
+    <p class="muted" style="margin:10px 0 0">Habitué ? <a href="#" data-act="toggleGuided">Mode expert</a> : tous les outils (panneaux, cotes, vue de côté, niveau Z).</p></div>`;
+}
+function applyGuided() { document.body.classList.toggle('guided', !!prefs.guided); }
+let totalT = 0;
+function updateTotal() { clearTimeout(totalT); totalT = setTimeout(() => { try { const t = devisLines().reduce((a, l) => a + (l.qty || 0) * (l.pu || 0), 0); document.getElementById('bTotal').textContent = '≈ ' + Math.round(t).toLocaleString('fr-FR') + ' € HT'; } catch {} }, 250); }
+// réglages précis repliés : extrémités et déplacement chiffré
+const ADV_SEC = /^(Extrémité A|Extrémité B|Déplacer de)$/i, advOpen = new Set();
+function foldAdvanced(root) {
+  root.querySelectorAll('h4').forEach(h => {
+    const t = h.textContent.trim(); if (!ADV_SEC.test(t)) return;
+    const d = document.createElement('details'); d.className = 'adv'; d.dataset.k = t; d.open = advOpen.has(t);
+    const sm = document.createElement('summary'); sm.textContent = t; d.appendChild(sm);
+    let n = h.nextElementSibling; while (n && n.tagName !== 'H4' && !n.classList.contains('row')) { const nx = n.nextElementSibling; d.appendChild(n); n = nx; }
+    h.replaceWith(d);
+  });
+}
 function projectPanel() {
   const B = bom(), nb = S.members.length, tot = S.members.reduce((a, m) => a + mLen(m), 0);
-  return `<h3>${esc(S.name)}</h3><div class="muted">Clique une barre, un panneau ou un volume pour le modifier. Les cotes soulignées se modifient au clavier.</div>
+  return `${prefs.guided ? guideCard() : '<p class="muted" style="margin:0 0 8px">Débutant ? <a href="#" data-act="toggleGuided">Revenir au mode guidé</a></p>'}<h3>${esc(S.name)}</h3><div class="muted">Clique une barre, un panneau ou un volume pour le modifier. Les cotes soulignées se modifient au clavier.</div>
     <div class="tiles" style="margin-top:10px"><div class="tile"><b>${nb}</b><span>barres · ${fm(tot, 1)} m</span></div><div class="tile"><b>${fm(B.panelRows.reduce((a, r) => a + r.area, 0), 1)} m²</b><span>panneaux</span></div></div>
     <div class="row"><button class="pri" data-act="devis">📄 Générer le devis</button><button data-act="addBlock">＋ Bâtiment existant</button></div>
     ${tipBox(window.MoovoLib.EXT_TIPS.general[Math.floor(Date.now() / 864e5) % window.MoovoLib.EXT_TIPS.general.length], 'Astuce du jour')}
@@ -1174,7 +1212,14 @@ panel.addEventListener('change', e => {
   else if (head === 'price') setPath(S.prices, path, v);
   t.blur(); commit();
 });
-panel.addEventListener('click', e => { const b = e.target.closest('[data-act]'); if (b) act(b.dataset.act, b.dataset); });
+panel.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  if (b.dataset.act === 'toggleGuided') { e.preventDefault(); prefs.guided = !prefs.guided; savePrefs(); applyGuided(); renderPanel(); toast(prefs.guided ? 'Mode guidé : l’essentiel seulement.' : 'Mode expert : tous les outils. Le lien « Mode guidé » reste en bas du panneau du projet.', 4000); return; }
+  if (b.dataset.act === 'gGen') return genDialog(b.dataset.gen);
+  act(b.dataset.act, b.dataset);
+});
+panel.addEventListener('toggle', e => { const d = e.target; if (d.classList?.contains('adv')) d.open ? advOpen.add(d.dataset.k) : advOpen.delete(d.dataset.k); }, true);
+document.getElementById('bTotal').onclick = () => act('devis', {});
 function act(a, ds = {}) {
   const objs = sel.map(find).filter(Boolean);
   if (a === 'del') { for (const s of sel) { if (s.k === 'm') S.members = S.members.filter(x => x.id !== s.id); if (s.k === 'p') S.panels = S.panels.filter(x => x.id !== s.id); if (s.k === 'b') S.blocks = S.blocks.filter(x => x.id !== s.id); if (s.k === 'd') S.dims = S.dims.filter(x => x.id !== s.id); } sel = []; commit(); }
@@ -1382,7 +1427,7 @@ function loop() { const now = performance.now(), dt = Math.min(.05, (now - lastT
 document.title = S.name + ' · Moovo 3D';
 applySizes(); setLayout(prefs.layout); setTool('select'); save(); backup('Ouverture du projet');
 document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === view));
-document.getElementById('wpLbl').textContent = VIEWS[view].h; syncWp();
+document.getElementById('wpLbl').textContent = VIEWS[view].h; syncWp(); applyGuided();
 // interface mobile
 window.MoovoLib.mobileShell({
   planLabel: '2D', addLabel: 'Assistants', planBox: '#planBox', zoom: { in: '#zIn', out: '#zOut', fit: '#zFit' },

@@ -105,7 +105,10 @@
   .guide .big button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;white-space:normal;padding:10px 12px;min-height:56px;font-weight:600}
   .guide .big button span{font-weight:400;font-size:12px;color:var(--muted)}
   .guide .next{display:flex;justify-content:space-between;align-items:center;margin-top:12px;gap:8px;flex-wrap:wrap}
-  details.adv{margin:10px 0;border:1px solid var(--line);border-radius:10px;padding:0 12px}
+  .runmods { display: flex; gap: 2px; margin: 10px 0 4px; height: 38px; }
+    .runmods span { background: var(--soft, #eef2f6); border: 1px solid #cfd6de; border-radius: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 13px; min-width: 0; overflow: hidden; }
+    .runmods small { font-size: 10px; color: #6b7280; }
+    details.adv{margin:10px 0;border:1px solid var(--line);border-radius:10px;padding:0 12px}
   details.adv > summary{cursor:pointer;padding:9px 0;font-weight:600;color:var(--muted);list-style:none}
   details.adv > summary::before{content:'▸ ';} details.adv[open] > summary::before{content:'▾ ';}
   details.adv[open]{padding-bottom:10px}
@@ -657,6 +660,73 @@ function customPrice(it) {
   const panels = 2 * H * it.d + 2 * it.w * it.d + (c.back !== false ? it.w * H : 0) + (cols - 1) * H * it.d + (rows - 1) * it.w * it.d;
   const cells = c.model === 'etagere' || c.fronts === 'ouvert' ? 0 : cols * rows - (c.fronts === 'mixte' ? 1 : 0);
   return r10(panels * 95 + cells * (c.fronts === 'tiroirs' ? 115 : c.fronts === 'vitrees' ? 140 : 75) + (c.model === 'banc' ? it.w * 120 : 0) + 80);
+}
+// =====================================================================
+//  A3 : cuisine linéaire — on donne la longueur et les équipements, les caissons standard se placent seuls
+// =====================================================================
+Object.assign(CAT, { kitchenRun: { label: 'Cuisine complète (remplissage automatique)', w: 3.00, d: .60, h: .90, price: 0, color: '#f3f1ec', cg: 'Cuisine' } });
+const RUN_DEF = { sink: true, dish: true, hob: true, oven: true, fridge: true, tall: 0, uppers: true, hood: true, side: 'L', appl: true, top: '#c9b79c' };
+const runCfg = it => ({ ...RUN_DEF, ...(it.run ?? {}) });
+const RUN_LABEL = { fridge: 'Colonne réfrigérateur', tall: 'Colonne de rangement', sink: 'Évier', dish: 'Lave-vaisselle', hob: 'Plaque', oven: 'Plaque + four', doors: 'Portes', drawers: 'Tiroirs', filler: 'Fileur' };
+// découpe une longueur en caissons du commerce (60, 50, 45, 40, 30 cm) ; le reste devient un fileur
+function runFill(len, kind = 'doors') {
+  const out = []; let L = Math.round(len * 100) / 100;
+  while (L >= .30 - 1e-6) {
+    const w = [.60, .50, .45, .40, .30].find(w => w <= L + 1e-6 && (Math.abs(L - w) < .005 || L - w >= .30 - 1e-6)) ?? [.60, .50, .45, .40, .30].find(w => w <= L + 1e-6);
+    out.push({ w, kind: out.length % 2 && kind === 'doors' && w <= .45 ? 'drawers' : kind }); L = Math.round((L - w) * 100) / 100;
+  }
+  if (L > .005) out.push({ w: L, kind: 'filler' });
+  return out;
+}
+// ordre du triangle d'activité : froid → lavage → cuisson, avec du plan de travail entre chaque
+function runLayout(it) {
+  const c = runCfg(it), W = it.w, cols = [];
+  if (c.fridge) cols.push({ w: .60, kind: 'fridge' });
+  for (let i = 0; i < clamp(Math.round(c.tall) || 0, 0, 4); i++) cols.push({ w: .60, kind: 'tall' });
+  let L = W - cols.reduce((a, m) => a + m.w, 0);
+  const fixed = [];
+  if (c.sink) fixed.push({ w: L - (c.dish ? .60 : 0) - (c.hob ? .60 : 0) >= .80 + .70 ? .80 : .60, kind: 'sink' });
+  if (c.sink && c.dish && L - fixed[0].w - (c.hob ? .60 : 0) >= .60) fixed.push({ w: .60, kind: 'dish' });
+  if (c.hob && L - fixed.reduce((a, m) => a + m.w, 0) >= .60) fixed.push({ w: .60, kind: c.oven ? 'oven' : 'hob' });
+  let free = Math.max(0, L - fixed.reduce((a, m) => a + m.w, 0));
+  // plan de travail : d'abord entre évier et plaque (préparation), puis de part et d'autre de la plaque (on ne cuisine pas collé au mur)
+  let segB = free >= .40 ? .40 : 0; free -= segB;
+  const segC = free >= .30 ? Math.min(free, .60) : 0; free -= segC;
+  const extraB = Math.min(free, .50); if (extraB >= .30) { segB += extraB; free -= extraB; }
+  const segA = free;
+  const sinkPart = fixed.filter(m => m.kind === 'sink' || m.kind === 'dish'), hobPart = fixed.filter(m => m.kind === 'hob' || m.kind === 'oven');
+  // un petit reste (< 30 cm) part en fileur au bout, contre le mur, plutôt qu'entre la colonne et l'évier
+  const mods = segA < .30 ? [...cols, ...sinkPart, ...runFill(segB, 'drawers'), ...hobPart, ...runFill(segC + segA)]
+    : [...cols, ...runFill(segA, 'drawers'), ...sinkPart, ...runFill(segB, 'drawers'), ...hobPart, ...runFill(segC)];
+  if (c.side === 'R') mods.reverse();
+  let x = -W / 2; for (const m of mods) { m.x = x; x += m.w; }
+  return mods;
+}
+const RUN_PRICE = { fridge: [320, 750], tall: [450, 0], sink: [280, 260], dish: [60, 480], hob: [160, 380], oven: [220, 830], doors: [140, 0], drawers: [260, 0], filler: [40, 0] };
+function runPrice(it) {
+  const c = runCfg(it), mods = runLayout(it), base = mods.filter(m => !['fridge', 'tall'].includes(m.kind));
+  let p = 0; for (const m of mods) { const [meuble, app] = RUN_PRICE[m.kind]; p += meuble * (m.kind === 'filler' ? 1 : Math.max(.6, m.w / .6)) + (c.appl ? app : 0); }
+  const topL = base.reduce((a, m) => a + m.w, 0); p += topL * 140;   // plan de travail stratifié au mètre
+  if (c.uppers) p += base.filter(m => !(c.hood && (m.kind === 'hob' || m.kind === 'oven')) && m.kind !== 'filler').reduce((a, m) => a + 90 + m.w * 120, 0);
+  if (c.hood && base.some(m => m.kind === 'hob' || m.kind === 'oven')) p += c.appl ? 280 : 0;
+  return Math.round(p / 10) * 10;
+}
+function runPanel(it) {
+  const c = runCfg(it), mods = runLayout(it);
+  return `<h4>Ma cuisine</h4>
+    <p class="muted" style="margin-top:0">Règle la <b>largeur</b> plus haut : les meubles se recalculent seuls. Place-la contre un mur, le dos (côté plinthe) au mur.</p>
+    <div class="grid2">
+      ${check('Évier', 'item', 'run.sink', c.sink)}${check('Lave-vaisselle', 'item', 'run.dish', c.dish)}
+      ${check('Plaque de cuisson', 'item', 'run.hob', c.hob)}${check('Four sous la plaque', 'item', 'run.oven', c.oven)}
+      ${check('Colonne réfrigérateur', 'item', 'run.fridge', c.fridge)}${check('Meubles hauts', 'item', 'run.uppers', c.uppers)}
+      ${check('Hotte', 'item', 'run.hood', c.hood)}${check('Électroménager compris dans le prix', 'item', 'run.appl', c.appl)}
+      ${field('Colonnes de rangement', 'item', 'run.tall', 'num', c.tall)}
+      ${selectF('Côté du réfrigérateur', 'item', 'run.side', c.side, [['L', 'À gauche'], ['R', 'À droite']])}
+      ${field('Couleur du plan de travail', 'item', 'run.top', 'color', c.top)}
+    </div>
+    <div class="runmods">${mods.map(m => `<span style="flex:${m.w}" title="${RUN_LABEL[m.kind]} ${Math.round(m.w * 100)} cm">${{ fridge: '❄️', tall: '▯', sink: '🚰', dish: '🍽️', hob: '🔥', oven: '🔥', doors: '', drawers: '☰', filler: '' }[m.kind]}<small>${Math.round(m.w * 100)}</small></span>`).join('')}</div>
+    <p class="muted">${mods.length} éléments · estimation <b>${fm(runPrice(it), 0)} €</b> (meubles, plan de travail${c.appl ? ', électroménager' : ''}, hors pose).</p>
+    ${tipBox('Le « triangle d’activité » : réfrigérateur, évier et plaque proches mais pas collés. Garde au moins 40 cm de plan entre l’évier et la plaque pour préparer, et 30 cm entre la plaque et un mur ou une colonne.')}`;
 }
 // « Mes meubles » : modèles enregistrés par la personne, dans ce navigateur
 const MINE_KEY = 'moovo3d-myfurn';
@@ -1503,8 +1573,8 @@ const ovl = (a, b, m = 0) => a.x < b.x + b.w - m && b.x < a.x + a.w - m && a.y <
 // =====================================================================
 //  Magnétisme objet sur objet : pas de chevauchement, objet posé SUR un meuble, alignement avec guides
 // =====================================================================
-const SURFACES = new Set(['table', 'roundTable', 'coffeeTable', 'coffeeRound', 'desk', 'deskCorner', 'sideboard', 'console', 'dresser', 'nightstand', 'counter', 'island', 'bar', 'box', 'tv', 'shoeCabinet', 'vanityTable', 'tableHigh', 'cornerUnit', 'storageUnit', 'filing', 'custom', 'outdoorSet', 'bench']);
-const TOP_H = { table: .75, roundTable: .75, desk: .75, deskCorner: .75, coffeeTable: .40, coffeeRound: .38, nightstand: .50, counter: .90, island: .90, bar: 1.05, tv: .50, outdoorSet: .75, bench: .45, console: .80, sideboard: .80, dresser: .85 };
+const SURFACES = new Set(['kitchenRun', 'table', 'roundTable', 'coffeeTable', 'coffeeRound', 'desk', 'deskCorner', 'sideboard', 'console', 'dresser', 'nightstand', 'counter', 'island', 'bar', 'box', 'tv', 'shoeCabinet', 'vanityTable', 'tableHigh', 'cornerUnit', 'storageUnit', 'filing', 'custom', 'outdoorSet', 'bench']);
+const TOP_H = { kitchenRun: .90, table: .75, roundTable: .75, desk: .75, deskCorner: .75, coffeeTable: .40, coffeeRound: .38, nightstand: .50, counter: .90, island: .90, bar: 1.05, tv: .50, outdoorSet: .75, bench: .45, console: .80, sideboard: .80, dresser: .85 };
 const topOf = it => (it.elev || 0) + (it.type === 'custom' && customCfg(it).model === 'table' ? itemH(it, .75) : itemH(it, TOP_H[it.type] ?? CAT[it.type]?.h ?? .75));
 const TUCKS = new Set(['chair', 'officeChair', 'barStool', 'pouf']);   // sièges qui se glissent sous une table
 let guides = [];
@@ -1632,6 +1702,14 @@ function itemSym(it) {
     case 'vanity': case 'sink': g += `<ellipse cx="0" cy="${n4(d * .05)}" rx="${n4(w * .3)}" ry="${n4(d * .28)}" fill="#fff" ${th}/>`; break;
     case 'wc': g += `<ellipse cx="0" cy="${n4(y + .15 + (d - .15) / 2)}" rx="${n4(w * .38)}" ry="${n4((d - .15) * .44)}" fill="#fff" ${th}/>`; break;
     case 'washer': case 'dryer': g += `<circle r="${n4(Math.min(w, d) * .3)}" fill="#fff" ${th}/>`; break;
+    case 'kitchenRun': { const c = runCfg(it);
+      for (const m of runLayout(it)) {
+        const tall = m.kind === 'fridge' || m.kind === 'tall';
+        g += `<rect x="${n4(m.x)}" y="${n4(y)}" width="${n4(m.w)}" height="${n4(d)}" fill="${tall ? '#d5d9de' : c.top}" fill-opacity=".9" ${st}/>`;
+        if (m.kind === 'sink') g += `<rect x="${n4(m.x + m.w * .15)}" y="${n4(y + d * .22)}" width="${n4(m.w * .7)}" height="${n4(d * .56)}" rx=".04" fill="#fff" ${th}/>`;
+        if (m.kind === 'hob' || m.kind === 'oven') g += [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([a, b]) => `<circle cx="${n4(m.x + m.w / 2 + a * m.w / 4)}" cy="${n4(b * d / 4)}" r="${n4(Math.min(m.w, d) * .14)}" ${th}/>`).join('');
+        if (tall) g += `<path d="M${n4(m.x)},${n4(y)}L${n4(m.x + m.w)},${n4(-y)}" ${th}/>`;
+      } break; }
     case 'hob': g += [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([a, b]) => `<circle cx="${n4(a * w / 4)}" cy="${n4(b * d / 4)}" r="${n4(Math.min(w, d) * .16)}" stroke="#888" stroke-width="1" class="ns" fill="none"/>`).join(''); break;
     case 'table': if (it.chairs) { const lg = Math.max(w, d), cg = Math.min(w, d), n = Math.max(1, Math.floor(lg / .6)); for (let i = 0; i < n; i++) for (const sd of [-1, 1]) { const t = (i + .5) / n * lg - lg / 2, off = sd * (cg / 2 + .22); const [cx, cy] = d >= w ? [off, t] : [t, off]; g += `<rect x="${n4(cx - .2)}" y="${n4(cy - .2)}" width=".4" height=".4" fill="#9ca3af" fill-opacity=".6" ${st}/>`; } } break;
   }
@@ -2648,6 +2726,7 @@ function itemPanel(it) {
     </div>
     ${it.color ? '<div class="row" style="margin-top:6px"><button data-act="resetColor">Couleur d’origine</button></div>' : ''}
     ${it.type === 'custom' ? customPanel(it) : ''}
+    ${it.type === 'kitchenRun' ? runPanel(it) : ''}
     ${SIZES[it.type] ? `<h4>Tailles standard</h4><div class="row" style="margin-top:0">${SIZES[it.type].map(([w2, d2, l]) => `<button data-act="setSize" data-w="${w2}" data-d="${d2}" class="${Math.abs(it.w - w2) < .005 && Math.abs(it.d - d2) < .005 ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}
     ${ALERTS.filter(a => a.it === it).map(a => `<div class="warn">${a.lvl === 'warn' ? '⚠️' : 'ℹ️'} ${esc(a.t)}</div>`).join('')}
     ${norm}
@@ -3014,7 +3093,8 @@ function onFieldChange(e) {
     else w[key] = v;
   } else if (target === 'opening') { obj[key] = v; if (key === 'type' && OPS[v]) { obj.height = OPS[v].h; obj.sill = OPS[v].sill; } clampOpening(obj); }
   else if (target === 'item') {
-    if (key.startsWith('cfg.')) {
+    if (key.startsWith('run.')) { obj.run ??= {}; if (key === 'run.tall') v = clamp(Math.round(v) || 0, 0, 4); setPath(obj, key, v); }
+    else if (key.startsWith('cfg.')) {
       obj.cfg ??= { ...CUSTOM_DEF };
       if (key === 'cfg.cols' || key === 'cfg.rows') v = clamp(Math.round(v), 1, key === 'cfg.cols' ? 10 : 12);
       setPath(obj, key, v);
@@ -3022,6 +3102,7 @@ function onFieldChange(e) {
       if (key === 'cfg.base') obj.elev = v === 'suspendu' ? (obj.elev || (itemH(obj, .8) <= .5 ? .25 : itemH(obj, .8) <= 1 ? 1.45 : .1)) : 0;
     } else if (key === 'rot') { const f = fp(obj); setRot(obj, v, f.x + f.w / 2, f.y + f.h / 2); }
     else { obj[key] = key === 'look' && !v ? null : v; if (key === 'w' || key === 'd') obj[key] = Math.max(.02, v); }
+    if (obj.type === 'kitchenRun' && key !== 'price') obj.price = runPrice(obj);
   }
   else if (target === 'tag') {
     const tg = obj?.tags?.[0];
@@ -3388,6 +3469,53 @@ Object.assign(B3, {
   spa: (g, it) => { const h = itemH(it, .85); add3(g, it.w, h, it.d, 0, 0, 0, M(it.color ?? '#6b5a4a')); add3(g, it.w - .2, .01, it.d - .2, 0, h - .02, 0, M('#7cc6d9', { roughness: .1, transparent: true, opacity: .85 })); },
 });
 // meuble sur mesure : piètement, caisson (côtés, dessus, dessous, fond), séparations, tablettes, façades et poignées
+B3.kitchenRun = (g, it, Hc) => {
+  const c = runCfg(it), D = it.d, front = M(it.color ?? '#f3f1ec'), carc = M('#ece9e2'), top = M(c.top, { roughness: .45 }), plinth = M('#3b3f45');
+  const metal = M('#9aa0a6', { metalness: .7, roughness: .3 }), glassBlk = M('#141416', { roughness: .08, metalness: .2 }), inox = M('#c3c8cc', { metalness: .8, roughness: .25 });
+  const PL = .12, BH = .87, TT = .03, zf = D / 2 - .01, mods = runLayout(it), topH = Math.min(2.15, Hc - .05);
+  const handle = (x, y, horiz, w) => horiz ? add3(g, Math.min(.2, w * .5), .012, .02, x, y, zf + .028, metal) : add3(g, .012, .16, .02, x, y, zf + .028, metal);
+  for (const m of mods) {
+    const cx = m.x + m.w / 2, iw = m.w - .004;
+    if (m.kind === 'fridge' || m.kind === 'tall') {
+      const H = Math.min(2.10, Hc - .03); add3(g, m.w, H, D - .02, cx, 0, -.01, carc);
+      const split = m.kind === 'fridge' ? 1.25 : H * .55;
+      add3(g, iw, split - .004, .018, cx, .002, zf, front); add3(g, iw, H - split - .006, .018, cx, split + .002, zf, front);
+      handle(m.x + m.w - .05, split - .12, false); handle(m.x + m.w - .05, split + .14, false);
+      continue;
+    }
+    add3(g, m.w, PL, D - .06, cx, 0, -.03, plinth); add3(g, m.w, BH - PL, D - .02, cx, PL, -.01, carc);
+    const fh = BH - PL - .004;
+    if (m.kind === 'drawers') for (let j = 0; j < 3; j++) { const hj = fh / 3; add3(g, iw, hj - .004, .018, cx, PL + .002 + j * hj, zf, front); handle(cx, PL + (j + .75) * hj, true, m.w); }
+    else if (m.kind === 'oven') {
+      add3(g, iw, .14, .018, cx, PL + .002, zf, front); handle(cx, PL + .1, true, m.w);
+      add3(g, iw, fh - .15, .02, cx, PL + .15, zf, glassBlk); add3(g, iw * .7, .015, .02, cx, BH - .07, zf + .02, inox);
+    } else if (m.kind === 'dish') { add3(g, iw, fh, .018, cx, PL + .002, zf, front); handle(cx, BH - .06, true, m.w); }
+    else if (m.kind === 'filler') add3(g, iw, fh, .018, cx, PL + .002, zf, front);
+    else { const two = m.w > .5, dw = two ? iw / 2 : iw; for (let k = 0; k < (two ? 2 : 1); k++) { const dx = m.x + .002 + dw / 2 + k * dw; add3(g, dw - .004, fh, .018, dx, PL + .002, zf, front); handle(two ? (k ? dx - dw / 2 + .04 : dx + dw / 2 - .04) : m.x + m.w - .05, BH - .14, false); } }
+    // plan de travail continu, évier et plaque incrustés
+    add3(g, m.w, TT, D + .02, cx, BH, 0, top);
+    if (m.kind === 'sink') {
+      add3(g, m.w * .7, .006, D * .55, cx, BH + TT, 0, inox); add3(g, m.w * .6, .004, D * .45, cx, BH + TT + .004, 0, M('#7d848a', { metalness: .6, roughness: .4 }));
+      const tap = new THREE.Mesh(new THREE.CylinderGeometry(.012, .016, .28, 12), inox); tap.position.set(cx, BH + TT + .14, -D / 2 + .08); g.add(tap);
+      add3(g, .025, .025, .18, cx, BH + TT + .26, -D / 2 + .16, inox);
+    }
+    if (m.kind === 'hob' || m.kind === 'oven') {
+      add3(g, m.w * .9, .008, D * .85, cx, BH + TT, 0, glassBlk);
+      for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { const r = new THREE.Mesh(new THREE.RingGeometry(m.w * .08, m.w * .1, 24), M('#5a5d63')); r.rotation.x = -Math.PI / 2; r.position.set(cx + a * m.w / 4.4, BH + TT + .009, b * D / 4.4); g.add(r); }
+    }
+    // meubles hauts (ou hotte au-dessus de la plaque)
+    if (m.kind === 'filler') continue;
+    const cook = m.kind === 'hob' || m.kind === 'oven';
+    if (cook && c.hood) {
+      add3(g, m.w, .06, .5, cx, 1.62, -D / 2 + .25, inox);
+      add3(g, .26, Math.max(.05, topH - 1.68), .22, cx, 1.68, -D / 2 + .11, inox);
+    } else if (c.uppers && topH - 1.45 > .3) {
+      const uh = topH - 1.45, ud = .35, uz = -D / 2 + ud / 2;
+      add3(g, m.w, uh, ud, cx, 1.45, uz, carc); add3(g, iw, uh - .004, .018, cx, 1.452, uz + ud / 2 + .009, front);
+      handle(m.x + m.w - .05, 1.45 + .1, false);
+    }
+  }
+};
 B3.custom = (g, it, Hc) => {
   const c = customCfg(it), W = it.w, D = it.d, e = it.elev || 0, H = Math.max(.05, Math.min(itemH(it, .8), Hc - e));
   const body = M(it.color ?? '#e9e4db'), front = M(it.color2 ?? it.color ?? '#e9e4db'), metal = M('#9aa0a6', { metalness: .7, roughness: .3 }), leg = M('#2b2f35', { roughness: .5 });
@@ -4857,7 +4985,7 @@ ML.mobileShell({
 setTool('select');
 renderAll();
 requestAnimationFrame(() => { fit(); render2D(); resize3D(); setView('persp'); loop(); });
-if (new URLSearchParams(location.search).has("debug")) window.__m3 = { scene, get cam() { return cam; }, renderer, ctl, build: () => { build3D(); dirty3D = false; }, render: () => renderer.render(scene, cam), S: () => S, opt };
+if (new URLSearchParams(location.search).has("debug")) window.__m3 = { scene, get cam() { return cam; }, renderer, ctl, build: () => { build3D(); dirty3D = false; }, render: () => renderer.render(scene, cam), S: () => S, opt, A: () => A, commit: () => commit(), pick: id => { sel = { kind: "item", id }; tab = "sel"; renderPanel(); } };
 if (new URLSearchParams(location.search).get('demo')) {
   history.replaceState(null, '', location.pathname + '?p=' + encodeURIComponent(PID));
   // appartement témoin : une ambiance par pièce et quelques travaux cochés, pour montrer le rendu final

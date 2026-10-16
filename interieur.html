@@ -379,6 +379,7 @@
         <button id="bCatalog" class="primary" title="Ajouter un objet (A)">＋ Ajouter</button>
         <div class="menu catalog" id="catalog"><input id="catSearch" placeholder="Rechercher un objet… (prise, lit, spot…)"><div id="catList"></div></div>
       </div>
+      <div class="menuwrap" id="lvlWrap"><button id="bLvl" title="Niveaux : rez-de-chaussée, étages, sous-sol">🏢 <span id="lvlName">Plain-pied</span> ▾</button><div class="menu" id="lvlMenu"></div></div>
       <select id="addItem" hidden></select>
       <div class="spacer"></div>
       <div class="seg"><button id="zOut" title="Dézoomer">−</button><span id="zoomPct">100 %</span><button id="zIn" title="Zoomer">+</button><button id="zFit" title="Tout voir (0)">Ajuster</button></div>
@@ -1534,6 +1535,7 @@ function roomStats(r) {
 // =====================================================================
 const ROOF_TYPES = [['none', 'Pas de toit', 'appartement, ou plus tard'], ['flat', 'Toit plat', 'toit-terrasse, acrotère'], ['mono', '1 pan', 'appentis, extension'], ['gable', '2 pans', 'le plus courant'], ['hip', '4 pans', 'pavillon, croupes']];
 const ROOF_COVERS = { tuile: { l: 'Tuiles terre cuite', c: '#a8553c', p: 95 }, ardoise: { l: 'Ardoises', c: '#4a5361', p: 150 }, bac: { l: 'Bac acier', c: '#5f666e', p: 55 }, zinc: { l: 'Zinc à joint debout', c: '#9aa3a8', p: 130 }, epdm: { l: 'Membrane EPDM (toit plat)', c: '#2a2d32', p: 95 } };
+const roofOnTop = () => !lvls() || S.lv === S.levels.length - 1;
 const ROOF_DEF = { type: 'none', pitch: 35, over: .4, cover: 'tuile', ridge: 'auto', insul: true };
 const roofCfg = () => ({ ...ROOF_DEF, ...(S.roof ?? {}) });
 // emprise : rectangle englobant les murs réels (sans les séparations virtuelles)
@@ -1585,6 +1587,75 @@ function openRoof() {
   box.addEventListener('click', e => { const b = e.target.closest('[data-roof]'); if (!b) return; const ty = b.dataset.roof, was = roofCfg(); S.roof = { ...was, type: ty }; if (ty !== was.type && { mono: 15, gable: 35, hip: 30 }[ty]) S.roof.pitch = { mono: 15, gable: 35, hip: 30 }[ty]; if (b.dataset.roof !== 'none') { opt.toit = true; ensure3D(); } upd(); });
   box.addEventListener('change', e => { const t = e.target, k = t.dataset.rf; if (!k) return; const c = roofCfg();
     c[k] = t.type === 'checkbox' ? t.checked : k === 'pitch' ? clamp(+t.value || 35, 5, 60) : k === 'over' ? clamp((+t.value || 0) / 100, 0, 1.2) : t.value; S.roof = c; upd(); });
+}
+// =====================================================================
+//  A15 : plusieurs niveaux — étage(s), sous-sol ; un seul niveau se modifie à la fois
+// =====================================================================
+const LVL_KEYS = ['walls', 'openings', 'items', 'rooms', 'dims', 'baseline', 'H'];
+const lvls = () => S.levels?.length > 1 ? S.levels : null;
+const lvlPick = () => clone(Object.fromEntries(LVL_KEYS.map(k => [k, S[k] ?? null])));
+function lvlStash() { if (S.levels?.length) S.levels[S.lv ?? 0].data = lvlPick(); }
+const lvlData = i => i === (S.lv ?? 0) ? S : S.levels[i].data;
+function lvlLoad(i) { const d = clone(S.levels[i].data); for (const k of LVL_KEYS) S[k] = d[k] ?? (k === 'H' ? 2.5 : k === 'baseline' ? null : []); S.lv = i; }
+const lvlName = () => lvls() ? S.levels[S.lv].name : 'Plain-pied';
+function switchLevel(i) {
+  if (!lvls() || i === S.lv) return;
+  lvlStash(); lvlLoad(i); _lvlCache = null; sel = null; tab = 'sel'; commit(); fit();
+  document.getElementById('lvlName').textContent = lvlName();
+  toast(`🏢 ${lvlName()} : tu modifies maintenant ce niveau. ${i > 0 ? 'Le niveau du dessous apparaît en pointillés pour t’aligner.' : ''}`, 4500);
+}
+function addLevel(dir) {
+  if (!S.levels?.length) S.levels = [{ id: uid(), name: 'Rez-de-chaussée', z: 0, data: null }], S.lv = 0;
+  lvlStash();
+  const zs = S.levels.map((L, i) => ({ z: L.z, H: lvlData(i).H ?? S.H })), top = zs.reduce((a, b) => b.z > a.z ? b : a), bot = zs.reduce((a, b) => b.z < a.z ? b : a);
+  // on garde le contour (murs extérieurs) pour partir sur la même emprise
+  const ext = clone(S.walls.filter(w => w.kind === 'ext')).map(w => ({ ...w, id: uid() }));
+  const ups = S.levels.filter(L => L.z > 0).length, downs = S.levels.filter(L => L.z < 0).length;
+  const L = { id: uid(), name: dir === 'up' ? (ups ? `${ups + 1}e étage` : '1er étage') : (downs ? `Sous-sol ${downs + 1}` : 'Sous-sol'),
+    z: dir === 'up' ? +(top.z + top.H + .2).toFixed(3) : +(bot.z - S.H - .2).toFixed(3),
+    data: { walls: ext, openings: [], items: [], rooms: [], dims: [], baseline: { walls: clone(ext), openings: [] }, H: S.H } };
+  S.levels.push(L); S.levels.sort((a, b) => a.z - b.z);
+  lvlLoad(S.levels.indexOf(L)); _lvlCache = null; sel = null; commit(); fit(); document.getElementById('lvlName').textContent = lvlName();
+  toast(`🏢 ${L.name} ajouté : les murs extérieurs sont repris, dessine les cloisons. Pense à un escalier (catalogue › Construction) aux deux niveaux.`, 6500);
+}
+function delLevel() {
+  if (!lvls()) return;
+  if (!confirm(`Supprimer « ${lvlName()} » et tout ce qu’il contient ? (Ctrl+Z pour revenir en arrière)`)) return;
+  const i = S.lv; S.levels.splice(i, 1); const j = Math.max(0, i - 1); lvlLoad(j);
+  if (S.levels.length === 1) { delete S.levels; S.lv = 0; }
+  _lvlCache = null; sel = null; commit(); fit(); document.getElementById('lvlName').textContent = lvlName();
+}
+function lvlMenuHTML() {
+  const L = S.levels?.length ? S.levels : null;
+  const list = L ? [...L.keys()].reverse().map(i => `<button data-lvl="${i}" class="${i === S.lv ? 'on' : ''}">${i === S.lv ? '● ' : ''}${esc(L[i].name)}<span class="muted">${L[i].z >= 0 ? '+' : ''}${fm(L[i].z, 2)} m</span></button>`).join('') : '<div class="muted" style="padding:6px 10px">Un seul niveau (plain-pied).</div>';
+  return `${list}<hr style="border:0;border-top:1px solid var(--line);margin:6px 0">
+    <button data-lvlact="up">＋ Ajouter un étage au-dessus</button><button data-lvlact="down">＋ Ajouter un sous-sol</button>
+    ${L ? '<button data-lvlact="ren">✎ Renommer ce niveau</button><button data-lvlact="del">🗑 Supprimer ce niveau</button>' : ''}`;
+}
+function lvlMenuClick(e) {
+  const b = e.target.closest('[data-lvl],[data-lvlact]'); if (!b) return; closeMenus();
+  if (b.dataset.lvl != null) return switchLevel(+b.dataset.lvl);
+  const a = b.dataset.lvlact;
+  if (a === 'up' || a === 'down') addLevel(a);
+  else if (a === 'del') delLevel();
+  else if (a === 'ren') { const n = prompt('Nom du niveau', lvlName()); if (n?.trim()) { S.levels[S.lv].name = n.trim().slice(0, 40); document.getElementById('lvlName').textContent = lvlName(); commit(); } }
+}
+// budget de tout le bâtiment : les autres niveaux sont analysés à part (mis en cache tant qu'on ne change pas de niveau)
+let _lvlCache = null;
+function worksAll() {
+  const W = works(); if (!lvls()) return W;
+  const key = S.lv + '|' + JSON.stringify(S.prices).length + '|' + S.levels.length + '|' + JSON.stringify(S.prices);
+  if (_lvlCache?.key !== key) {
+    const keep = lvlPick(), keepLv = S.lv, keepSel = sel, extra = [];
+    try {
+      for (let i = 0; i < S.levels.length; i++) { if (i === keepLv || !S.levels[i].data) continue;
+        for (const k of LVL_KEYS) S[k] = clone(S.levels[i].data[k] ?? (k === 'H' ? 2.5 : k === 'baseline' ? null : []));
+        S.lv = i; analyze(false); const w = works(); for (const l of w.lines) extra.push({ ...l, label: l.sec === 'Toiture' ? l.label : `${S.levels[i].name} · ${l.label}` }); }
+    } finally { for (const k of LVL_KEYS) S[k] = keep[k]; S.lv = keepLv; sel = keepSel; analyze(false); }
+    _lvlCache = { key, lines: extra };
+  }
+  const lines = [...W.lines.map(l => ({ ...l, label: l.sec === 'Toiture' ? l.label : `${lvlName()} · ${l.label}` })), ..._lvlCache.lines];
+  return { ...W, lines, total: lines.reduce((a, l) => a + l.total, 0) + (S.prices.misc || 0) };
 }
 function works() {
   const P = S.prices, H = S.H, out = { lines: [], warnings: [] };
@@ -1657,7 +1728,7 @@ function works() {
   }
   for (const z of S.items.filter(it => it.type === 'wallZone')) { const fin = z.finish ?? 'panel', a = z.w * itemH(z, 1), pu = P.wallFinish?.[fin] ?? ML.WALL_FINISHES[fin]?.price ?? 40; out.lines.push({ label: `Zone murale ${ML.WALL_FINISHES[fin]?.label ?? fin} ${z.name !== CAT.wallZone.label ? ' — ' + z.name : ''}`, qty: `${fm(a)} m²`, key: 'wallFinish.' + fin, unit: '€/m²', total: a * pu, sec: 'Revêtements muraux', qn: a, un: 'm²', pu }); }
   for (const z of S.items.filter(it => it.type === 'floorZone')) { const fin = z.finish ?? 'tile', a = z.w * z.d, pu = P.floor[fin] ?? 50; out.lines.push({ label: `Zone de sol ${FLOORS[fin]?.label ?? fin} ${z.name !== CAT.floorZone.label ? ' — ' + z.name : ''}`, qty: `${fm(a)} m²`, key: 'floor.' + fin, unit: '€/m²', total: a * pu, sec: 'Revêtements de sol', qn: a, un: 'm²', pu }); }
-  out.lines.push(...roofLines());
+  if (roofOnTop()) out.lines.push(...roofLines());
   const eq = S.items.filter(it => it.price > 0 && !isElec(it));
   if (eq.length) out.lines.push({ label: 'Équipements & mobilier ajoutés', qty: eq.map(i => i.name).join(', '), total: eq.reduce((a, i) => a + i.price, 0) });
   out.total = out.lines.reduce((a, l) => a + l.total, 0) + (P.misc || 0);
@@ -1896,6 +1967,9 @@ function render2D() {
   const gx0 = A.ox, gy0 = A.oy, gx1 = A.ox + A.nx / 100, gy1 = A.oy + A.ny / 100, minor = s < .012;
   for (let k = Math.ceil(gx0 * 10); k <= gx1 * 10; k++) if (minor || k % 10 === 0) h += `<line class="${k % 10 ? 'g' : 'gM'}" x1="${k / 10}" y1="${gy0}" x2="${k / 10}" y2="${gy1}"/>`;
   for (let k = Math.ceil(gy0 * 10); k <= gy1 * 10; k++) if (minor || k % 10 === 0) h += `<line class="${k % 10 ? 'g' : 'gM'}" x1="${gx0}" y1="${k / 10}" x2="${gx1}" y2="${k / 10}"/>`;
+  if (lvls()) { const j = S.lv > 0 ? S.lv - 1 : 1, d = S.levels[j]?.data;
+    if (d?.walls) { h += '<g style="pointer-events:none" opacity=".8">'; for (const w of d.walls) if (w.kind !== 'virtual') h += `<line x1="${n4(w.a[0])}" y1="${n4(w.a[1])}" x2="${n4(w.b[0])}" y2="${n4(w.b[1])}" stroke="#94a3b8" stroke-width="${n4(Math.max(w.t, 2 * s))}" stroke-dasharray="${n4(6 * s)} ${n4(4 * s)}" stroke-linecap="butt"/>`;
+      h += `<text x="${n4(A.ox + .2)}" y="${n4(A.oy + .4)}" font-size="${n4(11 * s)}" fill="#64748b">En pointillés : ${esc(S.levels[j].name)}</text></g>`; } }
   // sols
   const selRoom = sel?.kind === 'room' ? A.regionAt(sel.x, sel.y) : null;
   for (const r of A.rooms) {
@@ -3039,7 +3113,7 @@ function guidePanel() {
     body = `<p>Choisissez une pièce : vous lui donnerez une ambiance en un clic, puis la couleur des murs et le sol.</p>
     <div class="big">${rs.slice(0, 10).map(r => `<button data-act="gRoom" data-x="${r.tags[0].x}" data-y="${r.tags[0].y}">🎨 ${esc(roomName(r))}<span>${fm(r.area, 1)} m²${r.tags[0].style ? ' · ' + esc(ML.STYLES[r.tags[0].style]?.label ?? '') : ''}</span></button>`).join('')}</div>
     ${rs.length ? '' : '<p class="muted">Aucune pièce fermée pour l’instant : revenez à l’étape 1 et fermez les murs.</p>'}`; }
-  else body = `<p>Budget estimé de votre projet : <b>${eur(works().total)}</b>, travaux et mobilier compris.</p>
+  else body = `<p>Budget estimé de votre projet : <b>${eur(worksAll().total)}</b>, travaux et mobilier compris.</p>
     <div class="big">${B('goBudget', '📊 Détail du budget', 'travaux pièce par pièce, prix modifiables')}${B('openDevis', '📄 Voir le devis', 'à imprimer ou à envoyer')}${B('carnet', '📘 Carnet de projet', 'plans, vues, surfaces et budget en un PDF')}</div>`;
   return `<div class="guide"><h3><b>${s}</b>${STEP_NAMES[s]}</h3>${body}${guideNav(s)}</div>
     ${ALERTS.length ? `<h4>Points d’attention (${ALERTS.length})</h4>${ALERTS.slice(0, 5).map(a => `<div class="warn clickable" data-act="selItem" data-id="${a.it.id}" style="cursor:pointer">${a.lvl === 'warn' ? '⚠️' : 'ℹ️'} ${esc(a.t)}</div>`).join('')}` : ''}
@@ -3082,7 +3156,7 @@ function foldAdvanced(root) {
 panel.addEventListener('toggle', e => { const d = e.target; if (d.classList?.contains('adv')) d.open ? advOpen.add(d.dataset.k) : advOpen.delete(d.dataset.k); }, true);
 // A1 : budget total toujours visible, recalculé peu après chaque modification
 let totalT = 0;
-function updateTotal() { clearTimeout(totalT); totalT = setTimeout(() => { try { document.getElementById('bTotal').textContent = '≈ ' + eur(works().total); } catch {} }, 250); }
+function updateTotal() { clearTimeout(totalT); totalT = setTimeout(() => { try { document.getElementById('lvlName').textContent = lvlName(); document.getElementById('bTotal').textContent = '≈ ' + eur(worksAll().total); } catch {} }, 250); }
 document.getElementById('bTotal').onclick = () => { if (prefs.guided) setStep(4); else { sel = null; tab = 'works'; renderPanel(); if (ML.mobile()?.on()) ML.mobile().show('panel'); } };
 function roomsPanel() {
   const rows = A.rooms.map(r => { const st = roomStats(r); return `<tr class="clickable" data-room="${r.cx},${r.cy}" data-tx="${r.tags[0]?.x ?? r.cx}" data-ty="${r.tags[0]?.y ?? r.cy}"><td>${esc(roomName(r))}</td><td class="n">${fm(r.area)}</td><td class="n">${fm(r.perim)}</td><td class="n">${fm(st.wallNet)}</td></tr>`; }).join('');
@@ -3175,7 +3249,7 @@ function elecPanel() {
     ${tipBox(ML.TIPS.elec)}`;
 }
 function worksPanel() {
-  const W = works(), P = S.prices, d = W.diff;
+  const W = works(), P = S.prices, d = W.diff, WA = lvls() ? worksAll() : null;
   const priceInput = l => l.key ? `<input type="number" step="any" data-target="price" data-key="${l.key}" data-unit="num" value="${l.key.startsWith('floor.') ? P.floor[l.key.slice(6)] ?? 0 : l.key.startsWith('wallFinish.') ? P.wallFinish?.[l.key.slice(11)] ?? 0 : P[l.key] ?? 0}"> ${l.unit}` : '';
   const rows = W.lines.map(l => `<tr><td>${esc(l.label)}<div class="muted">${esc(l.qty)}</div></td><td class="n">${priceInput(l)}</td><td class="n">${eur(l.total)}</td></tr>`).join('') || `<tr><td colspan="3" class="muted">Aucun travaux pour l’instant : ton banquier dort tranquille. Modifie le plan ou coche des travaux dans une pièce pour le réveiller.</td></tr>`;
   const roomRows = W.rooms.map(({ r, st }) => { const t = st.tag; return `<tr><td>${esc(roomName(r))}<div class="muted">${fm(st.area)} m²</div></td>
@@ -3196,7 +3270,7 @@ function worksPanel() {
     <h4>Budget</h4>
     <table><thead><tr><th>Poste</th><th class="n">Prix unitaire</th><th class="n">Total</th></tr></thead>
       <tbody>${rows}<tr><td>Divers / main d’œuvre forfaitaire</td><td class="n"><input type="number" step="any" data-target="price" data-key="misc" data-unit="num" value="${P.misc}"> €</td><td class="n">${eur(P.misc || 0)}</td></tr></tbody>
-      <tfoot><tr><td colspan="2">Total</td><td class="n">${eur(W.total)}</td></tr></tfoot></table>
+      <tfoot><tr><td colspan="2">Total${WA ? ` · ${esc(lvlName())}` : ""}</td><td class="n">${eur(W.total)}</td></tr>${WA ? `<tr><td colspan="2">Tout le bâtiment (${S.levels.length} niveaux)</td><td class="n">${eur(WA.total)}</td></tr>` : ""}</tfoot></table>
     <h4>Hypothèses</h4>
     <div class="grid2">
       ${field('Faïence hauteur générale (cm)', 'settings', 'tileH', 'cm', S.settings.tileH)}
@@ -4095,7 +4169,7 @@ function build3D() {
       }
     }
     const div = document.createElement('div'); div.className = 'lbl3'; div.innerHTML = `${esc(roomName(r))}<span>${fm(r.area, 1)} m²</span>`;
-    const lab = new CSS2DObject(div); lab.position.set(t ? t.x : r.cx, .3, t ? t.y : r.cy); lab.visible = opt.lbl && viewMode !== 'walk' && viewMode !== 'tour' && !(opt.toit && roofCfg().type !== 'none' && opt.wallMode !== 'cut'); labels.add(lab);
+    const lab = new CSS2DObject(div); lab.position.set(t ? t.x : r.cx, .3, t ? t.y : r.cy); lab.visible = opt.lbl && viewMode !== 'walk' && viewMode !== 'tour' && !(opt.toit && roofCfg().type !== 'none' && opt.wallMode !== 'cut' && roofOnTop()); labels.add(lab);
   }
   const tm = opt.real ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping;
   if (renderer.toneMapping !== tm) { renderer.toneMapping = tm; _m.forEach(m => { m.needsUpdate = true; }); _wf.forEach(m => { m.needsUpdate = true; }); }
@@ -4130,7 +4204,8 @@ function build3D() {
     root.add(g);
     if (sel?.kind === 'item' && sel.id === it.id) root.add(new THREE.BoxHelper(g, 0x2563eb));
   }
-  if (opt.toit && viewMode !== 'walk' && opt.wallMode !== 'cut') build3DRoof();
+  if (opt.toit && viewMode !== 'walk' && opt.wallMode !== 'cut' && roofOnTop()) build3DRoof();
+  if (lvls()) build3DLevels();
 }
 // texture de couverture dessinée (1 m × 1 m) : rangs de tuiles, d'ardoises, nervures de bac, joints de zinc
 const _roofTex = {};
@@ -4144,6 +4219,17 @@ function roofTex(kind, col) {
   else if (kind === 'zinc') for (let i = 0; i < 5; i++) { g.fillStyle = dark; g.fillRect(i * 51, 0, 3, 256); g.fillStyle = lite; g.fillRect(i * 51 + 3, 0, 2, 256); }
   const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
   return (_roofTex[k] = t);
+}
+function build3DLevels() {
+  const z0 = S.levels[S.lv].z, mat = M('#e4e0d8', { roughness: .95 }), slab = M('#cfcac1', { roughness: .95 });
+  for (let i = 0; i < S.lv; i++) {
+    const d = S.levels[i].data; if (!d?.walls) continue; const dz = S.levels[i].z - z0, H = d.H ?? S.H;
+    for (const w of d.walls) { if (w.kind === 'virtual') continue;
+      const dx = w.b[0] - w.a[0], dy = w.b[1] - w.a[1], L = Math.hypot(dx, dy); if (L < .02) continue;
+      const m = add3(root, L, H, w.t, (w.a[0] + w.b[0]) / 2, dz, (w.a[1] + w.b[1]) / 2, mat); m.rotation.y = -Math.atan2(dy, dx); m.castShadow = m.receiveShadow = true; }
+  }
+  // plancher sous le niveau affiché quand il y a un niveau dessous
+  if (S.lv > 0) { const b = roofBox(); if (b) add3(root, b.x1 - b.x0, .2, b.y1 - b.y0, b.cx, -.2, b.cy, slab).receiveShadow = true; }
 }
 function build3DRoof() {
   const q = roofQty(); if (!q) return;
@@ -4546,7 +4632,7 @@ document.getElementById('modal').addEventListener('pointerdown', e => { if (e.ta
 // --- versions
 // Devis : quantités du plan, prix modifiables, document imprimable
 function devisLines() {
-  const W = works(), lines = [];
+  const W = worksAll(), lines = [];
   for (const l of W.lines) if (l.qn != null) lines.push({ section: l.sec, designation: l.label, qty: +l.qn.toFixed(3), unit: l.un, pu: l.pu });
   const byType = {};
   for (const it of S.items) if (it.price > 0) { const k = it.type + '|' + it.name + '|' + it.price; (byType[k] ??= { it, n: 0 }).n++; }
@@ -4665,7 +4751,7 @@ function openElevation(w, sd) {
 // =====================================================================
 function openCarnet() {
   if (dirty3D) { build3D(); dirty3D = false; }
-  const co = MoovoCore.company(), W = works(), today = new Date().toLocaleDateString('fr-FR');
+  const co = MoovoCore.company(), W = worksAll(), today = new Date().toLocaleDateString('fr-FR');
   const plan = planSVGString().svg, shot = renderImage(1600, 1000);
   const rooms = A.rooms.filter(r => r.tags[0]).map(r => ({ r, st: roomStats(r) }));
   // vues de face : faces de mur bordant une pièce nommée et portant des ouvertures ou des meubles
@@ -5100,7 +5186,9 @@ document.getElementById('tourNext').onclick = () => { if (tourI >= TOUR.length -
 document.getElementById('tourSkip').onclick = endTour;
 document.getElementById('tour').addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Escape') endTour(); });
 // --- menus
-const menus = [['bProj', 'projMenu'], ['bCatalog', 'catalog'], ['bV3opt', 'v3menu']];
+const menus = [['bProj', 'projMenu'], ['bCatalog', 'catalog'], ['bV3opt', 'v3menu'], ['bLvl', 'lvlMenu']];
+document.getElementById('bLvl').addEventListener('click', () => { document.getElementById('lvlMenu').innerHTML = lvlMenuHTML(); });
+document.getElementById('lvlMenu').addEventListener('click', lvlMenuClick);
 function closeMenus(except) { for (const [, m] of menus) if (m !== except) document.getElementById(m).classList.remove('open'); }
 for (const [b, m] of menus) document.getElementById(b).addEventListener('click', e => { e.stopPropagation(); const el = document.getElementById(m); const open = !el.classList.contains('open'); closeMenus(); el.classList.toggle('open', open); if (open && m === 'catalog') { renderCatalog(); if (!ML.mobile()?.on()) document.getElementById('catSearch').focus(); } });
 document.addEventListener('pointerdown', e => { if (!e.target.closest('.menuwrap')) closeMenus(); });
@@ -5214,7 +5302,8 @@ ML.mobileShell({
 setTool('select');
 renderAll();
 requestAnimationFrame(() => { fit(); render2D(); resize3D(); setView('persp'); loop(); });
-if (new URLSearchParams(location.search).has("debug")) window.__m3 = { scene, get cam() { return cam; }, renderer, ctl, build: () => { build3D(); dirty3D = false; }, render: () => renderer.render(scene, cam), S: () => S, opt, A: () => A, commit: () => commit(), pick: id => { sel = { kind: "item", id }; tab = "sel"; renderPanel(); }, fn: { fitLayout, kitLayout, doorZones, autoFurnish, autoKits } };
+document.getElementById("lvlName").textContent = lvlName();
+if (new URLSearchParams(location.search).has("debug")) window.__m3 = { scene, get cam() { return cam; }, renderer, ctl, build: () => { build3D(); dirty3D = false; }, render: () => renderer.render(scene, cam), S: () => S, opt, A: () => A, commit: () => commit(), pick: id => { sel = { kind: "item", id }; tab = "sel"; renderPanel(); }, fn: { fitLayout, kitLayout, doorZones, autoFurnish, autoKits, worksAll, works } };
 if (new URLSearchParams(location.search).get('demo')) {
   history.replaceState(null, '', location.pathname + '?p=' + encodeURIComponent(PID));
   // appartement témoin : une ambiance par pièce et quelques travaux cochés, pour montrer le rendu final

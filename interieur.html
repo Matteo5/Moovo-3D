@@ -326,6 +326,7 @@
       <button data-cmd="open">📂 Ouvrir un fichier… <kbd>Ctrl+O</kbd></button>
       <hr>
       <button data-cmd="devis">📄 Générer le devis…</button>
+      <button data-cmd="carnet">📘 Carnet de projet (PDF)…</button>
       <button data-cmd="share">🔗 Partager par lien…</button>
       <button data-cmd="baseline">🏁 Définir l’état actuel comme « existant »</button>
       <hr>
@@ -552,7 +553,7 @@ const CAT = {
   island:     { label: 'Îlot central',             w: 1.80, d: .90, price: 1200, color: '#f3f1ec' },
   vmc:        { label: 'Bouche VMC',                   w: .15, d: .15, h: .03, price: 40, group: 'Chauffage & ventilation', elec: 'vmc', sym: 'V', color: '#94a3b8', ceil: true },
 };
-const ORDER = { coffrage: -1, rug: 0, rugRound: 0, shower: 1, bath: 1, walkIn: 1 };
+const ORDER = { coffrage: -1, floorZone: -.5, rug: 0, rugRound: 0, shower: 1, bath: 1, walkIn: 1 };
 // Catalogue étendu (cg = rubrique du catalogue pour le mobilier libre)
 Object.assign(CAT, {
   // Séjour
@@ -698,6 +699,11 @@ Object.assign(CAT, {
   pmrChair:  { label: 'Emprise fauteuil roulant (80 × 130 cm)', w: .80, d: 1.30, price: 0, color: '#2563eb', cg: 'Accessibilité' },
 });
 const PMR = new Set(['pmrCircle', 'pmrChair']);
+// Zones décoratives : une partie de mur (soubassement, lambris, carrelage partiel) ou de sol (carrelage délimité, parquet en îlot)
+Object.assign(CAT, {
+  wallZone:  { label: 'Zone murale (soubassement, lambris, carrelage…)', w: 1.20, d: .012, h: 1.00, elev: 0, price: 0, color: '#c8d3cf', cg: 'Décoration', finish: 'panel' },
+  floorZone: { label: 'Zone de sol (carrelage, parquet délimité…)', w: 1.50, d: 1.20, price: 0, color: '#e3e8ec', cg: 'Décoration', finish: 'tile' },
+});
 // Tailles standard proposées dans le panneau de l'objet : [largeur, profondeur, libellé]
 const SIZES = {
   bed: [[.9, 1.9, '90×190'], [1.4, 1.9, '140×190'], [1.6, 2.0, '160×200'], [1.8, 2.0, '180×200']],
@@ -754,7 +760,7 @@ const CAT_GROUP = t => CAT[t]?.group ?? CAT[t]?.cg ?? ({
   shower: 'Salle de bain', bath: 'Salle de bain', vanity: 'Salle de bain', wc: 'Salle de bain', washer: 'Salle de bain', dryer: 'Salle de bain', towel: 'Salle de bain', glass: 'Salle de bain',
   halfwall: 'Construction', gaine: 'Construction',
 }[t] ?? 'Divers');
-const MOUNT = new Set(['shelf', 'wallCabinet', 'hood', 'tvWall', 'mirror', 'artwork', 'curtain', 'backsplash', 'bioFire', 'mirrorCabinet', 'deskWall']);
+const MOUNT = new Set(['shelf', 'wallCabinet', 'hood', 'tvWall', 'mirror', 'artwork', 'curtain', 'backsplash', 'bioFire', 'mirrorCabinet', 'deskWall', 'wallZone']);
 // Matières de crédence : revêtements texturés de la bibliothèque + verre laqué et inox
 const SPLASH = [['subway', 'Carrelage métro'], ['zellige', 'Zellige'], ['concrete', 'Béton ciré'], ['stone', 'Pierre'], ['lime', 'Tadelakt'], ['glass', 'Verre laqué'], ['inox', 'Inox brossé'], ['marble', 'Marbre']];   // objets posés contre un mur en hauteur
 // Sols
@@ -1407,6 +1413,8 @@ function works() {
     const cnt = {}; for (const i of el) cnt[CAT[i.type].label] = (cnt[CAT[i.type].label] ?? 0) + 1;
     out.lines.push({ label: 'Électricité & éclairage (fourni-posé, indicatif)', qty: Object.entries(cnt).map(([k, n]) => `${n} × ${k}`).join(', '), total: el.reduce((a, i) => a + i.price, 0) });
   }
+  for (const z of S.items.filter(it => it.type === 'wallZone')) { const fin = z.finish ?? 'panel', a = z.w * itemH(z, 1), pu = P.wallFinish?.[fin] ?? ML.WALL_FINISHES[fin]?.price ?? 40; out.lines.push({ label: `Zone murale ${ML.WALL_FINISHES[fin]?.label ?? fin} ${z.name !== CAT.wallZone.label ? ' — ' + z.name : ''}`, qty: `${fm(a)} m²`, key: 'wallFinish.' + fin, unit: '€/m²', total: a * pu, sec: 'Revêtements muraux', qn: a, un: 'm²', pu }); }
+  for (const z of S.items.filter(it => it.type === 'floorZone')) { const fin = z.finish ?? 'tile', a = z.w * z.d, pu = P.floor[fin] ?? 50; out.lines.push({ label: `Zone de sol ${FLOORS[fin]?.label ?? fin} ${z.name !== CAT.floorZone.label ? ' — ' + z.name : ''}`, qty: `${fm(a)} m²`, key: 'floor.' + fin, unit: '€/m²', total: a * pu, sec: 'Revêtements de sol', qn: a, un: 'm²', pu }); }
   const eq = S.items.filter(it => it.price > 0 && !isElec(it));
   if (eq.length) out.lines.push({ label: 'Équipements & mobilier ajoutés', qty: eq.map(i => i.name).join(', '), total: eq.reduce((a, i) => a + i.price, 0) });
   out.total = out.lines.reduce((a, l) => a + l.total, 0) + (P.misc || 0);
@@ -1496,7 +1504,7 @@ const TOP_H = { table: .75, roundTable: .75, desk: .75, deskCorner: .75, coffeeT
 const topOf = it => (it.elev || 0) + (it.type === 'custom' && customCfg(it).model === 'table' ? itemH(it, .75) : itemH(it, TOP_H[it.type] ?? CAT[it.type]?.h ?? .75));
 const TUCKS = new Set(['chair', 'officeChair', 'barStool', 'pouf']);   // sièges qui se glissent sous une table
 let guides = [];
-const passThrough = it => it.type.startsWith('rug') || PMR.has(it.type) || CAT[it.type]?.group || MOUNT.has(it.type) || CAT[it.type]?.ceil;
+const passThrough = it => it.type.startsWith('rug') || it.type === 'floorZone' || PMR.has(it.type) || CAT[it.type]?.group || MOUNT.has(it.type) || CAT[it.type]?.ceil;
 function magnetItem(it) {
   guides = [];
   if (!prefs.magnet || passThrough(it)) return '';
@@ -1588,6 +1596,7 @@ function itemSym(it) {
   switch (it.type) {
     case 'roundTable': if (it.chairs) { const r = Math.min(w, d) / 2, n = Math.max(2, Math.min(8, Math.round(2 * Math.PI * r / .6))); for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; g += `<rect x="${n4(Math.cos(a) * (r + .2) - .2)}" y="${n4(Math.sin(a) * (r + .2) - .2)}" width=".4" height=".4" fill="#9ca3af" fill-opacity=".6" ${st}/>`; } } break;
     case 'plantTall': case 'plantSmall': case 'planter': g += `<circle r="${n4(Math.min(w, d) * .38)}" fill="#6aa56f" ${th}/>`; break;
+    case 'floorZone': g = `<rect x="${n4(x)}" y="${n4(y)}" width="${n4(w)}" height="${n4(d)}" fill="${FLOORS[it.finish ?? 'tile']?.color ?? '#e3e8ec'}" fill-opacity=".75" stroke="#6b7280" stroke-width="1" stroke-dasharray="5 3" class="ns"/>`; break;
     case 'pmrCircle': g = `<circle r="${n4(Math.min(w, d) / 2)}" fill="#2563eb" fill-opacity=".08" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="6 4" class="ns"/><text x="0" y="0" font-size="${n4(18 * s)}" text-anchor="middle" dominant-baseline="central" fill="#2563eb">♿</text>`; break;
     case 'pmrChair': g = `<rect x="${n4(x)}" y="${n4(y)}" width="${n4(w)}" height="${n4(d)}" rx="${n4(4 * s)}" fill="#2563eb" fill-opacity=".08" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="6 4" class="ns"/><text x="0" y="0" font-size="${n4(16 * s)}" text-anchor="middle" dominant-baseline="central" fill="#2563eb">♿</text>`; break;
     case 'stairsSpiral': { const R = Math.min(w, d) / 2, n = 13; g = `<circle r="${n4(R)}" fill="${base}" fill-opacity=".9" ${st}/><circle r=".05" fill="#374151"/>`; for (let i = 0; i < n; i++) { const a = i * Math.PI * 1.65 / n; g += `<line x1="0" y1="0" x2="${n4(Math.cos(a) * R)}" y2="${n4(-Math.sin(a) * R)}" ${th}/>`; } break; }
@@ -2535,6 +2544,7 @@ function wallPanel(w) {
     </div>`; }).join('')}
     <p class="muted" style="margin:4px 0 0">Le mur longe plusieurs pièces ? L’accent ne s’applique qu’à la pièce indiquée.</p>
     ${tipBox('Un seul mur d’accent par pièce, de préférence celui qu’on voit en entrant ou derrière la tête de lit. Deux, c’est un parti pris ; quatre, c’est une pièce d’une autre couleur.')}`}
+    ${isArc(w) ? '' : '<div class="row"><button data-act="elev">📐 Vue de face cotée</button></div>'}
     <h4>De part et d’autre</h4><ul class="muted" style="margin:0;padding-left:18px">${sideTxt}</ul>
     <p class="muted">Déplacer le mur (glisser, flèches, ou champ « Position ») étire aussi les murs qui s’y accrochent. Le point de coupe est celui où tu as cliqué.</p>
     <div class="row"><button data-act="split">Couper au point cliqué</button><button data-act="del" class="danger">Supprimer le mur</button></div>
@@ -2640,6 +2650,8 @@ function itemPanel(it) {
     ${tipBox(ML.TIPS.byGroup[CAT_GROUP(it.type)] ?? ML.TIPS.item)}
     ${['shower', 'bath'].includes(it.type) ? check('Zone humide : faïence montée à la hauteur « zone humide » sur les murs qu’elle touche', 'item', 'wet', it.wet) : ''}
     ${it.type === 'table' ? check('Chaises autour', 'item', 'chairs', it.chairs) : ''}
+    ${it.type === 'wallZone' ? `<div class="grid2">${selectF('Revêtement', 'item', 'finish', it.finish ?? 'panel', Object.entries(ML.WALL_FINISHES).map(([k, v]) => [k, v.label]), 'full')}</div>${tipBox('Un soubassement monte en général à 1/3 de la hauteur (80 cm à 1,10 m). Plus sombre en bas, plus clair en haut : la pièce paraît plus haute et le bas des murs s’abîme moins.')}` : ''}
+    ${it.type === 'floorZone' ? `<div class="grid2">${selectF('Revêtement de sol', 'item', 'finish', it.finish ?? 'tile', Object.entries(FLOORS).map(([k, v]) => [k, v.label]), 'full')}</div>${tipBox('Une zone de sol délimite un espace sans cloison : carreaux de ciment devant l’évier, parquet sous le coin salon. Prévois une barre de seuil ou un joint de dilatation entre les deux matières.')}` : ''}
     ${it.type === 'backsplash' ? `<div class="grid2">${selectF('Matière de la crédence', 'item', 'finish', it.finish ?? 'subway', SPLASH, 'full')}</div>${tipBox('Une crédence monte d’environ 60 cm entre le plan de travail et les meubles hauts. Derrière les plaques, préfère un matériau qui supporte la chaleur (carrelage, inox, verre trempé). Le papier peint, lui, vit sa meilleure vie ailleurs.')}` : ''}
     ${it.type === 'halfwall' ? check(`Verrière au-dessus, jusqu’au plafond (${cmTxt(S.H - itemH(it, 1.2))} ${UNIT()})`, 'item', 'glassAbove', !!it.glassAbove) : ''}
     <div class="row"><button data-act="rotate">↻ Pivoter (R)</button><button data-act="dup">Dupliquer</button><button data-act="del" class="danger">Supprimer</button></div>`;
@@ -2775,14 +2787,14 @@ function guidePanel() {
     <div class="big">${rs.slice(0, 10).map(r => `<button data-act="gRoom" data-x="${r.tags[0].x}" data-y="${r.tags[0].y}">🎨 ${esc(roomName(r))}<span>${fm(r.area, 1)} m²${r.tags[0].style ? ' · ' + esc(ML.STYLES[r.tags[0].style]?.label ?? '') : ''}</span></button>`).join('')}</div>
     ${rs.length ? '' : '<p class="muted">Aucune pièce fermée pour l’instant : revenez à l’étape 1 et fermez les murs.</p>'}`; }
   else body = `<p>Budget estimé de votre projet : <b>${eur(works().total)}</b>, travaux et mobilier compris.</p>
-    <div class="big">${B('goBudget', '📊 Détail du budget', 'travaux pièce par pièce, prix modifiables')}${B('openDevis', '📄 Voir le devis', 'à imprimer ou à envoyer')}</div>`;
+    <div class="big">${B('goBudget', '📊 Détail du budget', 'travaux pièce par pièce, prix modifiables')}${B('openDevis', '📄 Voir le devis', 'à imprimer ou à envoyer')}${B('carnet', '📘 Carnet de projet', 'plans, vues, surfaces et budget en un PDF')}</div>`;
   return `<div class="guide"><h3><b>${s}</b>${STEP_NAMES[s]}</h3>${body}${guideNav(s)}</div>
     ${ALERTS.length ? `<h4>Points d’attention (${ALERTS.length})</h4>${ALERTS.slice(0, 5).map(a => `<div class="warn clickable" data-act="selItem" data-id="${a.it.id}" style="cursor:pointer">${a.lvl === 'warn' ? '⚠️' : 'ℹ️'} ${esc(a.t)}</div>`).join('')}` : ''}
     ${tipBox(ML.tipOfDay(), 'Astuce du jour')}
     <p class="muted" style="margin-top:14px">Habitué des logiciels de plan ? <a href="#" data-act="toggleGuided">Passer en mode expert</a> pour voir tous les outils et tous les réglages.</p>`;
 }
 const budgetGuide = () => `<div class="guide"><h3><b>4</b>Budget</h3><p>L’estimation de vos travaux et de votre mobilier. Cochez les travaux de chaque pièce, ajustez les prix si vous les connaissez, puis ouvrez le devis à imprimer ou à envoyer.</p>
-  <div class="next"><button data-act="goStep" data-step="3">← Décoration</button><button class="primary" data-act="openDevis">📄 Voir le devis</button></div></div>`;
+  <div class="next"><button data-act="goStep" data-step="3">← Décoration</button><span><button data-act="carnet">📘 Carnet de projet</button> <button class="primary" data-act="openDevis">📄 Voir le devis</button></span></div></div>`;
 function applyGuided() {
   const s = prefs.step || 1; document.body.classList.toggle('guided', !!prefs.guided); document.body.dataset.step = s;
   document.querySelectorAll('#steps [data-step]').forEach(b => { const k = +b.dataset.step; b.classList.toggle('on', k === s); b.classList.toggle('done', k < s); });
@@ -3043,6 +3055,8 @@ panel.addEventListener('click', e => {
     if (a === 'setSize') { const it = resolveSel(); if (it) { const f0 = fp(it), cx = f0.x + f0.w / 2, cy = f0.y + f0.h / 2; it.w = +b.dataset.w; it.d = +b.dataset.d; const f1 = fp(it); it.x = r2(cx - f1.w / 2); it.y = r2(cy - f1.h / 2); commit(); } return; }
     if (a === 'startTour') return startTour();
     if (a === 'openWall') return openWall(b.dataset.k);
+    if (a === 'elev') { const w = resolveSel(); if (w) openElevation(w); return; }
+    if (a === 'carnet') return openCarnet();
     if (a === 'goStep') return setStep(+b.dataset.step);
     if (a === 'goBudget') { sel = null; tab = 'works'; renderPanel(); return; }
     if (a === 'toggleGuided') { e.preventDefault(); prefs.guided = !prefs.guided; savePrefs(); applyGuided(); renderPanel(); toast(prefs.guided ? 'Mode guidé : les étapes et l’essentiel seulement.' : 'Mode expert : tous les outils et tous les réglages. Retour au mode guidé dans ⚙ Réglages.', 4000); return; }
@@ -3236,6 +3250,17 @@ B3.dryer = B3.washer;
 // nouveautés du catalogue
 const pmr3D = (g, it) => { const m = M('#2563eb', { transparent: true, opacity: .18, depthWrite: false }); if (it.type === 'pmrCircle') { const o = new THREE.Mesh(new THREE.CylinderGeometry(.5, .5, .006, 48), m); o.scale.set(it.w, 1, it.d); o.position.y = .006; g.add(o); } else add3(g, it.w, .006, it.d, 0, .004, 0, m); };
 B3.pmrCircle = pmr3D; B3.pmrChair = pmr3D;
+B3.wallZone = (g, it) => {
+  const e = it.elev || 0, h = itemH(it, 1), mat = wallFinishMat({ wallFinish: it.finish ?? 'panel', paintColor: it.color ?? '#c8d3cf' });
+  const pg = new THREE.PlaneGeometry(it.w, h), uv = pg.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * it.w, uv.getY(i) * h);
+  const p = new THREE.Mesh(pg, mat); p.position.set(0, e + h / 2, -it.d / 2 + .009); g.add(p);
+};
+B3.floorZone = (g, it) => {
+  const fin = it.finish ?? 'tile', pg = new THREE.PlaneGeometry(it.w, it.d); pg.rotateX(-Math.PI / 2);
+  const pos = pg.attributes.position, uv = pg.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, pos.getX(i), -pos.getZ(i));
+  const mat = opt.tex && TEX[fin] ? new THREE.MeshStandardMaterial({ map: TEX[fin], color: it.color && it.color !== CAT.floorZone.color ? it.color : '#ffffff', roughness: .8, envMapIntensity: .3 }) : M(it.color ?? FLOORS[fin]?.color ?? '#ddd', { roughness: .85 });
+  const p = new THREE.Mesh(pg, mat); p.position.y = .004; g.add(p);
+};
 const cylA = (g, r, h, x, y0, z, m, seg = 16, r2_ = r) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(r, r2_, h, seg), m); o.position.set(x, y0 + h / 2, z); g.add(o); return o; };
 Object.assign(B3, {
   sofaBed: (g, it, Hc) => B3.sofa(g, it, Hc),
@@ -3760,6 +3785,7 @@ function build3D() {
     const f = fp(it), g = new THREE.Group();
     g.position.set(f.x + f.w / 2, 0, f.y + f.h / 2); g.rotation.y = -it.rot * Math.PI / 180;
     (B3[it.type] ?? B3.box)(g, it, Hc);
+    { const bb = new THREE.Box3().setFromObject(g); if (isFinite(bb.min.y)) ITEM_Z.set(it.id, [Math.max(0, bb.min.y), bb.max.y]); }
     g.traverse(o => {
       if (!o.isMesh) return;
       o.castShadow = o.receiveShadow = true; o.userData.pick = { kind: 'item', id: it.id };
@@ -4134,6 +4160,112 @@ document.getElementById('mBody').addEventListener('click', e => {
   if (b.dataset.vact === 'dl' && it) download(it.data, slug(S.name) + '-' + new Date(it.t).toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.json', 'application/json');
   if (b.dataset.vact === 'del' && it && confirm('Supprimer cette version ?')) { list.splice(i, 1); lsSet(BKEY, JSON.stringify(list)); openVersions(); }
 });
+// =====================================================================
+//  A4 : vue de face cotée d'une face de mur (ouvertures, meubles contre le mur, hauteurs)
+// =====================================================================
+const ITEM_Z = new Map();   // id d'objet -> [bas, haut] mesurés sur la 3D
+function faceItems(w, sd) {
+  const f = frame(w), out = [];
+  for (const it of S.items) {
+    const c = CAT[it.type] ?? {}; if (c.ceil || it.type.startsWith('rug') || PMR.has(it.type) || it.type === 'floorZone') continue;
+    const g = fp(it), pts = [[g.x, g.y], [g.x + g.w, g.y], [g.x, g.y + g.h], [g.x + g.w, g.y + g.h]];
+    const ds = pts.map(p => ((p[0] - w.a[0]) * f.n[0] + (p[1] - w.a[1]) * f.n[1]) * sd - w.t / 2), us = pts.map(p => (p[0] - w.a[0]) * f.u[0] + (p[1] - w.a[1]) * f.u[1]);
+    if (Math.min(...ds) > .25 || Math.max(...ds) < -.02) continue;   // pas contre cette face
+    const s0 = Math.max(0, Math.min(...us)), s1 = Math.min(f.L, Math.max(...us)); if (s1 - s0 < .02) continue;
+    const z = ITEM_Z.get(it.id) ?? [it.elev || 0, (it.elev || 0) + itemH(it, c.h ?? .8)];
+    out.push({ it, s0, s1, z0: z[0], z1: Math.min(z[1], S.H), depth: Math.min(...ds) });
+  }
+  return out.sort((a, b) => b.depth - a.depth);   // le plus proche du mur dessiné en dernier
+}
+function elevSVG(w, sd, maxW = 720) {
+  const f = frame(w), L = f.L, H = wallH(w), k = Math.min((maxW - 90) / L, 300 / H), pad = 50, W = Math.round(L * k + pad * 2), Ht = Math.round(H * k + 110);
+  const X = v => n4(pad + v * k), Y = z => n4(40 + (H - z) * k), dm = v => cmTxt(v);
+  const r = A.regionAt(...at(w, f, f.L / 2, sd * (w.t / 2 + .05))), tag = r?.tags?.[0];
+  const wallCol = w.accent?.[sd]?.paintColor ?? tag?.paintColor ?? S.settings.wallColor ?? '#f4f2ee';
+  let g = `<rect x="${X(0)}" y="${Y(H)}" width="${n4(L * k)}" height="${n4(H * k)}" fill="${wallCol}" stroke="#374151" stroke-width="1.5"/>`;
+  g += `<line x1="${X(-.3)}" y1="${Y(0)}" x2="${X(L + .3)}" y2="${Y(0)}" stroke="#1f2937" stroke-width="2"/>`;
+  // ouvertures (mesurées depuis le début du mur ; vues de l'autre côté, l'axe est retourné)
+  const flip = sd < 0, sx = v => flip ? L - v : v;
+  for (const o of S.openings.filter(o => o.wall === w.id)) {
+    const a0 = sx(flip ? o.at + o.width : o.at), z0 = o.sill || 0, z1 = Math.min(H, z0 + o.height);
+    g += `<rect x="${X(a0)}" y="${Y(z1)}" width="${n4(o.width * k)}" height="${n4((z1 - z0) * k)}" fill="#fff" stroke="#374151" stroke-width="1.2"/>`;
+    if (o.type === 'door') g += `<path d="M${X(a0)} ${Y(z0)}L${X(a0 + o.width / 2)} ${Y(z1)}L${X(a0 + o.width)} ${Y(z0)}" fill="none" stroke="#9ca3af" stroke-dasharray="4 3"/>`;
+    if (o.type === 'window' || o.type === 'baie') g += `<line x1="${X(a0 + o.width / 2)}" y1="${Y(z1)}" x2="${X(a0 + o.width / 2)}" y2="${Y(z0)}" stroke="#60a5fa"/><rect x="${X(a0)}" y="${Y(z1)}" width="${n4(o.width * k)}" height="${n4((z1 - z0) * k)}" fill="#bfdbfe" fill-opacity=".35" stroke="none"/>`;
+    g += `<text x="${X(a0 + o.width / 2)}" y="${n4(Y(z1) - 6)}" text-anchor="middle" font-size="11" fill="#374151">${dm(o.width)} × ${dm(o.height)}${z0 ? ` · allège ${dm(z0)}` : ''}</text>`;
+  }
+  // meubles et équipements contre cette face
+  for (const { it, s0, s1, z0, z1 } of faceItems(w, sd)) {
+    const a0 = flip ? L - s1 : s0, col = it.color ?? CAT[it.type]?.color ?? '#d9d2c5';
+    g += `<rect x="${X(a0)}" y="${Y(z1)}" width="${n4((s1 - s0) * k)}" height="${n4(Math.max(.01, z1 - z0) * k)}" fill="${col}" fill-opacity=".55" stroke="#4b5563" stroke-width="1"/>`;
+    if ((s1 - s0) * k > 46) g += `<text x="${X(a0 + (s1 - s0) / 2)}" y="${n4(Y((z0 + z1) / 2) + 4)}" text-anchor="middle" font-size="10.5" fill="#111827">${esc(it.name)}</text>`;
+    if (z0 > .05) g += `<text x="${X(a0) - 4}" y="${n4(Y(z0))}" text-anchor="end" font-size="10" fill="#6b7280">${dm(z0)}</text>`;
+  }
+  // cotes : longueur et hauteur
+  g += `<line x1="${X(0)}" y1="${n4(Y(0) + 26)}" x2="${X(L)}" y2="${n4(Y(0) + 26)}" stroke="#2563eb"/><text x="${X(L / 2)}" y="${n4(Y(0) + 42)}" text-anchor="middle" font-size="12" fill="#2563eb">${dm(L)} ${UNIT()}</text>`;
+  g += `<line x1="${X(L) + 22}" y1="${Y(0)}" x2="${X(L) + 22}" y2="${Y(H)}" stroke="#2563eb"/><text x="${X(L) + 28}" y="${Y(H / 2)}" font-size="12" fill="#2563eb">${dm(H)}</text>`;
+  // toutes les pièces que longe cette face (un long mur en borde souvent plusieurs)
+  const names = []; for (let t = .25; t < L; t += .5) { const rr = A.regionAt(...at(w, f, t, sd * (w.t / 2 + .05))); const nm = rr?.tags?.[0] ? roomName(rr) : null; if (nm && !names.includes(nm)) names.push(nm); }
+  const title = `${names.length ? 'Côté ' + esc(names.join(', ')) : 'Côté extérieur'} · ${dm(L)} ${UNIT()}`;
+  return { svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${Ht}" width="${W}" height="${Ht}" style="max-width:100%;height:auto" font-family="system-ui,sans-serif"><text x="${pad}" y="22" font-size="13" font-weight="600" fill="#111827">${title}</text>${g}</svg>`, title, room: r };
+}
+function openElevation(w, sd) {
+  if (isArc(w)) return toast('Vue de face disponible pour les murs droits.');
+  const sides = [1, -1].filter(x => A.regionAt(...at(w, frame(w), frame(w).L / 2, x * (w.t / 2 + .05))));
+  sd = sd ?? sides[0] ?? 1;
+  const e = elevSVG(w, sd, 760);
+  openModal('elev', 'Vue de face', `<div class="row" style="margin:0 0 8px">${[1, -1].map(x => `<button data-side="${x}" class="${x === sd ? 'primary' : ''}">${elevSVG(w, x).title}</button>`).join('')}</div>
+    <div style="border:1px solid var(--line);border-radius:10px;background:#fff;padding:4px">${e.svg}</div>
+    <p class="muted">Hauteurs depuis le sol fini. Meubles mesurés sur la 3D. Les cotes sont à vérifier sur place avant de commander.</p>
+    <div class="row"><button id="elevDl">⬇ Télécharger (SVG)</button></div>`);
+  document.querySelectorAll('#mBody [data-side]').forEach(b => b.onclick = () => openElevation(w, +b.dataset.side));
+  document.getElementById('elevDl').onclick = () => download(e.svg, slug(S.name) + '-vue-' + w.id + '.svg', 'image/svg+xml');
+}
+// =====================================================================
+//  A5 : carnet de projet — un seul document imprimable (plan, 3D, vues de face, surfaces, budget, mobilier)
+// =====================================================================
+function openCarnet() {
+  if (dirty3D) { build3D(); dirty3D = false; }
+  const co = MoovoCore.company(), W = works(), today = new Date().toLocaleDateString('fr-FR');
+  const plan = planSVGString().svg, shot = renderImage(1600, 1000);
+  const rooms = A.rooms.filter(r => r.tags[0]).map(r => ({ r, st: roomStats(r) }));
+  // vues de face : faces de mur bordant une pièce nommée et portant des ouvertures ou des meubles
+  const faces = [];
+  for (const w of S.walls) { if (isArc(w) || w.kind === 'virtual') continue; const f = frame(w);
+    for (const sd of [1, -1]) { const r = A.regionAt(...at(w, f, f.L / 2, sd * (w.t / 2 + .05))); if (!r?.tags?.[0] || f.L < .6) continue;
+      if (S.openings.some(o => o.wall === w.id) || faceItems(w, sd).length) faces.push(elevSVG(w, sd, 680)); } }
+  const furn = S.items.filter(it => it.price > 0 && !isElec(it));
+  const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Carnet de projet — ${esc(S.name)}</title><style>
+    @page{size:A4;margin:14mm 13mm} *{box-sizing:border-box} body{font:11.5px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;color:#1b1f27;margin:0}
+    h1{font-size:26px;margin:0 0 6px} h2{font-size:16px;margin:0 0 10px;padding-bottom:6px;border-bottom:2px solid #1b1f27} section{page-break-before:always}
+    .cover{display:flex;flex-direction:column;justify-content:center;min-height:240mm} .cover .meta{color:#4b5563;font-size:13px} .cover .big{font-size:30px;font-weight:800;margin:18px 0 4px}
+    img.full,svg{max-width:100%;height:auto} img.full{border:1px solid #e1e5eb;border-radius:6px}
+    figure{margin:0 0 12px;break-inside:avoid} table{width:100%;border-collapse:collapse} th{background:#1b1f27;color:#fff;text-align:left;padding:5px 7px;font-size:10.5px} td{padding:4px 7px;border-bottom:1px solid #e7eaef} td.n,th.n{text-align:right;white-space:nowrap}
+    tfoot td{font-weight:800;border-top:2px solid #1b1f27} .muted{color:#5b6474} .toc li{margin:3px 0}
+    .noprint{position:fixed;top:10px;right:10px} @media print{.noprint{display:none}} .noprint button{font:600 13px system-ui;background:#2563eb;color:#fff;border:0;border-radius:8px;padding:9px 14px;cursor:pointer}
+  </style></head><body>
+    <div class="noprint"><button onclick="print()">Imprimer / Enregistrer en PDF</button></div>
+    <div class="cover"><div class="meta">Carnet de projet · ${today}</div><h1>${esc(S.name)}</h1>
+      <div class="meta">${esc(co.name || '')}${co.phone ? ' · ' + esc(co.phone) : ''}${co.email ? ' · ' + esc(co.email) : ''}</div>
+      <div class="big">${eur(W.total)}</div><div class="meta">budget estimé, travaux et mobilier compris (hors visite technique)</div>
+      <ol class="toc"><li>Plan coté</li><li>Vue 3D</li>${faces.length ? '<li>Vues de face des murs</li>' : ''}<li>Surfaces par pièce</li><li>Budget détaillé</li>${furn.length ? '<li>Mobilier et équipements</li>' : ''}</ol></div>
+    <section><h2>Plan coté</h2>${plan}</section>
+    <section><h2>Vue 3D</h2><img class="full" src="${shot}" alt="Vue 3D du projet"></section>
+    ${faces.length ? `<section><h2>Vues de face des murs</h2>${faces.map(f => `<figure>${f.svg}</figure>`).join('')}</section>` : ''}
+    <section><h2>Surfaces par pièce</h2><table><thead><tr><th>Pièce</th><th class="n">Sol (m²)</th><th class="n">Périmètre (m)</th><th class="n">Murs nets (m²)</th><th class="n">Hauteur</th></tr></thead>
+      <tbody>${rooms.map(({ r, st }) => `<tr><td>${esc(roomName(r))}</td><td class="n">${fm(st.area)}</td><td class="n">${fm(st.perim)}</td><td class="n">${fm(st.wallNet)}</td><td class="n">${cmTxt(st.H)} ${UNIT()}</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td>Total</td><td class="n">${fm(rooms.reduce((a, x) => a + x.st.area, 0))}</td><td></td><td class="n">${fm(rooms.reduce((a, x) => a + x.st.wallNet, 0))}</td><td></td></tr></tfoot></table></section>
+    <section><h2>Budget détaillé</h2><table><thead><tr><th>Poste</th><th>Quantité</th><th class="n">Total</th></tr></thead>
+      <tbody>${W.lines.map(l => `<tr><td>${esc(l.label)}</td><td class="muted">${esc(l.qty)}</td><td class="n">${eur(l.total)}</td></tr>`).join('')}${S.prices.misc ? `<tr><td>Divers / main d’œuvre forfaitaire</td><td></td><td class="n">${eur(S.prices.misc)}</td></tr>` : ''}</tbody>
+      <tfoot><tr><td colspan="2">Total estimé</td><td class="n">${eur(W.total)}</td></tr></tfoot></table>
+      ${W.warnings.length ? `<p class="muted">${W.warnings.map(esc).join('<br>')}</p>` : ''}</section>
+    ${furn.length ? `<section><h2>Mobilier et équipements</h2><table><thead><tr><th>Élément</th><th>Dimensions</th><th class="n">Prix</th></tr></thead><tbody>${furn.map(it => `<tr><td>${esc(it.name)}</td><td class="muted">${cmTxt(it.w)} × ${cmTxt(it.d)}${it.h ? ' × ' + cmTxt(it.h) : ''} ${UNIT()}</td><td class="n">${eur(it.price)}</td></tr>`).join('')}</tbody></table></section>` : ''}
+    <p class="muted" style="margin-top:18px">Document établi avec Moovo 3D. Estimations à confirmer par une visite technique et des devis d’entreprises.</p>
+  </body></html>`;
+  const win = window.open('', '_blank');
+  if (!win) { download(html, slug(S.name) + '-carnet.html', 'text/html'); toast('📘 Fenêtre bloquée : le carnet est téléchargé. Ouvre-le puis « Imprimer / Enregistrer en PDF ».', 6000); return; }
+  win.document.open(); win.document.write(html); win.document.close();
+  toast(`📘 Carnet prêt : ${faces.length} vue${faces.length > 1 ? 's' : ''} de face, ${rooms.length} pièces. Clique « Imprimer / Enregistrer en PDF ».`, 5000);
+}
 // --- export du plan coté (SVG / PNG) pour les artisans
 let exportBox = null;
 function planSVGString() {
@@ -4536,7 +4668,7 @@ document.getElementById('projMenu').addEventListener('click', e => {
   const b = e.target.closest('[data-cmd]'); if (!b) return; closeMenus();
   ({ save: () => saveFile(false), saveAs: () => saveFile(true), open: openFile, versions: openVersions,
      snapshot: () => { const n = prompt('Nom du point de sauvegarde :', 'Avant modification'); if (n !== null) { backup(n || 'Point de sauvegarde', false); toast('📌 Point de sauvegarde créé'); } },
-     devis: openDevis, share: shareProject, baseline: setBaseline, settings: openSettings, help: openHelp, hist: openHistory, tour: startTour,
+     devis: openDevis, carnet: openCarnet, share: shareProject, baseline: setBaseline, settings: openSettings, help: openHelp, hist: openHistory, tour: startTour,
      exportSvg: () => exportPlan('svg'), exportPng: () => exportPlan('png'), shot3d: () => shot3D() }[b.dataset.cmd] ?? (() => {}))();
 });
 document.getElementById('bReset').addEventListener('click', closeMenus);

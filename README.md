@@ -26,6 +26,8 @@ Application 100 % navigateur (aucun serveur, aucune installation) pour :
 - **Alertes douces** : porte qui cogne un meuble, meubles qui se chevauchent, passage étroit, objet hors des murs.
 - **Historique** lisible des modifications ; **avant / après** à curseur ; **belle capture** grand format ; **visite automatique** pièce par pièce.
 - **Téléphone et tablette** : interface dédiée, avec une vue plein écran à la fois (Plan, 3D, Modifier) et une barre de navigation en bas (bouton Ajouter au centre). Les menus s’ouvrent en feuilles qui montent du bas. On zoome à deux doigts, l’appui long ouvre les actions, et une croix directionnelle permet la visite 3D. Le mode paysage est compact, l’encoche de l’iPhone est respectée, et l’appli s’installe sur l’écran d’accueil.
+- **Flèches de déplacement en 3D** sur la sélection (rouge, vert, bleu : un axe chacune) : on fait glisser un meuble, une barre ou un panneau directement dans la vue 3D, la flèche verte règle la hauteur.
+- **Extérieur sans pièges** : une poutre dessinée en vue de dessus se pose sur la tête des poteaux et reste horizontale, avec une vraie section de poutre ; chaque outil pose un élément puis revient en sélection (Maj enfoncée pour enchaîner) ; les poteaux au sol sont scellés (plot béton et platine visibles, comptés au devis) ; alerte si une barre dépasse les longueurs vendues ; **visite à hauteur d’yeux** (clavier ou croix tactile).
 - **Économe** : la 3D n’est redessinée que lorsque quelque chose change et qu’elle est visible.
 
 ## Fichiers

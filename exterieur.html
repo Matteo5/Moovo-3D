@@ -61,6 +61,11 @@
   aside{display:flex;flex-direction:column;min-height:0;background:var(--panel)}
   #view3d{position:relative;height:var(--v3h);min-height:160px;background:#dfe7ee;overflow:hidden;flex:none}
   #view3d canvas{display:block}
+  #wpad{position:absolute;left:14px;bottom:14px;z-index:4;display:none;grid-template-areas:". u x" "l d r";grid-template-columns:repeat(3,54px);grid-template-rows:repeat(2,54px);gap:6px;touch-action:none;user-select:none}
+  #wpad.on{display:grid}
+  #wpad button{border:0;border-radius:14px;background:#1d2129b3;color:#fff;font-size:20px;padding:0}
+  #wpad button:active,#wpad button.on{background:#2563eb}
+  #walkHint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:#1d2129e0;color:#fff;padding:6px 12px;border-radius:999px;font-size:12px;display:none;white-space:nowrap;z-index:3}
   .v3bar{position:absolute;top:8px;left:8px;right:8px;display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap;pointer-events:none;z-index:3}
   .v3bar>*{pointer-events:auto} .v3bar button{background:#ffffffeb} .v3bar button.on{background:var(--accent)}
   .v3menu{width:270px;padding:10px 12px} .v3menu label{display:flex;gap:8px;align-items:center;padding:3px 0;font-size:13px;cursor:pointer}
@@ -189,11 +194,14 @@
   <div id="hsplit" class="splitter"></div>
   <aside>
     <div id="view3d">
+      <div id="walkHint">Glisser pour regarder · ZQSD / flèches pour avancer · Maj pour courir · Échap pour sortir</div>
+      <div id="wpad" aria-label="Se déplacer"><button data-k="ArrowUp" style="grid-area:u" aria-label="Avancer">▲</button><button data-k="ArrowLeft" style="grid-area:l" aria-label="Gauche">◀</button><button data-k="ArrowDown" style="grid-area:d" aria-label="Reculer">▼</button><button data-k="ArrowRight" style="grid-area:r" aria-label="Droite">▶</button><button data-exit style="grid-area:x;font-size:12px">Sortir</button></div>
       <div class="v3bar">
-        <div class="seg"><button data-v="persp" class="on">3D</button><button data-v="top">Dessus</button><button data-v="front">Face</button></div>
+        <div class="seg"><button data-v="persp" class="on">3D</button><button data-v="top">Dessus</button><button data-v="front">Face</button><button data-v="walk">Visite</button></div>
         <div class="seg"><button id="bFrame">Cadrer</button>
           <div class="menuwrap"><button id="bV3">Affichage ▾</button><div class="menu right v3menu" id="v3menu">
             <h5>Afficher</h5>
+            <label><input type="checkbox" id="oGizmo" checked> Flèches de déplacement (sélection)</label>
             <label><input type="checkbox" id="oPanels" checked> Couvertures, bardages, planchers</label>
             <label><input type="checkbox" id="oXray"> Panneaux transparents</label>
             <label><input type="checkbox" id="oBlocks" checked> Bâtiment existant</label>
@@ -224,6 +232,7 @@
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 
 // =====================================================================
@@ -353,6 +362,13 @@ const dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2], len3 = a => Math
 const crs = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const mLen = m => len3(sub(m.b, m.a));
 const sec = m => SEC[m.sec] ?? SEC.b100x100;
+// sections par défaut selon ce qu'on dessine : la section choisie sert aux poteaux ; une poutre posée à la main
+// reçoit une vraie section de poutre de la même famille (et pas un « Poteau 100×100 » couché)
+const BEAM_FOR = { bois: 'b75x200', acier: 'ipe140', alu: 'a100x50' };
+const postSec = () => S.settings.sec;
+const beamSec = () => { const s = SEC[S.settings.sec]; return s && s.b === s.h && BEAM_FOR[s.fam] ? BEAM_FOR[s.fam] : S.settings.sec; };
+// hauteur de pose d'une barre dessinée dans le vide en vue de dessus : tête des poteaux s'il y en a, sinon le plan de travail
+const beamLevel = () => { const tops = S.members.filter(m => m.role === 'poteau').map(m => Math.max(m.a[2], m.b[2])); return tops.length ? Math.max(...tops) : S.settings.level; };
 // repère local d'une barre (coordonnées projet : x, y plan, z hauteur) : w = largeur, h = hauteur de section
 function basis(m) {
   const ax = nrm(sub(m.b, m.a)); let h, w;
@@ -663,9 +679,11 @@ function render2D() {
 }
 // aimantation : extrémités de barres, coins de panneaux, grille
 function snapPt(q) {
-  const V = VIEWS[view], tol = 10 * vw.s; let best = null, bd = tol;
-  for (const m of S.members) for (const e of [m.a, m.b]) { const p = V.p(e), d = Math.hypot(p[0] - q[0], p[1] - q[1]); if (d < bd) { bd = d; best = e; } }
-  for (const p of S.panels) for (const e of panelCorners(p).slice(0, 4)) { const pp = V.p(e), d = Math.hypot(pp[0] - q[0], pp[1] - q[1]); if (d < bd) { bd = d; best = e; } }
+  // vue de dessus : le pied et la tête d'un poteau tombent au même endroit, on privilégie le point le plus haut
+  // (sinon une poutre accrochée à un poteau se retrouve posée au sol, au pied du poteau)
+  const V = VIEWS[view], tol = 10 * vw.s, up = e => view === 'top' ? e[2] * 1e-4 : 0; let best = null, bd = tol;
+  for (const m of S.members) for (const e of [m.a, m.b]) { const p = V.p(e), d = Math.hypot(p[0] - q[0], p[1] - q[1]) - up(e); if (d < bd) { bd = d; best = e; } }
+  for (const p of S.panels) for (const e of panelCorners(p).slice(0, 4)) { const pp = V.p(e), d = Math.hypot(pp[0] - q[0], pp[1] - q[1]) - up(e); if (d < bd) { bd = d; best = e; } }
   if (best) return { w: [...best], v: V.p(best), hit: true };
   const g = [snapV(q[0]), snapV(q[1])], w = toWorld(g);
   return { w: w.map(r3), v: g, hit: false };
@@ -733,26 +751,34 @@ svg.addEventListener('dblclick', () => { draw = null; render2D(); });
 function clickTool(d) {
   const sp = snapPt(d.q);
   if (tool === 'select') { if (!d.el) { sel = []; renderAll(); } return; }
+  // une pose par geste : l'outil revient en sélection (Maj = garder l'outil pour enchaîner)
+  const keep = !!d.shift, done = () => { if (!keep) { setTool('select'); window.MoovoLib.hintDone('chain'); } };
   if (tool === 'post') {
-    const a = sp.hit ? sp.w : toWorld(sp.v).map(r3);
-    S.members.push({ id: 'm' + uid(), a: [a[0], a[1], view === 'top' ? S.settings.level : a[2]], b: [a[0], a[1], (view === 'top' ? S.settings.level : a[2]) + S.settings.postH], sec: S.settings.sec, mat: S.settings.mat, role: 'poteau', rot: 0 });
-    sel = [{ k: 'm', id: S.members.at(-1).id }]; commit(); return;
+    const a = sp.hit ? sp.w : toWorld(sp.v).map(r3), z0 = view === 'top' ? S.settings.level : a[2];
+    S.members.push({ id: 'm' + uid(), a: [a[0], a[1], z0], b: [a[0], a[1], z0 + S.settings.postH], sec: postSec(), mat: S.settings.mat, role: 'poteau', rot: 0 });
+    sel = [{ k: 'm', id: S.members.at(-1).id }]; done(); commit();
+    toast(z0 <= .02 ? '🔩 Poteau posé et scellé (massif béton + platine comptés au devis).' : `Poteau posé à ${L(z0)} ${UNIT()} du sol.`, 3200);
+    return;
   }
-  if (!draw) { draw = { a: sp.w }; render2D(); return; }
-  let b = sp.w;
-  if (d.shift && !sp.hit) { const V = VIEWS[view], a2 = V.p(draw.a), dv = [sp.v[0] - a2[0], sp.v[1] - a2[1]]; const vv = Math.abs(dv[0]) > Math.abs(dv[1]) ? [sp.v[0], a2[1]] : [a2[0], sp.v[1]]; b = toWorld(vv).map(r3); if (view === 'top') b[2] = draw.a[2]; }
+  // vue de dessus, clic dans le vide : la barre se pose à la hauteur des têtes de poteaux (sinon au niveau du plan de travail)
+  const freeZ = () => view === 'top' && tool === 'beam' ? beamLevel() : null;
+  if (!draw) { const a = [...sp.w]; if (!sp.hit && freeZ() != null) a[2] = freeZ(); draw = { a }; render2D(); return; }
+  let b = [...sp.w];
+  if (d.shift && !sp.hit) { const V = VIEWS[view], a2 = V.p(draw.a), dv = [sp.v[0] - a2[0], sp.v[1] - a2[1]]; const vv = Math.abs(dv[0]) > Math.abs(dv[1]) ? [sp.v[0], a2[1]] : [a2[0], sp.v[1]]; b = toWorld(vv).map(r3); }
+  if (view === 'top' && !sp.hit) b[2] = draw.a[2];   // second point libre : la barre reste horizontale
   if (len3(sub(b, draw.a)) < .01) return;
   if (tool === 'beam') {
-    const m = { id: 'm' + uid(), a: draw.a, b, sec: S.settings.sec, mat: S.settings.mat, role: Math.abs(nrm(sub(b, draw.a))[2]) > .9 ? 'poteau' : 'poutre', rot: 0 };
-    S.members.push(m); sel = [{ k: 'm', id: m.id }]; draw = { a: b }; commit(); return;   // enchaînement : la barre suivante part du dernier point
+    const vert = Math.abs(nrm(sub(b, draw.a))[2]) > .9;
+    const m = { id: 'm' + uid(), a: draw.a, b, sec: vert ? postSec() : beamSec(), mat: S.settings.mat, role: vert ? 'poteau' : 'poutre', rot: 0 };
+    S.members.push(m); sel = [{ k: 'm', id: m.id }]; draw = keep ? { a: b } : null; done(); commit(); return;   // Maj : la barre suivante part du dernier point
   }
   if (tool === 'panel') {
     const V = VIEWS[view], a = draw.a, du = dot3(sub(b, a), V.u[0]), dvv = dot3(sub(b, a), V.u[1]);
     const p = { id: 'p' + uid(), type: S.settings.panel, p0: [...a], u: mul(V.u[0], du).map(r3), v: mul(V.u[1], dvv).map(r3) };
     if (Math.abs(du) < .01 || Math.abs(dvv) < .01) { draw = null; return; }
-    S.panels.push(p); sel = [{ k: 'p', id: p.id }]; draw = null; commit(); return;
+    S.panels.push(p); sel = [{ k: 'p', id: p.id }]; draw = null; done(); commit(); return;
   }
-  if (tool === 'dim') { const dd = { id: 'd' + uid(), view, a: draw.a, b, off: 0 }; S.dims.push(dd); sel = [{ k: 'd', id: dd.id }]; draw = null; commit(); }
+  if (tool === 'dim') { const dd = { id: 'd' + uid(), view, a: draw.a, b, off: 0 }; S.dims.push(dd); sel = [{ k: 'd', id: dd.id }]; draw = null; done(); commit(); }
 }
 // édition des cotes au clavier
 const dimInput = document.getElementById('dimEdit');
@@ -798,7 +824,7 @@ function profile(sk) {
   else { sh.moveTo(-b / 2, -h / 2); sh.lineTo(b / 2, -h / 2); sh.lineTo(b / 2, h / 2); sh.lineTo(-b / 2, h / 2); }
   _shape.set(sk, sh); return sh;
 }
-const o3 = Object.assign({ panels: true, xray: false, blocks: true, ground: true, len: false, shadow: true, tex: true, color: 'mat' }, prefs.o);
+const o3 = Object.assign({ gizmo: true, panels: true, xray: false, blocks: true, ground: true, len: false, shadow: true, tex: true, color: 'mat' }, prefs.o);
 let dirty3D = true, view3 = 'persp';
 // Panneaux texturés (bardage, couverture, terrasse…) : texture dessinée une fois par type + teinte, répétée selon la taille
 const _ptex = new Map();
@@ -833,6 +859,13 @@ function build3D() {
     if (M4.determinant() < 0) M4.makeBasis(T(w).negate(), T(h), T(ax));
     mesh.applyMatrix4(M4); mesh.position.copy(T(m.a));
     mesh.castShadow = mesh.receiveShadow = true; mesh.userData.pick = { k: 'm', id: m.id }; root.add(mesh);
+    // poteau posé au sol : plot béton et platine visibles (il est scellé, et le devis compte le massif)
+    if (m.role === 'poteau' && Math.min(m.a[2], m.b[2]) <= .02 && Math.abs(nrm(sub(m.b, m.a))[2]) > .9) {
+      const p = m.a[2] <= m.b[2] ? m.a : m.b, sb = Math.max(s.b, s.h) / 1000;
+      for (const [w0, h0, y0, c, o] of [[sb + .22, .05, 0, '#a8a7a1', { roughness: .95 }], [sb + .06, .012, .05, '#3b3f45', { roughness: .5, metalness: .5 }]]) {
+        const f = new THREE.Mesh(new THREE.BoxGeometry(w0, h0, w0), MAT3(c, o)); f.position.copy(T([p[0], p[1], y0 + h0 / 2])); f.castShadow = f.receiveShadow = true; f.userData.pick = { k: 'm', id: m.id }; root.add(f);
+      }
+    }
     if (o3.len || on) { const d = document.createElement('div'); d.className = 'lbl3'; d.textContent = L(Lg) + ' ' + UNIT(); const lb = new CSS2DObject(d); lb.position.copy(T(add(m.a, mul(sub(m.b, m.a), .5)))); labels.add(lb); }
   }
   if (o3.panels) for (const p of S.panels) {
@@ -856,7 +889,17 @@ function bounds() {
 }
 function setView3(v) {
   view3 = v; document.querySelectorAll('[data-v]').forEach(b => b.classList.toggle('on', b.dataset.v === v));
-  const b = bounds(); ctl.target.set(b.cx, b.cy, b.cz);
+  const b = bounds(), touchUI = matchMedia('(pointer: coarse)').matches || document.body.classList.contains('mshell');
+  document.getElementById('walkHint').style.display = v === 'walk' && !touchUI ? 'block' : 'none';
+  document.getElementById('wpad').classList.toggle('on', v === 'walk' && touchUI);
+  syncGizmo();
+  if (v === 'walk') {
+    // visite à hauteur d'yeux : on se place devant la structure, face à elle
+    ctl.enabled = false; cam.fov = 70; cam.updateProjectionMatrix();
+    cam.position.set(b.cx, EYE, b.cz + Math.max(4, b.span * .9 + 2)); yaw = 0; pitch = -.08; kick3D(); return;
+  }
+  ctl.enabled = true; cam.fov = 45; cam.updateProjectionMatrix(); cam.rotation.order = 'XYZ';
+  ctl.target.set(b.cx, b.cy, b.cz);
   if (v === 'top') cam.position.set(b.cx, b.span * 2 + 4, b.cz + .01);
   else if (v === 'front') cam.position.set(b.cx, b.cy + .5, b.cz + b.span * 1.8 + 3);
   else cam.position.set(b.cx + b.span * 1.1 + 2, b.span * .9 + 2, b.cz + b.span * 1.3 + 3);
@@ -868,12 +911,60 @@ function frameSel() {
   const c = pts.reduce((a, p) => add(a, p), [0, 0, 0]).map(v => v / pts.length), r = Math.max(...pts.map(p => len3(sub(p, c))), .5);
   const dir = new THREE.Vector3().subVectors(cam.position, ctl.target).normalize(); ctl.target.copy(T(c)); cam.position.copy(T(c)).addScaledVector(dir, r * 3 + 1.5); ctl.update();
 }
-function resize3D() { const r = v3.getBoundingClientRect(); if (!r.width || !r.height) return; renderer.setSize(r.width, r.height); labelR.setSize(r.width, r.height); cam.aspect = r.width / r.height; cam.updateProjectionMatrix(); kick3D(); }
+// --- visite à hauteur d'yeux : glisser pour regarder, ZQSD / flèches (ou la croix tactile) pour marcher
+const EYE = 1.65, keys = {}; let yaw = 0, pitch = 0, look = null;
+addEventListener('keydown', e => { if (view3 === 'walk' && !e.target.closest('input,select,textarea')) { keys[e.code] = true; if (e.code.startsWith('Arrow')) e.preventDefault(); } });
+addEventListener('keyup', e => { keys[e.code] = false; });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+function walkStep(dt) {
+  const fw = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0), st = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
+  const sp = 2.2 * (keys.ShiftLeft || keys.ShiftRight ? 2 : 1) * dt;
+  cam.position.x += (-Math.sin(yaw) * fw + Math.cos(yaw) * st) * sp; cam.position.z += (-Math.cos(yaw) * fw - Math.sin(yaw) * st) * sp;
+  cam.position.y = EYE; cam.rotation.set(pitch, yaw, 0, 'YXZ'); kick3D();
+}
+{
+  const pad = document.getElementById('wpad');
+  pad.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); const b = e.target.closest('[data-k]'); if (b) { keys[b.dataset.k] = true; b.classList.add('on'); pad.setPointerCapture(e.pointerId); pad._k = b; } else if (e.target.closest('[data-exit]')) setView3('persp'); });
+  const up = () => { if (pad._k) { keys[pad._k.dataset.k] = false; pad._k.classList.remove('on'); pad._k = null; } };
+  pad.addEventListener('pointerup', up); pad.addEventListener('pointercancel', up);
+}
+// --- flèches de déplacement 3D (rouge = X, vert = hauteur, bleu = profondeur) sur la sélection
+const gizmoPivot = new THREE.Object3D(); scene.add(gizmoPivot);
+const gizmo = new TransformControls(cam, renderer.domElement);
+gizmo.setMode('translate'); gizmo.setSize(.85); gizmo.setTranslationSnap(.01); scene.add(gizmo);
+gizmo.addEventListener('change', () => kick3D());   // survol et glisser : la 3D n'est redessinée qu'à la demande
+let gz = null;
+const selPts = () => sel.map(find).filter(Boolean).flatMap(o => o.a ? [o.a, o.b] : o.p0 ? panelCorners(o) : blockCorners(o));
+function syncGizmo() {
+  if (gz) return;
+  const pts = o3.gizmo && view3 !== 'walk' ? selPts() : [];
+  if (!pts.length) { gizmo.detach(); return; }
+  const c = pts.reduce((a, p) => add(a, p), [0, 0, 0]).map(v => v / pts.length);
+  gizmoPivot.position.copy(T(c)); gizmo.attach(gizmoPivot);
+}
+gizmo.addEventListener('dragging-changed', e => {
+  ctl.enabled = !e.value && view3 !== 'walk';
+  if (e.value) gz = { start: gizmoPivot.position.clone(), objs: sel.map(s => ({ s, o: find(s), orig: clone(find(s)) })).filter(x => x.o) };
+  else if (gz) { gz = null; commit(); }
+});
+gizmo.addEventListener('objectChange', () => {
+  if (!gz) return;
+  const v = gizmoPivot.position.clone().sub(gz.start), d = [r3(v.x), r3(v.z), r3(v.y)];   // three (x, haut, z) -> projet (x, y, haut)
+  for (const { s, o, orig } of gz.objs) {
+    if (s.k === 'm' || s.k === 'd') { o.a = add(orig.a, d).map(r3); o.b = add(orig.b, d).map(r3); }
+    else if (s.k === 'p') o.p0 = add(orig.p0, d).map(r3);
+    else if (s.k === 'b') { o.x = r3(orig.x + d[0]); o.y = r3(orig.y + d[1]); o.z = r3((orig.z || 0) + d[2]); }
+  }
+  render2D(); dirty3D = true; kick3D();
+});
+function resize3D() { const r = v3.getBoundingClientRect(); if (!r.width ||!r.height) return; renderer.setSize(r.width, r.height); labelR.setSize(r.width, r.height); cam.aspect = r.width / r.height; cam.updateProjectionMatrix(); kick3D(); }
 new ResizeObserver(resize3D).observe(v3);
 const ray = new THREE.Raycaster(); let d3 = null;
-renderer.domElement.addEventListener('pointerdown', e => { d3 = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener('pointerdown', e => { d3 = [e.clientX, e.clientY]; look = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener('pointermove', e => { if (view3 !== 'walk' || !look) return; yaw -= (e.clientX - look[0]) * .004; pitch = clamp(pitch - (e.clientY - look[1]) * .004, -1.3, 1.3); look = [e.clientX, e.clientY]; kick3D(); });
+addEventListener('pointerup', () => { look = null; });
 renderer.domElement.addEventListener('pointerup', e => {
-  if (!d3 || Math.hypot(e.clientX - d3[0], e.clientY - d3[1]) > 5) return; d3 = null;
+  if (!d3 || Math.hypot(e.clientX - d3[0], e.clientY - d3[1]) > 5 || view3 === 'walk' || gizmo.axis || gizmo.dragging) { d3 = null; return; } d3 = null;
   const r = renderer.domElement.getBoundingClientRect(); ray.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1), cam);
   const hit = ray.intersectObject(root, true).find(h => h.object.userData.pick); const pk = hit?.object.userData.pick;
   if (!pk) sel = e.shiftKey ? sel : []; else if (e.shiftKey) { if (isSel(pk.k, pk.id)) sel = sel.filter(s => !(s.k === pk.k && s.id === pk.id)); else sel.push(pk); } else sel = [pk];
@@ -910,7 +1001,11 @@ function selPanel() {
   const genNote = gen ? `<div class="note">Fait partie de <b>${esc(gen.name)}</b>. <button data-act="editGen" data-id="${gen.id}">Modifier les paramètres</button> <button data-act="detach">Détacher</button></div>` : '';
   if (s.k === 'm') {
     const m = o, sc = sec(m), mt = MAT[m.mat], Lg = mLen(m), kg = (sc.kgm ?? sc.b * sc.h / 1e6 * (mt?.dens ?? 500)) * Lg;
-    return `<h3>${esc(m.name || ROLES[m.role]?.[0] || 'Barre')}</h3><div class="muted">${esc(sc.l)} · ${esc(mt?.l)} · ${L(Lg)} ${UNIT()} · ${fm(kg, 1)} kg</div>${genNote}
+    // barre plus longue que ce qui se vend : on prévient au lieu de laisser découvrir le problème à la livraison
+    const stocks = String(S.prices.stock?.[sc.fam] || '6').split(/[,; ]+/).map(Number).filter(v => v > 0), maxSt = stocks.length ? Math.max(...stocks) : 6;
+    const longWarn = sc.fam !== 'acc' && Lg > maxSt + 1e-3 ? `<div class="note">⚠️ ${L(Lg)} ${UNIT()} : plus long que les barres vendues (${L(maxSt)} ${UNIT()} au plus). Prévois un aboutage sur un appui, du lamellé-collé ou une barre coupée en deux. Le débit en tient compte.</div>` : '';
+    const footNote = m.role === 'poteau' && Math.min(m.a[2], m.b[2]) <= .02 ? `<div class="muted" style="margin:4px 0">🔩 Scellé au sol : massif béton + platine (compté au devis, onglet Métré &amp; débit).</div>` : '';
+    return `<h3>${esc(m.name || ROLES[m.role]?.[0] || 'Barre')}</h3><div class="muted">${esc(sc.l)} · ${esc(mt?.l)} · ${L(Lg)} ${UNIT()} · ${fm(kg, 1)} kg</div>${genNote}${longWarn}${footNote}
       <div class="grid2">${fld('Nom', 'm.name', m.name || '', 'text')}${selF('Fonction', 'm.role', Object.entries(ROLES).map(([k, r]) => `<option value="${k}"${k === m.role ? ' selected' : ''}>${r[0]}</option>`).join(''))}
         ${selF('Section', 'm.sec', secOpts(m.sec), 'full')}${selF('Matériau', 'm.mat', matOpts(m.mat, sc.fam === 'acc' ? 'acc' : null))}${lenF('Longueur', 'm.len', Lg)}
         ${fld('Rotation de la section (°)', 'm.rot', m.rot || 0, 'number')}
@@ -1101,8 +1196,8 @@ let toastT; function toast(m, ms = 2600) { const t = document.getElementById('to
 const slug = n => (n || 'projet').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase();
 function download(data, name) { const a = document.createElement('a'); a.href = typeof data === 'string' && data.startsWith('data:') ? data : URL.createObjectURL(data instanceof Blob ? data : new Blob([data])); a.download = name; a.click(); }
 const HINTS = { select: 'Clic : sélectionner · Maj+clic : ajouter · glisser : déplacer · ronds bleus : déplacer une extrémité · glisser le fond : se déplacer',
-  beam: 'Clique le départ puis l’arrivée de la barre (Maj = horizontale/verticale) · s’aimante aux extrémités · double-clic ou Échap pour arrêter',
-  post: 'Clique pour poser un poteau (hauteur dans l’onglet Sélection quand rien n’est sélectionné)', panel: 'Clique deux coins opposés du panneau sur le plan de travail', dim: 'Clique deux points pour poser une cote' };
+  beam: 'Clique le départ puis l’arrivée : la barre s’accroche aux têtes de poteaux et reste horizontale · Maj enfoncée = barres en chaîne · Échap pour annuler',
+  post: 'Clique où poser le poteau : il est scellé au sol (massif + platine), hauteur réglable dans l’onglet Sélection · Maj enfoncée = en poser plusieurs', panel: 'Clique deux coins opposés du panneau sur le plan de travail · Maj enfoncée = en poser plusieurs', dim: 'Clique deux points pour poser une cote' };
 function setTool(t) { tool = t; draw = null; document.querySelectorAll('[data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === t)); document.getElementById('hint').textContent = HINTS[t]; svg.style.cursor = t === 'select' ? 'default' : 'crosshair'; render2D(); window.MoovoLib.mobile()?.refresh(); }
 document.querySelectorAll('[data-tool]').forEach(b => b.onclick = () => setTool(b.dataset.tool));
 function setView(v) {
@@ -1119,7 +1214,7 @@ document.getElementById('bFrame').onclick = frameSel;
 const shot = () => { renderer.render(scene, cam); download(renderer.domElement.toDataURL('image/png'), slug(S.name) + '-3d.png'); };
 document.getElementById('bShot').onclick = shot;
 // options
-for (const [id, k] of [['oPanels', 'panels'], ['oXray', 'xray'], ['oBlocks', 'blocks'], ['oGround', 'ground'], ['oLen', 'len'], ['oShadow', 'shadow'], ['oTex', 'tex']]) { const el = document.getElementById(id); el.checked = !!o3[k]; el.onchange = () => { o3[k] = el.checked; prefs.o = o3; savePrefs(); dirty3D = true; }; }
+for (const [id, k] of [['oGizmo', 'gizmo'], ['oPanels', 'panels'], ['oXray', 'xray'], ['oBlocks', 'blocks'], ['oGround', 'ground'], ['oLen', 'len'], ['oShadow', 'shadow'], ['oTex', 'tex']]) { const el = document.getElementById(id); el.checked = !!o3[k]; el.onchange = () => { o3[k] = el.checked; prefs.o = o3; savePrefs(); dirty3D = true; }; }
 document.querySelectorAll('[name=oColor]').forEach(r => { r.checked = r.value === o3.color; r.onchange = () => { o3.color = prefs.o.color = r.value; savePrefs(); dirty3D = true; render2D(); }; });
 for (const [id, k] of [['lDims', 'dims'], ['lPanels', 'panels'], ['lGrid', 'grid']]) { const el = document.getElementById(id); el.checked = !!prefs.l[k]; el.onchange = () => { prefs.l[k] = el.checked; savePrefs(); render2D(); }; }
 document.getElementById('snap').value = prefs.snap; document.getElementById('snap').onchange = e => { prefs.snap = e.target.value; savePrefs(); };
@@ -1199,6 +1294,7 @@ addEventListener('keydown', e => {
   const k = e.key.toLowerCase(), mod = e.ctrlKey || e.metaKey;
   if (mod && k === 's') { e.preventDefault(); saveFile(); return; }
   if (e.target.closest('input,select,textarea')) return;
+  if (view3 === 'walk') { if (k === 'escape') setView3('persp'); return; }
   if (mod && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
   if (mod && k === 'y') { e.preventDefault(); redo(); return; }
   if (mod && k === 'd') { e.preventDefault(); if (sel.length) act('dup'); return; }
@@ -1220,7 +1316,8 @@ addEventListener('keydown', e => {
 function renderAll() { render2D(); renderPanel(); dirty3D = true; document.getElementById('bUndo').disabled = !past.length; document.getElementById('bRedo').disabled = !future.length; }
 // rendu 3D à la demande (seulement si quelque chose a changé et si la vue est visible)
 var frames3D = 3; function kick3D(n = 2) { frames3D = Math.max(frames3D || 0, n); } ctl.addEventListener('change', () => kick3D());
-function loop() { const vis = v3.offsetWidth > 0 && v3.offsetHeight > 0; if (dirty3D && vis) { build3D(); dirty3D = false; kick3D(); } if (ctl.update()) kick3D(); if (vis && frames3D > 0) { frames3D--; renderer.render(scene, cam); labelR.render(scene, cam); } requestAnimationFrame(loop); }
+let lastT = performance.now();
+function loop() { const now = performance.now(), dt = Math.min(.05, (now - lastT) / 1000); lastT = now; const vis = v3.offsetWidth > 0 && v3.offsetHeight > 0; if (dirty3D && vis) { build3D(); dirty3D = false; syncGizmo(); kick3D(); } if (view3 === 'walk') walkStep(dt); else if (ctl.update()) kick3D(); if (vis && frames3D > 0) { frames3D--; renderer.render(scene, cam); labelR.render(scene, cam); } requestAnimationFrame(loop); }
 document.title = S.name + ' · Moovo 3D';
 applySizes(); setLayout(prefs.layout); setTool('select'); save(); backup('Ouverture du projet');
 document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === view));

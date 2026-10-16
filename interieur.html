@@ -98,6 +98,8 @@
   #wpad.on{display:grid}
   #wpad button{border:0;border-radius:14px;background:#1d2129b3;color:#fff;font-size:20px;padding:0}
   #wpad button:active,#wpad button.on{background:#2563eb}
+  #gzInfo{position:absolute;top:52px;left:50%;transform:translateX(-50%);background:#1d2129e6;color:#fff;padding:5px 12px;border-radius:999px;font:600 12.5px system-ui,sans-serif;z-index:4;pointer-events:none;white-space:nowrap}
+  #gzInfo[hidden]{display:none}
   #walkHint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:#1d2129e0;color:#fff;padding:6px 12px;border-radius:999px;font-size:12px;display:none;white-space:nowrap;z-index:3}
   .lbl3{font-size:12px;font-weight:600;background:#ffffffd9;padding:2px 7px;border-radius:6px;text-align:center;line-height:1.25;pointer-events:none;white-space:nowrap}
   .lbl3 span{display:block;font-weight:400;font-size:11px;color:#555}
@@ -396,6 +398,7 @@
         </div>
       </div>
       <div id="tourCap"><div><b id="tourRoom"></b><span id="tourInfo"></span></div><button id="tourStop">⏹ Arrêter</button></div>
+      <div id="gzInfo" hidden></div>
       <div id="walkHint">Glisser pour regarder · ZQSD / flèches pour avancer · Maj pour courir · Échap pour sortir</div>
       <div id="wpad" aria-label="Se déplacer"><button data-k="ArrowUp" style="grid-area:u">▲</button><button data-k="ArrowLeft" style="grid-area:l">◀</button><button data-k="ArrowDown" style="grid-area:d">▼</button><button data-k="ArrowRight" style="grid-area:r">▶</button><button data-exit style="grid-area:x;font-size:12px">Sortir</button></div>
     </div>
@@ -2504,6 +2507,7 @@ function itemPanel(it) {
       ${field('Profondeur (cm)', 'item', 'd', 'cm', it.d)}
       ${field(coff ? 'Retombée sous plafond (cm)' : 'Hauteur (cm, vide = standard)', 'item', 'h', 'cmOpt', it.h ?? '')}
       ${heightFields}
+      ${c.sym ? '' : field('Orientation (°)', 'item', 'rot', 'num', it.rot)}
       ${field('Prix à prévoir (€)', 'item', 'price', 'num', it.price)}
       ${field(it.type === 'custom' ? 'Couleur du caisson' : 'Couleur', 'item', 'color', 'color', it.color ?? c.color ?? '#d9d2c5')}
       ${c.sym ? '' : selectF('Aspect / matière', 'item', 'look', it.look ?? '', LOOKS, it.type === 'custom' ? '' : 'full')}
@@ -2815,7 +2819,8 @@ function onFieldChange(e) {
       setPath(obj, key, v);
       // passer en suspendu sans hauteur : on le monte à une hauteur logique ; revenir au sol : on le repose
       if (key === 'cfg.base') obj.elev = v === 'suspendu' ? (obj.elev || (itemH(obj, .8) <= .5 ? .25 : itemH(obj, .8) <= 1 ? 1.45 : .1)) : 0;
-    } else { obj[key] = key === 'look' && !v ? null : v; if (key === 'w' || key === 'd') obj[key] = Math.max(.02, v); }
+    } else if (key === 'rot') { const f = fp(obj); setRot(obj, v, f.x + f.w / 2, f.y + f.h / 2); }
+    else { obj[key] = key === 'look' && !v ? null : v; if (key === 'w' || key === 'd') obj[key] = Math.max(.02, v); }
   }
   else if (target === 'tag') {
     const tg = obj?.tags?.[0];
@@ -3690,25 +3695,60 @@ gizmo.setMode('translate'); gizmo.setSize(.8); gizmo.setTranslationSnap(.01); sc
 gizmo.addEventListener('change', () => kick3D());
 let gz = null;
 function syncGizmo() {
-  if (gz) return;
+  if (gz || gr) return;
   const it = sel?.kind === 'item' && viewMode !== 'walk' && viewMode !== 'tour' ? resolveSel() : null;
-  if (!it) { gizmo.detach(); return; }
+  if (!it) { gizmo.detach(); rgizmo.detach(); return; }
   const f = fp(it), c = CAT[it.type] ?? {}, y = c.ceil ? (it._top ?? S.H) - .1 : (it.elev || 0) + Math.min(itemH(it, .5), 1) / 2;
-  gizmoPivot.position.set(f.x + f.w / 2, y, f.y + f.h / 2); gizmo.attach(gizmoPivot);
+  gizmoPivot.position.set(f.x + f.w / 2, y, f.y + f.h / 2); gizmoPivot.rotation.set(0, 0, 0); gizmo.attach(gizmoPivot); rgizmo.attach(gizmoPivot);
   gizmo.showY = !c.ceil;   // un élément de plafond reste au plafond
 }
+// bulle d'information pendant la manipulation (angle, aimant)
+const gzInfo = document.getElementById('gzInfo');
+const showInfo = t => { gzInfo.textContent = t; gzInfo.hidden = !t; };
 gizmo.addEventListener('dragging-changed', e => {
   ctl.enabled = !e.value;
   const it = resolveSel();
   if (e.value && it) gz = { start: gizmoPivot.position.clone(), it, x: it.x, y: it.y, elev: it.elev || 0 };
-  else if (gz) { gz = null; commit(); }
+  else if (gz) { gz = null; showInfo(''); commit(); }
 });
 gizmo.addEventListener('objectChange', () => {
   if (!gz) return;
-  const v = gizmoPivot.position.clone().sub(gz.start);
-  gz.it.x = r2(gz.x + v.x); gz.it.y = r2(gz.y + v.z); gz.it.elev = r2(Math.max(0, gz.elev + v.y));
+  const v = gizmoPivot.position.clone().sub(gz.start), it = gz.it;
+  it.x = r2(gz.x + v.x); it.y = r2(gz.y + v.z); it.elev = r2(Math.max(0, gz.elev + v.y));
+  // aimant : le meuble vient se coller au mur s'il en passe à moins de 8 cm, et retombe au sol sous 3 cm
+  let msg = '';
+  if (prefs.magnet) {
+    const f = fp(it), cx = f.x + f.w / 2, cy = f.y + f.h / 2, Mg = .08;
+    const l = scan(f.x, cy, -1, 0, 1), r = scan(f.x + f.w, cy, 1, 0, 1), u = scan(cx, f.y, 0, -1, 1), b = scan(cx, f.y + f.h, 0, 1, 1);
+    if (l != null && l < Mg) { it.x = r2(it.x - l); msg = '🧲 Collé au mur'; } else if (r != null && r < Mg) { it.x = r2(it.x + r); msg = '🧲 Collé au mur'; }
+    if (u != null && u < Mg) { it.y = r2(it.y - u); msg = '🧲 Collé au mur'; } else if (b != null && b < Mg) { it.y = r2(it.y + b); msg = '🧲 Collé au mur'; }
+    if (it.elev > 0 && it.elev < .03) { it.elev = 0; msg = msg || '🧲 Posé au sol'; }
+  }
+  showInfo(msg || (Math.abs(v.y) > .005 ? `↕ À ${cmTxt(it.elev)} ${UNIT()} du sol` : ''));
   render2D(); dirty3D = true; kick3D();
 });
+// anneau de rotation 360° : libre au degré près, aimanté tous les 45° (à ±5°)
+const rgizmo = new TransformControls(cam, renderer.domElement);
+rgizmo.setMode('rotate'); rgizmo.showX = false; rgizmo.showZ = false; rgizmo.setSize(1.1); rgizmo.setRotationSnap(Math.PI / 180); scene.add(rgizmo);
+rgizmo.addEventListener('change', () => kick3D());
+let gr = null;
+rgizmo.addEventListener('dragging-changed', e => {
+  ctl.enabled = !e.value;
+  const it = resolveSel();
+  if (e.value && it) { const f = fp(it); gr = { it, rot: it.rot, cx: f.x + f.w / 2, cy: f.y + f.h / 2 }; }
+  else if (gr) { gr = null; gizmoPivot.rotation.set(0, 0, 0); showInfo(''); commit(); }
+});
+rgizmo.addEventListener('objectChange', () => {
+  if (!gr) return;
+  let a = ((Math.round(gr.rot - gizmoPivot.rotation.y * 180 / Math.PI) % 360) + 360) % 360;
+  const near = Math.round(a / 45) * 45 % 360, mag = Math.abs(((a - near + 540) % 360) - 180) <= 5;
+  if (mag) a = near;
+  setRot(gr.it, a, gr.cx, gr.cy);
+  showInfo(`↻ ${a}°${mag ? ' 🧲' : ''}`);
+  render2D(); dirty3D = true; kick3D();
+});
+// orientation d'un objet en gardant son centre en place
+function setRot(it, a, cx, cy) { it.rot = ((Math.round(a) % 360) + 360) % 360; const g = fp(it); it.x = r2(cx - g.w / 2); it.y = r2(cy - g.h / 2); }
 // sélection & visite à la souris en 3D
 const ray = new THREE.Raycaster(); let d3 = null;
 renderer.domElement.addEventListener('pointerdown', e => { d3 = { x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY }; });
@@ -3716,7 +3756,7 @@ renderer.domElement.addEventListener('pointermove', e => {
   if (viewMode === 'walk' && d3) { yaw -= (e.clientX - d3.lx) * .004; pitch = clamp(pitch - (e.clientY - d3.ly) * .004, -1.3, 1.3); d3.lx = e.clientX; d3.ly = e.clientY; }
 });
 renderer.domElement.addEventListener('pointerup', e => {
-  if (d3 && Math.hypot(e.clientX - d3.x, e.clientY - d3.y) < 5 && viewMode !== 'walk' && !gizmo.axis && !gizmo.dragging) {
+  if (d3 && Math.hypot(e.clientX - d3.x, e.clientY - d3.y) < 5 && viewMode !== 'walk' && !gizmo.axis && !gizmo.dragging && !rgizmo.axis && !rgizmo.dragging) {
     const r = renderer.domElement.getBoundingClientRect();
     ray.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1), cam);
     const hit = ray.intersectObject(root, true).find(h => h.object.userData.pick);

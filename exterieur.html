@@ -65,6 +65,11 @@
   #wpad.on{display:grid}
   #wpad button{border:0;border-radius:14px;background:#1d2129b3;color:#fff;font-size:20px;padding:0}
   #wpad button:active,#wpad button.on{background:#2563eb}
+  #gzInfo{position:absolute;top:100px;left:50%;transform:translateX(-50%);background:#1d2129e6;color:#fff;padding:5px 12px;border-radius:999px;font:600 12.5px system-ui,sans-serif;z-index:4;pointer-events:none;white-space:nowrap}
+  #gzInfo[hidden],#gzPivot[hidden]{display:none}
+  #gzPivot{position:absolute;right:10px;top:52px;z-index:4;display:flex;align-items:center;gap:4px;background:#ffffffeb;border:1px solid #d9dee6;border-radius:12px;padding:4px 4px 4px 10px;font:500 12px system-ui,sans-serif;color:#4b5563;box-shadow:0 4px 14px #0f172a1f}
+  #gzPivot button{border:0;background:transparent;border-radius:8px;padding:6px 9px;font:600 12px system-ui,sans-serif;color:#1f2937;min-height:32px}
+  #gzPivot button.on{background:#2563eb;color:#fff}
   #walkHint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:#1d2129e0;color:#fff;padding:6px 12px;border-radius:999px;font-size:12px;display:none;white-space:nowrap;z-index:3}
   .v3bar{position:absolute;top:8px;left:8px;right:8px;display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap;pointer-events:none;z-index:3}
   .v3bar>*{pointer-events:auto} .v3bar button{background:#ffffffeb} .v3bar button.on{background:var(--accent)}
@@ -194,6 +199,8 @@
   <div id="hsplit" class="splitter"></div>
   <aside>
     <div id="view3d">
+      <div id="gzInfo" hidden></div>
+      <div id="gzPivot" hidden><span>Tourner autour</span><button data-pv="c">du centre</button><button data-pv="a">du bout A</button><button data-pv="b">du bout B</button></div>
       <div id="walkHint">Glisser pour regarder · ZQSD / flèches pour avancer · Maj pour courir · Échap pour sortir</div>
       <div id="wpad" aria-label="Se déplacer"><button data-k="ArrowUp" style="grid-area:u" aria-label="Avancer">▲</button><button data-k="ArrowLeft" style="grid-area:l" aria-label="Gauche">◀</button><button data-k="ArrowDown" style="grid-area:d" aria-label="Reculer">▼</button><button data-k="ArrowRight" style="grid-area:r" aria-label="Droite">▶</button><button data-exit style="grid-area:x;font-size:12px">Sortir</button></div>
       <div class="v3bar">
@@ -933,28 +940,82 @@ const gizmoPivot = new THREE.Object3D(); scene.add(gizmoPivot);
 const gizmo = new TransformControls(cam, renderer.domElement);
 gizmo.setMode('translate'); gizmo.setSize(.85); gizmo.setTranslationSnap(.01); scene.add(gizmo);
 gizmo.addEventListener('change', () => kick3D());   // survol et glisser : la 3D n'est redessinée qu'à la demande
-let gz = null;
+let gz = null, pivotMode = 'c';   // point de rotation : c = centre, a / b = bout de la barre
 const selPts = () => sel.map(find).filter(Boolean).flatMap(o => o.a ? [o.a, o.b] : o.p0 ? panelCorners(o) : blockCorners(o));
+const gzInfo = document.getElementById('gzInfo'), gzPivot = document.getElementById('gzPivot');
+const showInfo = t => { gzInfo.textContent = t; gzInfo.hidden = !t; };
 function syncGizmo() {
-  if (gz) return;
+  if (gz || gr) return;
   const pts = o3.gizmo && view3 !== 'walk' ? selPts() : [];
-  if (!pts.length) { gizmo.detach(); return; }
-  const c = pts.reduce((a, p) => add(a, p), [0, 0, 0]).map(v => v / pts.length);
-  gizmoPivot.position.copy(T(c)); gizmo.attach(gizmoPivot);
+  const one = sel.length === 1 && sel[0].k === 'm' ? find(sel[0]) : null;
+  gzPivot.hidden = !pts.length || !one;
+  if (!pts.length) { gizmo.detach(); rgizmo.detach(); return; }
+  const c = one && pivotMode !== 'c' ? one[pivotMode] : pts.reduce((a, p) => add(a, p), [0, 0, 0]).map(v => v / pts.length);
+  gizmoPivot.position.copy(T(c)); gizmoPivot.rotation.set(0, 0, 0); gizmo.attach(gizmoPivot);
+  gzPivot.querySelectorAll('[data-pv]').forEach(x => x.classList.toggle('on', x.dataset.pv === pivotMode));
+  // l'anneau ne sert qu'aux barres et panneaux (le bâtiment existant reste aligné sur les axes)
+  if (sel.some(s => s.k === 'm' || s.k === 'p')) rgizmo.attach(gizmoPivot); else rgizmo.detach();
 }
+gzPivot.addEventListener('click', e => { const x = e.target.closest('[data-pv]'); if (!x) return; pivotMode = x.dataset.pv; syncGizmo(); kick3D(); });
+// anneau de rotation 360° autour de la verticale : libre au degré, aimanté sur les axes (tous les 45°, à ±5°)
+const rgizmo = new TransformControls(cam, renderer.domElement);
+rgizmo.setMode('rotate'); rgizmo.showX = false; rgizmo.showZ = false; rgizmo.setSize(1.15); rgizmo.setRotationSnap(Math.PI / 180); scene.add(rgizmo);
+rgizmo.addEventListener('change', () => kick3D());
+let gr = null;
+const hAng = (u, v) => Math.atan2(v[1] - u[1], v[0] - u[0]);   // direction au sol d'un segment
+rgizmo.addEventListener('dragging-changed', e => {
+  ctl.enabled = !e.value && view3 !== 'walk';
+  if (e.value) {
+    const p = gizmoPivot.position, objs = sel.map(s => ({ s, o: find(s), orig: clone(find(s)) })).filter(x => x.o && (x.s.k === 'm' || x.s.k === 'p'));
+    // repère pour l'aimant : la première barre couchée (ou le premier panneau) de la sélection
+    const ref = objs.find(x => x.s.k === 'm' && Math.hypot(x.orig.b[0] - x.orig.a[0], x.orig.b[1] - x.orig.a[1]) > .05) ?? objs.find(x => x.s.k === 'p');
+    gr = { c: [p.x, p.z], objs, a0: ref ? (ref.s.k === 'm' ? hAng(ref.orig.a, ref.orig.b) : Math.atan2(ref.orig.u[1], ref.orig.u[0])) : null, t: 0 };
+  } else if (gr) { const deg = Math.round(gr.t * 180 / Math.PI); gr = null; gizmoPivot.rotation.set(0, 0, 0); showInfo(''); commit(); if (deg) toast('↻ Tourné de ' + Math.abs(deg) + '°', 2000); }
+});
+rgizmo.addEventListener('objectChange', () => {
+  if (!gr) return;
+  // la rotation three (autour de la verticale) fait tourner l'angle au sol du plan de -t
+  let t = gizmoPivot.rotation.y, mag = false, shown;
+  if (gr.a0 != null) {
+    const abs = gr.a0 - t, near = Math.round(abs / (Math.PI / 4)) * (Math.PI / 4);
+    if (Math.abs(abs - near) <= 5 * Math.PI / 180) { t = gr.a0 - near; mag = true; }
+    shown = ((Math.round(-(gr.a0 - t) * 180 / Math.PI) % 360) + 360) % 360;
+  } else { const near = Math.round(t / (Math.PI / 4)) * (Math.PI / 4); if (Math.abs(t - near) <= 5 * Math.PI / 180) { t = near; mag = true; } shown = Math.round(t * 180 / Math.PI); }
+  gr.t = t;
+  const co = Math.cos(t), si = Math.sin(t), [cx, cy] = gr.c;
+  const pt = p => [r3(cx + (p[0] - cx) * co + (p[1] - cy) * si), r3(cy - (p[0] - cx) * si + (p[1] - cy) * co), p[2]];
+  const vec = v => [r3(v[0] * co + v[1] * si), r3(-v[0] * si + v[1] * co), v[2]];
+  for (const { s, o, orig } of gr.objs) {
+    if (s.k === 'm') { o.a = pt(orig.a); o.b = pt(orig.b); }
+    else if (s.k === 'p') { o.p0 = pt(orig.p0); o.u = vec(orig.u); o.v = vec(orig.v); }
+  }
+  showInfo('↻ ' + shown + '°' + (mag ? ' 🧲 aligné' : ''));
+  render2D(); dirty3D = true; kick3D();
+});
 gizmo.addEventListener('dragging-changed', e => {
   ctl.enabled = !e.value && view3 !== 'walk';
-  if (e.value) gz = { start: gizmoPivot.position.clone(), objs: sel.map(s => ({ s, o: find(s), orig: clone(find(s)) })).filter(x => x.o) };
-  else if (gz) { gz = null; commit(); }
+  if (e.value) {
+    const objs = sel.map(s => ({ s, o: find(s), orig: clone(find(s)) })).filter(x => x.o), ids = new Set(sel.map(s => s.k + s.id));
+    // points qui bougent et points fixes vers lesquels s'aimanter (extrémités de barres, coins de panneaux)
+    const moving = objs.flatMap(({ s, orig }) => s.k === 'm' ? [orig.a, orig.b] : s.k === 'p' ? panelCorners(orig).slice(0, 4) : []);
+    const fixed = S.members.filter(m => !ids.has('m' + m.id)).flatMap(m => [m.a, m.b]).concat(S.panels.filter(p => !ids.has('p' + p.id)).flatMap(p => panelCorners(p).slice(0, 4)));
+    gz = { start: gizmoPivot.position.clone(), objs, moving, fixed, zmin: moving.length ? Math.min(...moving.map(p => p[2])) : null };
+  } else if (gz) { gz = null; showInfo(''); commit(); }
 });
 gizmo.addEventListener('objectChange', () => {
   if (!gz) return;
   const v = gizmoPivot.position.clone().sub(gz.start), d = [r3(v.x), r3(v.z), r3(v.y)];   // three (x, haut, z) -> projet (x, y, haut)
+  // aimant : une extrémité qui passe à moins de 12 cm d'une autre vient s'y poser ; le bas retombe au sol sous 4 cm
+  let msg = '', best = .12, fix = null;
+  for (const p of gz.moving) { const q = add(p, d); for (const f of gz.fixed) { const dd = len3(sub(f, q)); if (dd < best) { best = dd; fix = sub(f, q); } } }
+  if (fix) { d[0] = r3(d[0] + fix[0]); d[1] = r3(d[1] + fix[1]); d[2] = r3(d[2] + fix[2]); msg = '🧲 Accroché'; }
+  else if (gz.zmin != null && Math.abs(gz.zmin + d[2]) < .04 && Math.abs(gz.zmin + d[2]) > 1e-4) { d[2] = r3(-gz.zmin); msg = '🧲 Posé au sol'; }
   for (const { s, o, orig } of gz.objs) {
     if (s.k === 'm' || s.k === 'd') { o.a = add(orig.a, d).map(r3); o.b = add(orig.b, d).map(r3); }
     else if (s.k === 'p') o.p0 = add(orig.p0, d).map(r3);
     else if (s.k === 'b') { o.x = r3(orig.x + d[0]); o.y = r3(orig.y + d[1]); o.z = r3((orig.z || 0) + d[2]); }
   }
+  showInfo(msg || (Math.abs(d[2]) > .004 ? '↕ ' + (d[2] > 0 ? '+' : '−') + L(Math.abs(d[2])) + ' ' + UNIT() : ''));
   render2D(); dirty3D = true; kick3D();
 });
 function resize3D() { const r = v3.getBoundingClientRect(); if (!r.width ||!r.height) return; renderer.setSize(r.width, r.height); labelR.setSize(r.width, r.height); cam.aspect = r.width / r.height; cam.updateProjectionMatrix(); kick3D(); }
@@ -964,7 +1025,7 @@ renderer.domElement.addEventListener('pointerdown', e => { d3 = [e.clientX, e.cl
 renderer.domElement.addEventListener('pointermove', e => { if (view3 !== 'walk' || !look) return; yaw -= (e.clientX - look[0]) * .004; pitch = clamp(pitch - (e.clientY - look[1]) * .004, -1.3, 1.3); look = [e.clientX, e.clientY]; kick3D(); });
 addEventListener('pointerup', () => { look = null; });
 renderer.domElement.addEventListener('pointerup', e => {
-  if (!d3 || Math.hypot(e.clientX - d3[0], e.clientY - d3[1]) > 5 || view3 === 'walk' || gizmo.axis || gizmo.dragging) { d3 = null; return; } d3 = null;
+  if (!d3 || Math.hypot(e.clientX - d3[0], e.clientY - d3[1]) > 5 || view3 === 'walk' || gizmo.axis || gizmo.dragging || rgizmo.axis || rgizmo.dragging) { d3 = null; return; } d3 = null;
   const r = renderer.domElement.getBoundingClientRect(); ray.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1), cam);
   const hit = ray.intersectObject(root, true).find(h => h.object.userData.pick); const pk = hit?.object.userData.pick;
   if (!pk) sel = e.shiftKey ? sel : []; else if (e.shiftKey) { if (isSel(pk.k, pk.id)) sel = sel.filter(s => !(s.k === pk.k && s.id === pk.id)); else sel.push(pk); } else sel = [pk];
